@@ -1,0 +1,1 @@
+# ghbot — GitHub autofix tool

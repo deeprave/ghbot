@@ -1,0 +1,14 @@
+[
+  {
+    "event": "build-started",
+    "timestamp": "2026-03-06T04:44:39.898Z"
+  },
+  {
+    "event": "build-completed",
+    "timestamp": "2026-03-06T04:48:08.503Z"
+  },
+  {
+    "event": "done",
+    "timestamp": "2026-03-06T04:58:17.406Z"
+  }
+]

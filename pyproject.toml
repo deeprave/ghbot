@@ -1,0 +1,38 @@
+[build-system]
+requires = ["uv-build"]
+build-backend = "uv_build"
+
+[project]
+name = "ghbot"
+version = "0.5.0"
+description = "Autofix for github"
+readme = "README.md"
+authors = [
+    { name = "David Nugent", email = "davidn@uniquode.io" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "click",
+    "httpx",
+    "gidgethub",
+    "anyio>=4.12.1",
+]
+
+[project.scripts]
+ghbot = "ghbot.__main__:cli"
+
+[tool.uv]
+package = true
+
+[tool.pytest.ini_options]
+addopts = "-Werror -Walways"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "anyio[trio]>=4.0",
+    "ruff>=0.15.5",
+    "mypy>=1.19.1",
+    "hypothesis>=6.152.4",
+]

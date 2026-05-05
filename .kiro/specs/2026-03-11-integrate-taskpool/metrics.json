@@ -1,0 +1,18 @@
+[
+  {
+    "event": "spec-started",
+    "timestamp": "2026-03-10T20:32:14.884Z"
+  },
+  {
+    "event": "spec-completed",
+    "timestamp": "2026-03-10T20:43:11.620Z"
+  },
+  {
+    "event": "design-started",
+    "timestamp": "2026-03-10T20:43:18.404Z"
+  },
+  {
+    "event": "design-completed",
+    "timestamp": "2026-03-11T13:17:53.351Z"
+  }
+]
