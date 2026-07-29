@@ -16,6 +16,15 @@ _REPOSITORY_WIDTH = 38
 _DEPENDABOT_WIDTH = 12
 _SCANNING_WIDTH = 10
 _SECRETS_WIDTH = 9
+_DEPENDABOT_PRS_WIDTH = 9
+_READY_PRS_WIDTH = 7
+_SECURITY_ACTIVITY_KEYS = (
+    "dependabot_alerts",
+    "code_scanning_alerts",
+    "secret_scanning_alerts",
+    "dependabot_open_pull_requests",
+    "dependabot_ready_pull_requests",
+)
 
 
 def _fmt(label: str, value: int | str) -> str:
@@ -35,12 +44,7 @@ def _display_total(value: int | None) -> int | str:
 
 def _has_issues(result: RepoResult) -> bool:
     return any(
-        v not in (None, 0)
-        for v in (
-            result.results.get("dependabot_alerts"),
-            result.results.get("code_scanning_alerts"),
-            result.results.get("secret_scanning_alerts"),
-        )
+        result.results.get(key) not in (None, 0) for key in _SECURITY_ACTIVITY_KEYS
     )
 
 
@@ -55,6 +59,12 @@ def _summary(results: list[RepoResult]) -> dict[str, int | None]:
         "dependabot_alerts": _total(results, "dependabot_alerts"),
         "code_scanning_alerts": _total(results, "code_scanning_alerts"),
         "secret_scanning_alerts": _total(results, "secret_scanning_alerts"),
+        "dependabot_open_pull_requests": _total(
+            results, "dependabot_open_pull_requests"
+        ),
+        "dependabot_ready_pull_requests": _total(
+            results, "dependabot_ready_pull_requests"
+        ),
     }
 
 
@@ -71,6 +81,14 @@ def _summary_lines(results: list[RepoResult]) -> list[str]:
         _fmt(
             "Secret scanning alerts:",
             _display_total(summary["secret_scanning_alerts"]),
+        ),
+        _fmt(
+            "Dependabot PRs:",
+            _display_total(summary["dependabot_open_pull_requests"]),
+        ),
+        _fmt(
+            "Dependabot PRs ready:",
+            _display_total(summary["dependabot_ready_pull_requests"]),
         ),
     ]
 
@@ -129,6 +147,14 @@ def _render_plain(results: list[RepoResult]) -> str:
                     "  Secret scanning alerts:",
                     _display(r.results.get("secret_scanning_alerts")),
                 ),
+                _fmt(
+                    "  Dependabot PRs:",
+                    _display(r.results.get("dependabot_open_pull_requests")),
+                ),
+                _fmt(
+                    "  Dependabot PRs ready:",
+                    _display(r.results.get("dependabot_ready_pull_requests")),
+                ),
             ]
         )
     return "\n".join(lines) + "\n"
@@ -145,6 +171,8 @@ def _render_table(results: list[RepoResult]) -> str:
                 _display(r.results.get("dependabot_alerts")),
                 _display(r.results.get("code_scanning_alerts")),
                 _display(r.results.get("secret_scanning_alerts")),
+                _display(r.results.get("dependabot_open_pull_requests")),
+                _display(r.results.get("dependabot_ready_pull_requests")),
             )
             for r in repos_to_show
         )
@@ -166,6 +194,12 @@ def _render_json(results: list[RepoResult]) -> str:
                         "secret_scanning_alerts": r.results.get(
                             "secret_scanning_alerts"
                         ),
+                        "dependabot_open_pull_requests": r.results.get(
+                            "dependabot_open_pull_requests"
+                        ),
+                        "dependabot_ready_pull_requests": r.results.get(
+                            "dependabot_ready_pull_requests"
+                        ),
                     }
                     for r in results
                 ],
@@ -185,7 +219,9 @@ def _table_header() -> str:
         f"|{'Repository':<{_REPOSITORY_WIDTH}}"
         f"|{' Dependabot ':>{_DEPENDABOT_WIDTH}}"
         f"|{' Scanning ':>{_SCANNING_WIDTH}}"
-        f"|{' Secrets ':>{_SECRETS_WIDTH}}|"
+        f"|{' Secrets ':>{_SECRETS_WIDTH}}"
+        f"|{' Dep PRs ':>{_DEPENDABOT_PRS_WIDTH}}"
+        f"|{' Ready ':>{_READY_PRS_WIDTH}}|"
     )
 
 
@@ -194,7 +230,9 @@ def _table_separator() -> str:
         f"|{'-' * _REPOSITORY_WIDTH}"
         f"|{'-' * _DEPENDABOT_WIDTH}"
         f"|{'-' * _SCANNING_WIDTH}"
-        f"|{'-' * _SECRETS_WIDTH}|"
+        f"|{'-' * _SECRETS_WIDTH}"
+        f"|{'-' * _DEPENDABOT_PRS_WIDTH}"
+        f"|{'-' * _READY_PRS_WIDTH}|"
     )
 
 
@@ -203,10 +241,14 @@ def _table_row(
     dependabot: int | str,
     scanning: int | str,
     secrets: int | str,
+    dependabot_prs: int | str,
+    ready_prs: int | str,
 ) -> str:
     return (
         f"|{repository:<{_REPOSITORY_WIDTH}}"
         f"|{dependabot:>{_DEPENDABOT_WIDTH}}"
         f"|{scanning:>{_SCANNING_WIDTH}}"
-        f"|{secrets:>{_SECRETS_WIDTH}}|"
+        f"|{secrets:>{_SECRETS_WIDTH}}"
+        f"|{dependabot_prs:>{_DEPENDABOT_PRS_WIDTH}}"
+        f"|{ready_prs:>{_READY_PRS_WIDTH}}|"
     )

@@ -12,12 +12,16 @@ def _result(
     dependabot=None,
     code_scanning=None,
     secret_scanning=None,
+    dependabot_prs=None,
+    dependabot_ready_prs=None,
     status="success",
 ):
     r = RepoResult(owner=owner, repo=repo, status=status)
     r.results["dependabot_alerts"] = dependabot
     r.results["code_scanning_alerts"] = code_scanning
     r.results["secret_scanning_alerts"] = secret_scanning
+    r.results["dependabot_open_pull_requests"] = dependabot_prs
+    r.results["dependabot_ready_pull_requests"] = dependabot_ready_prs
     return r
 
 
@@ -93,6 +97,19 @@ class TestPrintSecurityReportSummary:
         # None excluded, only 2 counted
         assert "2" in dep_line
         assert "N/A" not in dep_line
+
+    def test_dependabot_pr_totals(self, capsys):
+        results = [
+            _result("o", "a", 0, 0, 0, dependabot_prs=3, dependabot_ready_prs=2),
+            _result("o", "b", 0, 0, 0, dependabot_prs=1, dependabot_ready_prs=0),
+        ]
+        print_security_report(results)
+        out = capsys.readouterr().out
+        lines = out.splitlines()
+        prs_line = next(line for line in lines if "Dependabot PRs:" in line)
+        ready_line = next(line for line in lines if "Dependabot PRs ready:" in line)
+        assert "4" in prs_line
+        assert "2" in ready_line
 
     def test_nothing_on_stderr(self, capsys):
         print_security_report([_result("o", "a", 1, 0, 0)])
@@ -186,6 +203,56 @@ class TestPrintSecurityReportPerRepo:
         assert "  Code scanning alerts:          2" in out
         assert "  Secret scanning alerts:        0" in out
 
+    def test_per_repo_shows_dependabot_pr_counts(self, capsys):
+        results = [
+            _result(
+                "acme",
+                "updates",
+                dependabot=0,
+                code_scanning=0,
+                secret_scanning=0,
+                dependabot_prs=3,
+                dependabot_ready_prs=2,
+            )
+        ]
+        print_security_report(results)
+        out = capsys.readouterr().out
+        assert "acme/updates" in out
+        assert "  Dependabot PRs:" in out
+        assert "  Dependabot PRs ready:" in out
+
+    def test_repo_with_dependabot_prs_appears_in_output(self, capsys):
+        results = [
+            _result(
+                "acme",
+                "updates",
+                dependabot=0,
+                code_scanning=0,
+                secret_scanning=0,
+                dependabot_prs=1,
+                dependabot_ready_prs=0,
+            )
+        ]
+        print_security_report(results)
+        out = capsys.readouterr().out
+        assert "acme/updates" in out
+
+    def test_repo_with_all_zero_alert_and_pr_counts_absent(self, capsys):
+        results = [
+            _result(
+                "acme",
+                "clean",
+                dependabot=0,
+                code_scanning=0,
+                secret_scanning=0,
+                dependabot_prs=0,
+                dependabot_ready_prs=0,
+            )
+        ]
+        print_security_report(results)
+        out = capsys.readouterr().out
+        assert "acme/clean" not in out
+
 
 class TestRenderSecurityReport:
     def test_table_format_uses_markdown_table(self):
@@ -194,15 +261,15 @@ class TestRenderSecurityReport:
         ]
         out = render_security_report(results, format="table")
         assert (
-            "|Repository                            | Dependabot | Scanning | Secrets |"
+            "|Repository                            | Dependabot | Scanning | Secrets | Dep PRs | Ready |"
             in out
         )
         assert (
-            "|--------------------------------------|------------|----------|---------|"
+            "|--------------------------------------|------------|----------|---------|---------|-------|"
             in out
         )
         assert (
-            "|acme/widgets                          |           5|         2|        1|"
+            "|acme/widgets                          |           5|         2|        1|      N/A|    N/A|"
             in out
         )
 
@@ -218,7 +285,7 @@ class TestRenderSecurityReport:
         ]
         out = render_security_report(results, format="table")
         assert (
-            "|acme/mixed                            |         N/A|         2|        0|"
+            "|acme/mixed                            |         N/A|         2|        0|      N/A|    N/A|"
             in out
         )
 
@@ -236,6 +303,8 @@ class TestRenderSecurityReport:
         assert set(data) == {"summary", "repositories"}
         assert data["summary"]["repos_scanned"] == 1
         assert data["summary"]["repos_with_issues"] == 1
+        assert data["summary"]["dependabot_open_pull_requests"] is None
+        assert data["summary"]["dependabot_ready_pull_requests"] is None
 
     def test_json_format_includes_clean_repositories(self):
         results = [
@@ -255,6 +324,21 @@ class TestRenderSecurityReport:
         )
         data = json.loads(out)
         assert data["repositories"][0]["dependabot_alerts"] is None
+
+    def test_json_format_includes_dependabot_pr_counts(self):
+        out = render_security_report(
+            [
+                _result(
+                    "acme", "widgets", 0, 0, 0, dependabot_prs=2, dependabot_ready_prs=1
+                )
+            ],
+            format="json",
+        )
+        data = json.loads(out)
+        assert data["summary"]["dependabot_open_pull_requests"] == 2
+        assert data["summary"]["dependabot_ready_pull_requests"] == 1
+        assert data["repositories"][0]["dependabot_open_pull_requests"] == 2
+        assert data["repositories"][0]["dependabot_ready_pull_requests"] == 1
 
     def test_unknown_format_raises_value_error(self):
         try:

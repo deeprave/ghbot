@@ -20,6 +20,8 @@ from ghbot.github.client import github_api_call
 from ghbot.log import get_logger
 
 ProcessingStatus = Literal["success", "partial", "failed"]
+_DEPENDABOT_LOGIN = "dependabot[bot]"
+_NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -411,6 +413,7 @@ class SecurityRepoProcessor:
             await self._fetch_dependabot_alerts(result)
             await self._fetch_code_scanning_alerts(result)
             await self._fetch_secret_scanning_alerts(result)
+            await self._fetch_dependabot_pull_requests(result)
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except FatalError:
@@ -427,10 +430,9 @@ class SecurityRepoProcessor:
         await self._defer_event(
             FeedbackEvent("progress", "debug", "processing finished")
         )
-        issue_count = _security_issue_count(result)
-        if issue_count:
+        if activity_message := _security_activity_message(result):
             await self._monitor.send_event(
-                FeedbackEvent("progress", "info", f"found issues {issue_count}")
+                FeedbackEvent("progress", "info", activity_message)
             )
             for event in self._deferred_events:
                 await self._monitor.send_event(event)
@@ -526,8 +528,107 @@ class SecurityRepoProcessor:
             result.results["secret_scanning_alerts"] = None
             result.errors.append(f"secret scanning alerts: {e}")
 
+    async def _fetch_dependabot_pull_requests(self, result: RepoResult) -> None:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "fetching dependabot pull requests")
+        )
+        try:
+            async with github_api_call(self._gh):
+                pull_requests = [
+                    pr
+                    async for pr in self._gh.getiter(
+                        "/repos/{owner}/{repo}/pulls?state=open",
+                        url_vars={"owner": self._owner, "repo": self._repo},
+                    )
+                    if _is_dependabot_pull_request(pr)
+                ]
+            result.results["dependabot_open_pull_requests"] = len(pull_requests)
+            result.results["dependabot_ready_pull_requests"] = sum(
+                1
+                for ready in [
+                    await self._dependabot_pull_request_is_ready(pr, result)
+                    for pr in pull_requests
+                ]
+                if ready
+            )
+        except GitHubNotFoundError:
+            await self._defer_event(
+                FeedbackEvent(
+                    "fetch", "debug", "dependabot pull requests not accessible"
+                )
+            )
+            result.results["dependabot_open_pull_requests"] = None
+            result.results["dependabot_ready_pull_requests"] = None
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            await self._monitor.send_event(
+                FeedbackEvent(
+                    "fetch",
+                    "error",
+                    f"failed to fetch dependabot pull requests: {e}",
+                )
+            )
+            result.results["dependabot_open_pull_requests"] = None
+            result.results["dependabot_ready_pull_requests"] = None
+            result.errors.append(f"dependabot pull requests: {e}")
 
-def _security_issue_count(result: RepoResult) -> int:
+    async def _dependabot_pull_request_is_ready(
+        self, pull_request: dict[str, Any], result: RepoResult
+    ) -> bool:
+        if pull_request.get("draft") or pull_request.get("mergeable") is False:
+            return False
+        if not (sha := (pull_request.get("head") or {}).get("sha")):
+            result.errors.append("dependabot pull request readiness: missing head sha")
+            return False
+        try:
+            return await self._commit_status_is_ready(
+                sha
+            ) and await self._check_runs_are_ready(sha)
+        except GitHubNotFoundError:
+            await self._defer_event(
+                FeedbackEvent(
+                    "fetch",
+                    "debug",
+                    "dependabot pull request readiness not accessible",
+                )
+            )
+            return False
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            result.errors.append(f"dependabot pull request readiness: {e}")
+            return False
+
+    async def _commit_status_is_ready(self, sha: str) -> bool:
+        async with github_api_call(self._gh):
+            data = await self._gh.getitem(
+                "/repos/{owner}/{repo}/commits/{ref}/status",
+                url_vars={"owner": self._owner, "repo": self._repo, "ref": sha},
+            )
+        return data.get("state") == "success"
+
+    async def _check_runs_are_ready(self, sha: str) -> bool:
+        async with github_api_call(self._gh):
+            data = await self._gh.getitem(
+                "/repos/{owner}/{repo}/commits/{ref}/check-runs",
+                url_vars={"owner": self._owner, "repo": self._repo, "ref": sha},
+            )
+        return all(_check_run_is_ready(run) for run in data.get("check_runs", []))
+
+
+def _security_activity_message(result: RepoResult) -> str | None:
+    alert_count = _security_alert_count(result)
+    dependabot_pr_count = _dependabot_pull_request_count(result)
+    parts = []
+    if alert_count:
+        parts.append(f"alerts {alert_count}")
+    if dependabot_pr_count:
+        parts.append(f"dependabot PRs {dependabot_pr_count}")
+    return f"found {', '.join(parts)}" if parts else None
+
+
+def _security_alert_count(result: RepoResult) -> int:
     return sum(
         count
         for count in (
@@ -536,4 +637,23 @@ def _security_issue_count(result: RepoResult) -> int:
             result.results.get("secret_scanning_alerts"),
         )
         if count is not None
+    )
+
+
+def _dependabot_pull_request_count(result: RepoResult) -> int:
+    return sum(
+        count
+        for count in (result.results.get("dependabot_open_pull_requests"),)
+        if count is not None
+    )
+
+
+def _is_dependabot_pull_request(pull_request: dict[str, Any]) -> bool:
+    return (pull_request.get("user") or {}).get("login") == _DEPENDABOT_LOGIN
+
+
+def _check_run_is_ready(check_run: dict[str, Any]) -> bool:
+    return (
+        check_run.get("status") == "completed"
+        and check_run.get("conclusion") in _NON_BLOCKING_CHECK_CONCLUSIONS
     )
