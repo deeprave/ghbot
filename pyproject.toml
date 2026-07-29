@@ -10,13 +10,30 @@ readme = "README.md"
 authors = [
     { name = "David Nugent", email = "davidn@uniquode.io" }
 ]
-requires-python = ">=3.11"
+license = { file = "LICENSE.md" }
+requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Utilities",
+]
 dependencies = [
     "click",
     "httpx",
     "gidgethub",
     "anyio>=4.12.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/deeprave/ghbot"
+Repository = "https://github.com/deeprave/ghbot"
+Issues = "https://github.com/deeprave/ghbot/issues"
 
 [project.scripts]
 ghbot = "ghbot.__main__:cli"
