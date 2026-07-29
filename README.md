@@ -106,8 +106,7 @@ Global options go **before** the command:
 
 ## Configuration
 
-Options can be set in `ghbot.toml` (current directory) or `~/.config/ghbot/config.toml`. CLI flags
-override the file.
+Options can be set in `ghbot.toml` (current directory) or `~/.config/ghbot/config.toml`. Some CLI flags override the file (notably `--owner`, `--concurrency`, `--log-file`, and `--log-json`).
 
 ```toml
 owners = ["acme", "globex"]
