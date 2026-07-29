@@ -1,0 +1,304 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  merge_group:
+  schedule:
+    - cron: "36 19 * * 2"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  changes:
+    name: Determine validation scope
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.scope.outputs.tests }}
+      codeql: ${{ steps.scope.outputs.codeql }}
+      gitguardian: ${{ steps.scope.outputs.gitguardian }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Determine validation scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "merge_group" ]; then
+            echo "tests=true" >> "$GITHUB_OUTPUT"
+            echo "codeql=true" >> "$GITHUB_OUTPUT"
+            echo "gitguardian=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            echo "tests=false" >> "$GITHUB_OUTPUT"
+            echo "codeql=true" >> "$GITHUB_OUTPUT"
+            echo "gitguardian=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "$BASE_SHA" ] || \
+             [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            changed_files="all files (initial push)"
+            relevant=true
+          else
+            changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            relevant=false
+            if printf '%s\n' "$changed_files" | grep -Eq \
+              '^(src/|tests/|\.github/workflows/|pyproject\.toml$|uv\.lock$)'; then
+              relevant=true
+            fi
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+          echo "tests=$relevant" >> "$GITHUB_OUTPUT"
+          echo "codeql=$relevant" >> "$GITHUB_OUTPUT"
+          echo "gitguardian=$relevant" >> "$GITHUB_OUTPUT"
+
+  format:
+    name: Format
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Check formatting
+        run: uv run ruff format --check
+
+  lint:
+    name: Lint
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check
+
+  typecheck:
+    name: Type check
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Type check
+        run: uv run ty check src/
+
+  pytest:
+    name: Pytest (py${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.13"
+          - "3.14"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Test
+        run: uv run pytest -q
+
+  build:
+    name: Build package
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Build package
+        run: uv build
+
+  codeql:
+    name: CodeQL analysis
+    needs: changes
+    if: needs.changes.outputs.codeql == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:python"
+
+  gitguardian:
+    name: GitGuardian scan
+    needs: changes
+    if: >-
+      needs.changes.outputs.gitguardian == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets
+        uses: GitGuardian/ggshield/actions/secret@v1.52.2
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - format
+      - lint
+      - typecheck
+      - pytest
+      - build
+      - codeql
+      - gitguardian
+    if: ${{ always() }}
+
+    steps:
+      - name: Require selected validation jobs to pass
+        env:
+          SCOPE_RESULT: ${{ needs.changes.result }}
+          TESTS_REQUIRED: ${{ needs.changes.outputs.tests }}
+          CODEQL_REQUIRED: ${{ needs.changes.outputs.codeql }}
+          GITGUARDIAN_EXPECTED: ${{ needs.changes.outputs.gitguardian == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+          FORMAT_RESULT: ${{ needs.format.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          PYTEST_RESULT: ${{ needs.pytest.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          GITGUARDIAN_RESULT: ${{ needs.gitguardian.result }}
+        run: |
+          set -euo pipefail
+
+          if [ "$SCOPE_RESULT" != "success" ]; then
+            exit 1
+          fi
+
+          require_success() {
+            if [ "$1" != "true" ]; then
+              return
+            fi
+            shift
+            for result in "$@"; do
+              if [ "$result" != "success" ]; then
+                echo "A required validation job concluded: $result"
+                exit 1
+              fi
+            done
+          }
+
+          require_success "$TESTS_REQUIRED" \
+            "$FORMAT_RESULT" "$LINT_RESULT" "$TYPECHECK_RESULT" \
+            "$PYTEST_RESULT" "$BUILD_RESULT"
+          require_success "$CODEQL_REQUIRED" "$CODEQL_RESULT"
+          require_success "$GITGUARDIAN_EXPECTED" "$GITGUARDIAN_RESULT"
