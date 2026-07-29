@@ -33,6 +33,6 @@ dev = [
     "pytest>=9.0.2",
     "anyio[trio]>=4.0",
     "ruff>=0.15.5",
-    "mypy>=1.19.1",
+    "ty>=0.0.63",
     "hypothesis>=6.152.4",
 ]
