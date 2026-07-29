@@ -38,7 +38,7 @@ repositories are scanned):
 
 ```bash
 uvx ghbot --owner acme security
-uvx ghbot --owner acme,globex --json issues --labels
+uvx ghbot --owner acme,globex issues --json --labels
 ```
 
 (From a source checkout, use `uv run ghbot …` instead of `uvx ghbot …`.)
