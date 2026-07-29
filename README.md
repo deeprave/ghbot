@@ -1,5 +1,12 @@
 # ghbot
 
+[![Validate](https://img.shields.io/github/actions/workflow/status/deeprave/ghbot/tests.yml?branch=main&label=validate&logo=github)](https://github.com/deeprave/ghbot/actions/workflows/tests.yml)
+[![Security](https://img.shields.io/badge/security-CodeQL-blue.svg?logo=github)](https://github.com/deeprave/ghbot/security/code-scanning)
+[![Maintenance](https://img.shields.io/badge/maintenance-active-brightgreen.svg)](https://github.com/deeprave/ghbot)
+[![PyPI version](https://img.shields.io/pypi/v/ghbot.svg?logo=pypi&logoColor=white)](https://pypi.org/project/ghbot/)
+[![Python versions](https://img.shields.io/pypi/pyversions/ghbot.svg?logo=python&logoColor=white)](https://pypi.org/project/ghbot/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE.md)
+
 An async command-line tool that scans GitHub repositories across one or more owners and reports on
 them. `ghbot` is a small **engine** — repository discovery, bounded-concurrency execution, a GitHub
 API layer, and report rendering — plus a set of **processors** that each answer one question about a
