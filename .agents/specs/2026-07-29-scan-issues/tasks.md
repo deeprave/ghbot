@@ -1,61 +1,54 @@
-# Implementation Plan: scan-issues
+# Implementation Plan: scan-issues (revised — include pull requests)
 
 ## Overview
 
-Add the `issues` subcommand and `IssuesRepoProcessor` in TDD slices, then the report rendering with
-`--labels` gating. Keep the change focused on `processor.py`, `report.py`, `__main__.py`, and tests.
+Revise the implemented `issues` feature to include pull requests alongside issues, tag each item by
+`type` (`"issue"`/`"pr"`), rename the result keys to `open_item_count` / `open_items`, split the
+summary into `Open issues` / `Open PRs`, and render the type in every format. TDD throughout,
+modifying the existing `processor.py`, `report.py`, `__main__.py`, and their tests.
 
 ## Tasks
 
-- [ ] 1. Add processor tests for open-issue collection
-  - [ ] 1.1 Add tests that open issues are counted under `open_issue_count`.
-  - [ ] 1.2 Add tests that items carrying a `pull_request` field are excluded from count and list.
-  - [ ] 1.3 Add tests that `open_issues` records carry `number`, `title`, and `labels`, preserving
-    GitHub's returned order.
-  - [ ] 1.4 Add tests that the endpoint uses `state=open` (closed issues not requested).
-  - [ ] 1.5 Add tests that issues endpoint 403/404 sets `open_issue_count` and `open_issues` to
-    `None` without recording an error.
-  - [ ] 1.6 Add tests that issues endpoint `GitHubApiError` records an error and sets result status
-    to `"partial"`.
-  - [ ] 1.7 Add a test that fatal rate-limit errors are re-raised.
+- [x] 1. Revise processor tests for open-item collection
+  - [x] 1.1 Rename result-key assertions to `open_item_count` / `open_items`.
+  - [x] 1.2 Replace the PR-exclusion tests: pull requests are now included and counted.
+  - [x] 1.3 Add tests that each record carries `type` (`"pr"` when the item has a `pull_request`
+    field, else `"issue"`), preserving GitHub's order across mixed issues/PRs.
+  - [x] 1.4 Keep tests for `state=open`, records carrying `number`/`title`/`labels`, 403/404 → both
+    keys `None` no error, `GitHubApiError` → both `None` + partial, and fatal re-raise (renamed).
 
-- [ ] 2. Implement `IssuesRepoProcessor`
-  - [ ] 2.1 Add `IssuesRepoProcessor` to `processor.py` with the standard constructor signature.
-  - [ ] 2.2 Add `_fetch_open_issues()` using `github_api_call` and
-    `getiter("/repos/{owner}/{repo}/issues?state=open", ...)`.
-  - [ ] 2.3 Exclude pull requests and build compact `{number, title, labels}` records.
-  - [ ] 2.4 Store `open_issue_count` and `open_issues`; set both to `None` on unavailability.
-  - [ ] 2.5 Preserve fatal/non-fatal error behavior and the deferred progress/activity-message
-    pattern.
+- [x] 2. Revise `IssuesRepoProcessor`
+  - [x] 2.1 Rename `_fetch_open_issues` → `_fetch_open_items`; stop excluding pull requests.
+  - [x] 2.2 Add `_item_type()`; build `{number, title, type, labels}` records.
+  - [x] 2.3 Store `open_item_count` / `open_items`; keep `None`-on-unavailability and error policy.
+  - [x] 2.4 Rename the activity message to items (e.g. `found N open items`).
 
-- [ ] 3. Add report tests for issue rendering
-  - [ ] 3.1 Add plain summary expectations (repos scanned, repos with open issues, open issues).
-  - [ ] 3.2 Add plain per-repo expectations for `#<number> <description>` lines.
-  - [ ] 3.3 Add plain expectations that `--labels` appends `+label` suffixes and default omits them.
-  - [ ] 3.4 Add table expectations for one row per issue (`Repository | # | Description`).
-  - [ ] 3.5 Add table expectations that the `Labels` column appears only with `--labels` and renders
-    a comma-separated list.
-  - [ ] 3.6 Add table expectations for long-description truncation.
-  - [ ] 3.7 Add JSON expectations for summary and repository/issue keys, `labels` gated by
-    `--labels`, `None` count preserved as `null`, and all scanned repos included.
-  - [ ] 3.8 Add expectations that plain and table omit repositories with no open issues.
+- [x] 3. Revise report tests for item rendering
+  - [x] 3.1 Update summary tests: `Repos with open items`, split `Open issues` / `Open PRs`
+    (`None`-aware totals).
+  - [x] 3.2 Update plain tests: lines are `#<number> [<type>] <description>`; `--labels` appends
+    `+label`.
+  - [x] 3.3 Update table tests: add the `Type` column; `Labels` column still only with `--labels`;
+    truncation preserved.
+  - [x] 3.4 Update JSON tests: `items[]` with `number`/`title`/`type`; `type` always present;
+    `labels` gated; `open_item_count` null preserved; split summary keys; all repos included.
+  - [x] 3.5 Keep tests that plain/table omit repositories with no open items.
 
-- [ ] 4. Implement report rendering
-  - [ ] 4.1 Add `render_issues_report` / `print_issues_report` to `report.py`.
-  - [ ] 4.2 Add the summary block with `None`-aware open-issue total.
-  - [ ] 4.3 Add plain per-repo rendering with optional `+label` suffixes.
-  - [ ] 4.4 Add table rendering with the optional `Labels` column and description truncation.
-  - [ ] 4.5 Add JSON rendering with the optional per-issue `labels` field.
+- [x] 4. Revise report rendering
+  - [x] 4.1 Rename helpers/keys to items; count "open items" via `open_item_count`.
+  - [x] 4.2 Add per-type totals and the split `Open issues` / `Open PRs` summary lines.
+  - [x] 4.3 Plain: render `#<number> [<type>] <description>` (+ optional labels).
+  - [x] 4.4 Table: add the `Type` column (keep optional `Labels` column and truncation).
+  - [x] 4.5 JSON: emit `type` on every item; keep `labels` gated by `--labels`.
 
-- [ ] 5. Wire the `issues` subcommand
-  - [ ] 5.1 Add CLI tests that `issues` dispatches `IssuesRepoProcessor`.
-  - [ ] 5.2 Add CLI tests for mutually-exclusive `--plain/--table/--json` and for `--output`.
-  - [ ] 5.3 Add the `issues` command to the Click group reusing `_output_format`, with `--labels`
-    and `--output`, calling `print_issues_report` after `_main`.
+- [x] 5. Verify CLI wiring
+  - [x] 5.1 Update the `issues` command docstring/help to mention pull requests.
+  - [x] 5.2 Confirm CLI tests still pass (names `IssuesRepoProcessor` / `print_issues_report`
+    unchanged); adjust any assertions that referenced the old keys.
 
-- [ ] 6. Final verification
-  - [ ] 6.1 Update `spec-lite.md` with the implemented behavior summary.
-  - [ ] 6.2 Run `uv run pytest -v -Werror -Walways`.
-  - [ ] 6.3 Run `uv run ruff check`.
-  - [ ] 6.4 Run `uv run ty check src/`.
-  - [ ] 6.5 Run `uv run ruff format --check`.
+- [x] 6. Final verification
+  - [x] 6.1 Update `spec-lite.md` with the implemented behavior summary.
+  - [x] 6.2 Run `uv run pytest -v -Werror -Walways`.
+  - [x] 6.3 Run `uv run ruff check`.
+  - [x] 6.4 Run `uv run ty check src/`.
+  - [x] 6.5 Run `uv run ruff format --check`.

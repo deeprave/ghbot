@@ -1,34 +1,34 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-05-06-enhance-security-info",
-    "path": ".agents/specs/2026-05-06-enhance-security-info",
+    "name": "2026-07-29-scan-issues",
+    "path": ".agents/specs/2026-07-29-scan-issues",
     "status": "implemented-not-committed",
     "progress": {
-      "tasks_completed": 7,
-      "tasks_total": 7,
-      "remaining": 0
+      "tasks_completed": 6,
+      "tasks_total": 6
     },
+    "present_task": null,
     "verification": {
       "status": "passing",
       "last_run": "2026-07-29",
       "gates": {
-        "pytest": "229 passed",
+        "pytest": "266 passed",
         "ruff_check": "passing",
         "ty_check": "passing",
         "ruff_format": "passing"
-      },
-      "notes": "Verified against the working tree. Req 2.9 (no reported statuses and no check runs counts as ready) now has an explicit test: test_no_statuses_and_no_check_runs_counts_as_ready."
-    }
+      }
+    },
+    "revision_note": "Spec revised 2026-07-29 to INCLUDE pull requests alongside issues, tagged by `type` (issue|pr). Result keys renamed open_issue_count/open_issues -> open_item_count/open_items; records gain a `type` field; plain shows `#<n> [<type>] <title>`, table adds a Type column, JSON adds a type field; summary splits into Open issues / Open PRs. The first implementation (PR-excluding) is in the working tree and must be reworked to match."
   },
-  "queued_specs": [
+  "recent_specs": [
     {
-      "name": "2026-07-29-scan-issues",
-      "path": ".agents/specs/2026-07-29-scan-issues",
-      "status": "defined",
-      "started": false,
-      "summary": "Adds an `issues` subcommand + IssuesRepoProcessor reporting per-repo open-issue count and a list of open issues (`#<number> <description>`), pull requests excluded. Labels are gated behind a `--labels` switch: `+`-prefixed in plain text, a comma-separated `Labels` column in table output, a `labels[]` array in JSON.",
-      "note": ".current intentionally still points at enhance-security-info; scan-issues is next, not active."
+      "name": "2026-05-06-enhance-security-info",
+      "path": ".agents/specs/2026-05-06-enhance-security-info",
+      "status": "complete",
+      "committed": true,
+      "commit": "95bf4d5",
+      "note": "SecurityRepoProcessor reports dependabot_open_pull_requests and dependabot_ready_pull_requests across plain/table/JSON reports. Verified (229 tests) and committed."
     }
   ],
   "python_checks": {
@@ -51,34 +51,20 @@
     "pull_request_required": false,
     "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
   },
-  "current_diagnosis": {
-    "spec": "2026-05-06-enhance-security-info",
-    "summary": "Enhance-security-info implementation is complete and verified.",
-    "points": [
-      "SecurityRepoProcessor counts open Dependabot PRs in `dependabot_open_pull_requests`.",
-      "It counts ready Dependabot PRs in `dependabot_ready_pull_requests`.",
-      "Ready means not draft, not known unmergeable, commit status is successful, and all check runs are completed with `success`, `neutral`, or `skipped`.",
-      "Approval/review requirements are ignored for readiness.",
-      "PR list 403/404 sets both PR counts to `None`; non-fatal API errors produce partial results.",
-      "Per-PR readiness API errors exclude that PR from the ready count and produce a partial result.",
-      "Plain, table, and JSON security reports include the two new Dependabot PR counts.",
-      "Text report inclusion considers non-zero Dependabot PR counts.",
-      "Security progress messages report alert counts and Dependabot PR counts separately, because Dependabot PRs can overlap with the same underlying alerts."
-    ]
-  },
   "requirements_summary": {
-    "title": "Enhance Security Info",
-    "problem": "The security scanner reports alert counts but did not show whether Dependabot already opened remediation PRs or whether those PRs are ready to merge once approval requirements are ignored.",
+    "title": "Scan Issues",
+    "problem": "ghbot can scan repositories for metadata (info) and security findings (security), but has no command for open issue tracking across an owner's repositories.",
+    "goal": "Add an `issues` subcommand backed by a new IssuesRepoProcessor reporting, per repository, `open_issue_count` (pull requests excluded) and `open_issues` — an ordered list of {number, title, labels} records.",
+    "cli": "ghbot --owner <name> issues [--plain|--table|--json] [--labels] [--output FILE]",
+    "output": "plain: per-repo `#<number> <description>` lines (with --labels, `+`-prefixed labels). table: one row per issue (Repository | # | Description; with --labels a comma-separated Labels column). json: repositories[] each with open_issue_count and issues[]; with --labels each issue carries a labels array. PRs excluded everywhere; plain/table omit repos with no open issues; json includes all. None -> N/A in text, null in json.",
     "result_keys": [
-      "dependabot_open_pull_requests",
-      "dependabot_ready_pull_requests"
-    ],
-    "ready_definition": "A Dependabot PR is ready when it is not draft, is not reported as unmergeable, has successful commit status, and all check runs are completed with `success`, `neutral`, or `skipped`. Requested reviewers and approval requirements are ignored.",
-    "output": "Plain, table, and JSON security reports include aggregate and per-repository Dependabot PR counts. Text reports display unavailable counts as `N/A`; JSON preserves them as `null`."
+      "open_issue_count",
+      "open_issues"
+    ]
   },
   "skills": {
     "location": ".agents/skills",
     "invoke": "/<name>",
-    "note": "Per-task skills (verify, design, tasks, build, review, ...). Read the matching skill before doing that kind of task."
+    "note": "Per-task skills (verify, design, tasks, build, review, ...). Read the matching skill before doing that kind of task. Workflow lifecycle is documented in AGENTS.md."
   }
 }

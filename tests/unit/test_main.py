@@ -320,6 +320,97 @@ def test_info_subcommand_does_not_call_print_security_report():
     mock_report.assert_not_called()
 
 
+def test_issues_subcommand_calls_main_with_issues_processor():
+    """ghbot issues → _main called with IssuesRepoProcessor."""
+    from ghbot.processor import IssuesRepoProcessor
+
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_issues_report"),
+    ):
+        from ghbot.__main__ import cli
+
+        CliRunner().invoke(cli, ["issues"])
+    mock_main.assert_called_once()
+    _, processor_cls = mock_main.call_args[0]
+    assert processor_cls is IssuesRepoProcessor
+
+
+def test_issues_subcommand_calls_print_issues_report():
+    """ghbot issues → print_issues_report called with pool.results, plain, no labels."""
+    from ghbot.processor import RepoResult
+
+    fake_results = [RepoResult(owner="o", repo="r")]
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=fake_results)),
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_issues_report") as mock_report,
+    ):
+        from ghbot.__main__ import cli
+
+        CliRunner().invoke(cli, ["issues"])
+    mock_report.assert_called_once_with(
+        fake_results, format="plain", labels=False, output=None
+    )
+
+
+@pytest.mark.parametrize(
+    ("flag", "expected"),
+    [("--plain", "plain"), ("--table", "table"), ("--json", "json")],
+)
+def test_issues_subcommand_format_flags_pass_format(flag, expected):
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_issues_report") as mock_report,
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["issues", flag])
+    assert result.exit_code == 0
+    assert mock_report.call_args.kwargs["format"] == expected
+
+
+def test_issues_subcommand_labels_flag_passes_labels_true():
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_issues_report") as mock_report,
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["issues", "--labels"])
+    assert result.exit_code == 0
+    assert mock_report.call_args.kwargs["labels"] is True
+
+
+def test_issues_subcommand_rejects_multiple_format_flags():
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_issues_report"),
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["issues", "--json", "--table"])
+    assert result.exit_code != 0
+
+
+def test_issues_subcommand_passes_output_to_report(tmp_path):
+    output = tmp_path / "issues.txt"
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_issues_report") as mock_report,
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["issues", "--output", str(output)])
+    assert result.exit_code == 0
+    assert mock_report.call_args.kwargs["output"] == output
+
+
 # ---------------------------------------------------------------------------
 # CLI group — global options still work
 # ---------------------------------------------------------------------------

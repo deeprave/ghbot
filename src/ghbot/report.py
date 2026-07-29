@@ -1,4 +1,4 @@
-"""Report formatting for security scan results."""
+"""Report formatting for security and issues scan results."""
 
 from __future__ import annotations
 
@@ -252,3 +252,193 @@ def _table_row(
         f"|{dependabot_prs:>{_DEPENDABOT_PRS_WIDTH}}"
         f"|{ready_prs:>{_READY_PRS_WIDTH}}|"
     )
+
+
+# ---------------------------------------------------------------------------
+# Issues report (open issues + pull requests, tagged by type)
+# ---------------------------------------------------------------------------
+
+_ISSUE_NUMBER_WIDTH = 6
+_ISSUE_TYPE_WIDTH = 5
+_ISSUE_DESCRIPTION_WIDTH = 50
+_ISSUE_LABELS_WIDTH = 24
+
+
+def render_issues_report(
+    results: list[RepoResult], *, format: str = "plain", labels: bool = False
+) -> str:
+    match format:
+        case "plain":
+            return _render_issues_plain(results, labels)
+        case "table":
+            return _render_issues_table(results, labels)
+        case "json":
+            return _render_issues_json(results, labels)
+        case _:
+            raise ValueError(f"unsupported issues report format: {format}")
+
+
+def print_issues_report(
+    results: list[RepoResult],
+    *,
+    format: str = "plain",
+    labels: bool = False,
+    output: Path | None = None,
+) -> None:
+    text = render_issues_report(results, format=format, labels=labels)
+    if output is None:
+        sys.stdout.write(text)
+        return
+    try:
+        output.write_text(text, encoding="utf-8")
+    except OSError as e:
+        raise click.ClickException(f"failed to write output file: {e}") from e
+
+
+def _has_open_items(result: RepoResult) -> bool:
+    return bool(result.results.get("open_item_count"))
+
+
+def _item_records(result: RepoResult) -> list[dict]:
+    return result.results.get("open_items") or []
+
+
+def _type_total(results: list[RepoResult], item_type: str) -> int | None:
+    counts = [
+        None
+        if r.results.get("open_items") is None
+        else sum(1 for item in _item_records(r) if item.get("type") == item_type)
+        for r in results
+    ]
+    if all(c is None for c in counts):
+        return None
+    return sum(c for c in counts if c is not None)
+
+
+def _issues_summary(results: list[RepoResult]) -> dict[str, int | None]:
+    return {
+        "repos_scanned": len(results),
+        "repos_with_items": sum(1 for r in results if _has_open_items(r)),
+        "open_issues": _type_total(results, "issue"),
+        "open_prs": _type_total(results, "pr"),
+    }
+
+
+def _issues_summary_lines(results: list[RepoResult]) -> list[str]:
+    summary = _issues_summary(results)
+    return [
+        _fmt("Repos scanned:", _display_total(summary["repos_scanned"])),
+        _fmt("Repos with open items:", _display_total(summary["repos_with_items"])),
+        _fmt("Open issues:", _display_total(summary["open_issues"])),
+        _fmt("Open PRs:", _display_total(summary["open_prs"])),
+    ]
+
+
+def _issues_repos_to_show(results: list[RepoResult]) -> list[RepoResult]:
+    return sorted(
+        (r for r in results if _has_open_items(r)),
+        key=lambda r: f"{r.owner}/{r.repo}",
+    )
+
+
+def _render_issues_plain(results: list[RepoResult], labels: bool) -> str:
+    lines = _issues_summary_lines(results)
+    for r in _issues_repos_to_show(results):
+        lines.append("")
+        lines.append(f"{r.owner}/{r.repo}  ({r.results.get('open_item_count')} open)")
+        for item in _item_records(r):
+            lines.append("  " + _item_plain_line(item, labels))
+    return "\n".join(lines) + "\n"
+
+
+def _item_plain_line(item: dict, labels: bool) -> str:
+    line = f"#{item['number']} [{item['type']}] {item['title']}"
+    if labels and item.get("labels"):
+        line += " " + " ".join(f"+{name}" for name in item["labels"])
+    return line
+
+
+def _render_issues_table(results: list[RepoResult], labels: bool) -> str:
+    lines = _issues_summary_lines(results)
+    rows = [
+        (f"{r.owner}/{r.repo}", item)
+        for r in _issues_repos_to_show(results)
+        for item in _item_records(r)
+    ]
+    if rows:
+        lines.extend(["", _item_table_header(labels), _item_table_separator(labels)])
+        lines.extend(
+            _item_table_row(repository, item, labels) for repository, item in rows
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _item_table_header(labels: bool) -> str:
+    header = (
+        f"|{'Repository':<{_REPOSITORY_WIDTH}}"
+        f"|{'#':>{_ISSUE_NUMBER_WIDTH}}"
+        f"|{'Type':<{_ISSUE_TYPE_WIDTH}}"
+        f"|{'Description':<{_ISSUE_DESCRIPTION_WIDTH}}"
+    )
+    if labels:
+        header += f"|{'Labels':<{_ISSUE_LABELS_WIDTH}}"
+    return header + "|"
+
+
+def _item_table_separator(labels: bool) -> str:
+    separator = (
+        f"|{'-' * _REPOSITORY_WIDTH}"
+        f"|{'-' * _ISSUE_NUMBER_WIDTH}"
+        f"|{'-' * _ISSUE_TYPE_WIDTH}"
+        f"|{'-' * _ISSUE_DESCRIPTION_WIDTH}"
+    )
+    if labels:
+        separator += f"|{'-' * _ISSUE_LABELS_WIDTH}"
+    return separator + "|"
+
+
+def _item_table_row(repository: str, item: dict, labels: bool) -> str:
+    row = (
+        f"|{repository:<{_REPOSITORY_WIDTH}}"
+        f"|{item['number']:>{_ISSUE_NUMBER_WIDTH}}"
+        f"|{item['type']:<{_ISSUE_TYPE_WIDTH}}"
+        f"|{_truncate(item['title'], _ISSUE_DESCRIPTION_WIDTH):<{_ISSUE_DESCRIPTION_WIDTH}}"
+    )
+    if labels:
+        row += f"|{', '.join(item.get('labels') or []):<{_ISSUE_LABELS_WIDTH}}"
+    return row + "|"
+
+
+def _render_issues_json(results: list[RepoResult], labels: bool) -> str:
+    return (
+        json.dumps(
+            {
+                "summary": _issues_summary(results),
+                "repositories": [
+                    {
+                        "owner": r.owner,
+                        "repo": r.repo,
+                        "repository": f"{r.owner}/{r.repo}",
+                        "open_item_count": r.results.get("open_item_count"),
+                        "items": [
+                            _item_json(item, labels) for item in _item_records(r)
+                        ],
+                    }
+                    for r in results
+                ],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
+def _item_json(item: dict, labels: bool) -> dict:
+    base = {"number": item["number"], "title": item["title"], "type": item["type"]}
+    if labels:
+        base["labels"] = list(item.get("labels") or [])
+    return base
+
+
+def _truncate(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: width - 1] + "…"

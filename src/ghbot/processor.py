@@ -657,3 +657,123 @@ def _check_run_is_ready(check_run: dict[str, Any]) -> bool:
         check_run.get("status") == "completed"
         and check_run.get("conclusion") in _NON_BLOCKING_CHECK_CONCLUSIONS
     )
+
+
+class IssuesRepoProcessor:
+    """Concrete RepoProcessor that collects open issues per repository."""
+
+    def __init__(
+        self,
+        owner: str,
+        repo: str,
+        gh: GitHubClient,
+        monitor: Monitor,
+        options: dict | None = None,
+    ) -> None:
+        if not owner:
+            raise ValueError("owner must be a non-empty string")
+        if not repo:
+            raise ValueError("repo must be a non-empty string")
+        self._owner = owner
+        self._repo = repo
+        self._gh = gh
+        self._monitor = monitor
+        self._options = dict(options or {})
+        self._deferred_events: list[FeedbackEvent] = []
+
+    @property
+    def owner(self) -> str:
+        return self._owner
+
+    @property
+    def repo(self) -> str:
+        return self._repo
+
+    async def run(self) -> RepoResult:
+        result = RepoResult(owner=self._owner, repo=self._repo)
+        self._deferred_events = []
+        try:
+            await self._fetch_open_items(result)
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except FatalError:
+            raise
+        except Exception as e:
+            await self._monitor.send_event(
+                FeedbackEvent("error", "error", f"unexpected error: {e}")
+            )
+            result.status = "failed"
+            result.errors.append(str(e))
+        else:
+            if result.errors:
+                result.status = "partial"
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "processing finished")
+        )
+        if activity_message := _issues_activity_message(result):
+            await self._monitor.send_event(
+                FeedbackEvent("progress", "info", activity_message)
+            )
+            for event in self._deferred_events:
+                await self._monitor.send_event(event)
+        return result
+
+    async def _defer_event(self, event: FeedbackEvent) -> None:
+        self._deferred_events.append(event)
+
+    async def _fetch_open_items(self, result: RepoResult) -> None:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "fetching open items")
+        )
+        try:
+            async with github_api_call(self._gh):
+                items = [
+                    _item_record(item)
+                    async for item in self._gh.getiter(
+                        "/repos/{owner}/{repo}/issues?state=open",
+                        url_vars={"owner": self._owner, "repo": self._repo},
+                    )
+                ]
+            result.results["open_item_count"] = len(items)
+            result.results["open_items"] = items
+        except GitHubNotFoundError:
+            await self._defer_event(
+                FeedbackEvent("fetch", "debug", "open items not accessible")
+            )
+            result.results["open_item_count"] = None
+            result.results["open_items"] = None
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            await self._monitor.send_event(
+                FeedbackEvent("fetch", "error", f"failed to fetch open items: {e}")
+            )
+            result.results["open_item_count"] = None
+            result.results["open_items"] = None
+            result.errors.append(f"open items: {e}")
+
+
+def _item_type(item: dict[str, Any]) -> str:
+    return "pr" if "pull_request" in item else "issue"
+
+
+def _item_labels(item: dict[str, Any]) -> list[str]:
+    return [
+        label["name"]
+        for label in (item.get("labels") or [])
+        if isinstance(label, dict) and label.get("name")
+    ]
+
+
+def _item_record(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "number": item["number"],
+        "title": item.get("title") or "",
+        "type": _item_type(item),
+        "labels": _item_labels(item),
+    }
+
+
+def _issues_activity_message(result: RepoResult) -> str | None:
+    count = result.results.get("open_item_count")
+    return f"found {count} open items" if count else None

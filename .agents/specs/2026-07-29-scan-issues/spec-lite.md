@@ -2,15 +2,18 @@
 
 ## Problem
 
-ghbot can scan repositories for metadata (`info`) and security findings (`security`), but has no
-command for open issue tracking across an owner's repositories.
+ghbot has no command for open work-item tracking across an owner's repositories, covering both
+issues and pull requests.
 
 ## Goal
 
 Add an `issues` subcommand backed by a new `IssuesRepoProcessor` that reports, per repository:
 
-- `open_issue_count` — number of open issues (pull requests excluded)
-- `open_issues` — ordered list of `{number, title, labels}` records
+- `open_item_count` — number of open items (issues + pull requests)
+- `open_items` — ordered list of `{number, title, type, labels}` records, where `type` is `"issue"`
+  or `"pr"`
+
+Pull requests are **included** (GitHub's issues endpoint returns them) and tagged by type.
 
 ## CLI
 
@@ -18,29 +21,31 @@ Add an `issues` subcommand backed by a new `IssuesRepoProcessor` that reports, p
 ghbot --owner <name> issues [--plain|--table|--json] [--labels] [--output FILE]
 ```
 
-Format flags are mutually exclusive, default `--plain`, reusing the `security` selection helper.
-`--labels` (default off) enables label rendering.
+Format flags are mutually exclusive, default `--plain`. `--labels` (default off) enables GitHub-label
+rendering. The `type` tag is always shown.
 
 ## Output
 
-- **plain**: per-repo header + one `#<number> <description>` line per issue. With `--labels`, each
-  line gains `+`-prefixed labels: `#12 Fix the login redirect +bug +urgent`.
-- **table**: one row per issue — `Repository | # | Description`; with `--labels`, a trailing
-  `Labels` column rendered as a comma-separated list.
-- **json**: summary + `repositories[]`, each with `open_issue_count` and an `issues[]` array of
-  `{number, title}`; with `--labels`, each issue object also carries a `labels` array.
+- **plain**: per-repo header + one `#<number> [<type>] <description>` line per item. With `--labels`,
+  each line gains `+`-prefixed labels: `#12 [pr] Fix the login redirect +bug +urgent`.
+- **table**: one row per item — `Repository | # | Type | Description`; with `--labels`, a trailing
+  comma-separated `Labels` column.
+- **json**: summary + `repositories[]`, each with `open_item_count` and an `items[]` array of
+  `{number, title, type}`; with `--labels`, each item also carries a `labels` array.
 
-Pull requests are excluded everywhere. Plain and table omit repositories with no open issues; JSON
-includes every scanned repository. A `None` count displays as `N/A` in text and `null` in JSON.
+Summary splits counts: `Repos scanned`, `Repos with open items`, `Open issues`, `Open PRs`.
+Plain/table omit repos with no open items; JSON includes every scanned repo. A `None` count shows as
+`N/A` in text and `null` in JSON.
 
 ## Design
 
-- List issues with `GET /repos/{owner}/{repo}/issues?state=open` via `getiter`.
-- Drop items carrying a `pull_request` field.
-- Extract labels from each issue's `labels` array (no extra request); always captured, rendered
-  only when `--labels` is set.
-- Store `open_issue_count` and `open_issues` in `RepoResult.results`.
-- Preserve the existing processor error policy and the security processor's deferred progress/
+- List items with `GET /repos/{owner}/{repo}/issues?state=open` via `getiter` (returns issues and
+  PRs; PRs carry a `pull_request` field).
+- Tag `type = "pr" if "pull_request" in item else "issue"` — no exclusion.
+- Extract GitHub labels from each item's `labels` array (always captured; rendered only with
+  `--labels`).
+- Store `open_item_count` and `open_items` in `RepoResult.results`.
+- Preserve the existing processor error policy and the security processor's deferred progress /
   activity-message pattern.
 
 ## Verification
@@ -52,4 +57,11 @@ includes every scanned repository. A `None` count displays as `N/A` in text and 
 
 ## Implementation Status
 
-Not started. Requirements and design defined.
+Complete. `IssuesRepoProcessor` collects `open_item_count` and `open_items`
+(`{number, title, type, labels}`, issues + pull requests, tagged by `type`) via
+`GET /repos/{owner}/{repo}/issues?state=open`, following the existing error policy and the security
+processor's deferred progress/activity pattern. `report.py` renders plain (`#<n> [<type>] <title>`),
+table (with a `Type` column), and JSON (`type` on every item), with the split `Open issues` /
+`Open PRs` summary and GitHub labels gated behind `--labels`; long descriptions truncate with `…` in
+table only. The `issues` subcommand is wired in `__main__.py`. Verified: 266 tests pass; `ruff
+check`, `ty check src/`, and `ruff format --check` all clean.

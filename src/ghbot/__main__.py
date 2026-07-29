@@ -14,11 +14,12 @@ from ghbot.github.auth import get_auth_token
 from ghbot.github.repos import scan_repositories
 from ghbot.processor import (
     InfoRepoProcessor,
+    IssuesRepoProcessor,
     LoggingMonitor,
     RepoResult,
     SecurityRepoProcessor,
 )
-from ghbot.report import print_security_report
+from ghbot.report import print_issues_report, print_security_report
 
 log = get_logger(__name__)
 
@@ -180,6 +181,47 @@ def security(
         log.error(e.message)
         sys.exit(e.exit_code)
     print_security_report(results, format=output_format, output=output)
+
+
+@cli.command()
+@click.option("--plain", "format_plain", is_flag=True, default=False)
+@click.option("--table", "format_table", is_flag=True, default=False)
+@click.option("--json", "format_json", is_flag=True, default=False)
+@click.option(
+    "--labels",
+    "show_labels",
+    is_flag=True,
+    default=False,
+    help="Include issue labels in the report",
+)
+@click.option(
+    "--output",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write the final report to a file",
+)
+@click.pass_context
+def issues(
+    ctx: click.Context,
+    format_plain: bool,
+    format_table: bool,
+    format_json: bool,
+    show_labels: bool,
+    output: Path | None,
+) -> None:
+    """Scan repositories for open issues and pull requests."""
+    cfg = ctx.obj["cfg"]
+    output_format = _output_format(
+        plain=format_plain, table=format_table, json_format=format_json
+    )
+    try:
+        results = asyncio.run(_main(cfg, IssuesRepoProcessor))
+    except FatalError as e:
+        log.error(e.message)
+        sys.exit(e.exit_code)
+    print_issues_report(
+        results, format=output_format, labels=show_labels, output=output
+    )
 
 
 if __name__ == "__main__":
