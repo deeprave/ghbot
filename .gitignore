@@ -12,9 +12,15 @@ wheels/
 # Tool caches
 .*_cache/
 
-# Guide/kspec local state
+# Agent working files: ignore local/tool state; track shared content under .agents/
 .guide.yaml
-.kiro/*
-!.kiro/specs/
-!.kiro/specs/**
+.kiro/
+.agents/*
+!.agents/specs/
+!.agents/specs/**
+!.agents/skills/
+!.agents/skills/**
+!.agents/CONTEXT.json
+!.agents/.current
 .idea
+.claude

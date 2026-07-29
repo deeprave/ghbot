@@ -1,0 +1,84 @@
+{
+  "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
+  "current_spec": {
+    "name": "2026-05-06-enhance-security-info",
+    "path": ".agents/specs/2026-05-06-enhance-security-info",
+    "status": "implemented-not-committed",
+    "progress": {
+      "tasks_completed": 7,
+      "tasks_total": 7,
+      "remaining": 0
+    },
+    "verification": {
+      "status": "passing",
+      "last_run": "2026-07-29",
+      "gates": {
+        "pytest": "229 passed",
+        "ruff_check": "passing",
+        "ty_check": "passing",
+        "ruff_format": "passing"
+      },
+      "notes": "Verified against the working tree. Req 2.9 (no reported statuses and no check runs counts as ready) now has an explicit test: test_no_statuses_and_no_check_runs_counts_as_ready."
+    }
+  },
+  "queued_specs": [
+    {
+      "name": "2026-07-29-scan-issues",
+      "path": ".agents/specs/2026-07-29-scan-issues",
+      "status": "defined",
+      "started": false,
+      "summary": "Adds an `issues` subcommand + IssuesRepoProcessor reporting per-repo open-issue count and a list of open issues (`#<number> <description>`), pull requests excluded. Labels are gated behind a `--labels` switch: `+`-prefixed in plain text, a comma-separated `Labels` column in table output, a `labels[]` array in JSON.",
+      "note": ".current intentionally still points at enhance-security-info; scan-issues is next, not active."
+    }
+  ],
+  "python_checks": {
+    "runner": "uv run",
+    "commands": {
+      "tests": "uv run pytest -v -Werror -Walways",
+      "lint": "uv run ruff check",
+      "type_check": "uv run ty check src/",
+      "format": "uv run ruff format",
+      "format_check": "uv run ruff format --check"
+    },
+    "notes": [
+      "Run all Python commands through `uv run`.",
+      "Use `ty check src/` for type checking, not mypy.",
+      "The project was renamed from `fixerbot` to `ghbot`. If `uv run` warns that VIRTUAL_ENV points to an old `fixerbot/.venv`, the session is carrying a stale env var from before the rename; restarting the session or unsetting VIRTUAL_ENV fixes it. The repo-local environment is `.venv` under `ghbot`."
+    ]
+  },
+  "commit_policy": {
+    "feature_branch_required": false,
+    "pull_request_required": false,
+    "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
+  },
+  "current_diagnosis": {
+    "spec": "2026-05-06-enhance-security-info",
+    "summary": "Enhance-security-info implementation is complete and verified.",
+    "points": [
+      "SecurityRepoProcessor counts open Dependabot PRs in `dependabot_open_pull_requests`.",
+      "It counts ready Dependabot PRs in `dependabot_ready_pull_requests`.",
+      "Ready means not draft, not known unmergeable, commit status is successful, and all check runs are completed with `success`, `neutral`, or `skipped`.",
+      "Approval/review requirements are ignored for readiness.",
+      "PR list 403/404 sets both PR counts to `None`; non-fatal API errors produce partial results.",
+      "Per-PR readiness API errors exclude that PR from the ready count and produce a partial result.",
+      "Plain, table, and JSON security reports include the two new Dependabot PR counts.",
+      "Text report inclusion considers non-zero Dependabot PR counts.",
+      "Security progress messages report alert counts and Dependabot PR counts separately, because Dependabot PRs can overlap with the same underlying alerts."
+    ]
+  },
+  "requirements_summary": {
+    "title": "Enhance Security Info",
+    "problem": "The security scanner reports alert counts but did not show whether Dependabot already opened remediation PRs or whether those PRs are ready to merge once approval requirements are ignored.",
+    "result_keys": [
+      "dependabot_open_pull_requests",
+      "dependabot_ready_pull_requests"
+    ],
+    "ready_definition": "A Dependabot PR is ready when it is not draft, is not reported as unmergeable, has successful commit status, and all check runs are completed with `success`, `neutral`, or `skipped`. Requested reviewers and approval requirements are ignored.",
+    "output": "Plain, table, and JSON security reports include aggregate and per-repository Dependabot PR counts. Text reports display unavailable counts as `N/A`; JSON preserves them as `null`."
+  },
+  "skills": {
+    "location": ".agents/skills",
+    "invoke": "/<name>",
+    "note": "Per-task skills (verify, design, tasks, build, review, ...). Read the matching skill before doing that kind of task."
+  }
+}
