@@ -59,7 +59,7 @@ DEFAULTS: dict[str, Any] = {
     "log-file": None,
     "log-json": False,
     "log-level": "info",
-    "concurrency": 16,   # new
+    "concurrency": 16,  # new
 }
 ```
 

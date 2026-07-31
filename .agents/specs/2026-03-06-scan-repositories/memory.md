@@ -33,6 +33,7 @@ Clean, no state variables, no `while True`. The `return` after the happy path ex
 async def _stub(owner, gh):
     yield {"name": "alpha"}
 
+
 with patch("ghbot.github.repos.list_repos", side_effect=_stub):
     result = [(o, r) async for o, r in scan_repositories(["org"], gh)]
 ```
@@ -43,6 +44,7 @@ with patch("ghbot.github.repos.list_repos", side_effect=_stub):
 async def _getiter(url, url_vars=None):
     yield {"name": "repo1"}
 
+
 gh = AsyncMock()
 gh.getiter = _getiter
 ```
@@ -52,12 +54,14 @@ Assigning a real async generator function to the mock attribute is simpler than 
 ```python
 call_count = 0
 
+
 async def _getiter(url, url_vars=None):
     nonlocal call_count
     call_count += 1
     if call_count == 1:
         raise GitHubApiError("api error")
     yield {"name": "repo1"}
+
 
 gh.getiter = _getiter
 result = [r async for r in list_repos("owner1", gh)]
@@ -68,9 +72,9 @@ Raising inside the async generator function (not via `AsyncMock.side_effect`) is
 ### Config merge in `main()`
 ```python
 cfg = {**DEFAULTS}
-cfg.update(load_config(config_path))   # file overlays defaults
+cfg.update(load_config(config_path))  # file overlays defaults
 if owner:
-    cfg["owners"] = list(owner)        # CLI overlays file
+    cfg["owners"] = list(owner)  # CLI overlays file
 elif isinstance(cfg.get("owners"), str):
     cfg["owners"] = [o for o in cfg["owners"].split(",") if o]
 if log_file:

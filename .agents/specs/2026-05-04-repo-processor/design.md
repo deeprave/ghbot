@@ -101,11 +101,12 @@ A constrained string type. Using `Literal` gives type-checker enforcement withou
 ```python
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True, slots=True)
 class FeedbackEvent:
-    type: str       # e.g. "progress", "fetch", "validation"
-    severity: str   # "info", "warning", "error"
-    message: str    # human-readable description
+    type: str  # e.g. "progress", "fetch", "validation"
+    severity: str  # "info", "warning", "error"
+    message: str  # human-readable description
 ```
 
 Frozen and slotted for immutability and memory efficiency. No validation on `severity` at construction — the `LoggingMonitor` maps unknown severities to WARNING as a safe default.
@@ -114,6 +115,7 @@ Frozen and slotted for immutability and memory efficiency. No validation on `sev
 
 ```python
 from dataclasses import dataclass, field
+
 
 @dataclass(slots=True)
 class RepoResult:
@@ -130,6 +132,7 @@ Mutable during processing (errors accumulate, status may change). The `results` 
 
 ```python
 from typing import Protocol, runtime_checkable
+
 
 @runtime_checkable
 class Monitor(Protocol):
@@ -165,7 +168,11 @@ class LoggingMonitor:
 
     async def send_event(self, event: FeedbackEvent) -> None:
         msg = f"[{event.type}] {self._owner}/{self._repo}: {event.message}"
-        level_map = {"info": self._log.info, "warning": self._log.warning, "error": self._log.error}
+        level_map = {
+            "info": self._log.info,
+            "warning": self._log.warning,
+            "error": self._log.error,
+        }
         log_fn = level_map.get(event.severity, self._log.warning)
         log_fn(msg)
 ```
@@ -176,7 +183,9 @@ Uses `get_logger` from `src/ghbot/log.py` with a namespaced logger name that inc
 
 ```python
 class InfoRepoProcessor:
-    def __init__(self, owner: str, repo: str, gh: gh_httpx.GitHubAPI, monitor: Monitor) -> None:
+    def __init__(
+        self, owner: str, repo: str, gh: gh_httpx.GitHubAPI, monitor: Monitor
+    ) -> None:
         if not owner:
             raise ValueError("owner must be a non-empty string")
         if not repo:
@@ -409,7 +418,9 @@ Errors during processing fall into three categories, each with distinct handling
 ```python
 async def run(self) -> RepoResult:
     result = RepoResult(owner=self._owner, repo=self._repo)
-    await self._monitor.send_event(FeedbackEvent("progress", "info", "processing started"))
+    await self._monitor.send_event(
+        FeedbackEvent("progress", "info", "processing started")
+    )
 
     try:
         # Each _fetch_* method catches GitHubApiError internally
@@ -437,7 +448,9 @@ async def run(self) -> RepoResult:
             result.status = "partial"
         # else status remains "success"
 
-    await self._monitor.send_event(FeedbackEvent("progress", "info", "processing finished"))
+    await self._monitor.send_event(
+        FeedbackEvent("progress", "info", "processing finished")
+    )
     return result
 ```
 

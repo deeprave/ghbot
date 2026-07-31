@@ -130,7 +130,7 @@ def configure(
 ```python
 requests_logger = logging.getLogger("ghbot.requests")
 if not requests:
-    requests_logger.setLevel(logging.CRITICAL + 1)   # silence completely
+    requests_logger.setLevel(logging.CRITICAL + 1)  # silence completely
 # When requests=True, the logger inherits root level (TRACE=5) and the
 # console handler's own level governs what appears on stderr.
 ```
@@ -160,7 +160,7 @@ configure(
     log_file=cfg.get("log-file"),
     log_level=cfg.get("log-level", log_level),
     json_format=cfg.get("log-json", False),
-    requests=requests,               # NEW
+    requests=requests,  # NEW
 )
 ```
 
@@ -180,6 +180,7 @@ every GitHub API call. A minimal implementation:
 
 ```python
 _requests_log = get_logger("ghbot.requests")
+
 
 @asynccontextmanager
 async def github_api_call(gh):
@@ -312,12 +313,14 @@ logger routing.
 @given(
     owner=st.text(min_size=1),
     repo=st.text(min_size=1),
-    empty_state=st.sampled_from([
-        "release_not_found",
-        "languages_empty",
-        "languages_not_found",
-        "security_not_found",
-    ]),
+    empty_state=st.sampled_from(
+        [
+            "release_not_found",
+            "languages_empty",
+            "languages_not_found",
+            "security_not_found",
+        ]
+    ),
 )
 def test_empty_state_events_are_debug(owner, repo, empty_state): ...
 ```
@@ -350,7 +353,11 @@ first call has `type="progress"` and `severity="info"`, and the last call has
 ```python
 # Feature: output-verbosity, Property 4: LoggingMonitor never routes to the requests logger
 @settings(max_examples=100)
-@given(event=st.builds(FeedbackEvent, type=st.text(), severity=st.text(), message=st.text()))
+@given(
+    event=st.builds(
+        FeedbackEvent, type=st.text(), severity=st.text(), message=st.text()
+    )
+)
 def test_logging_monitor_never_uses_requests_logger(event): ...
 ```
 

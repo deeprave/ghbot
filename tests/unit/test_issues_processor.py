@@ -252,15 +252,19 @@ class TestIssuesRepoProcessorFatalErrors:
         processor, _ = _make_processor(
             self._make_gh_raising(GitHubPrimaryRateLimitError("rate limited"))
         )
-        with patch("ghbot.processor.github_api_call", _passthrough):
-            with pytest.raises(GitHubPrimaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough),
+            pytest.raises(GitHubPrimaryRateLimitError),
+        ):
+            await processor.run()
 
     @pytest.mark.anyio
     async def test_secondary_rate_limit_reraises(self):
         processor, _ = _make_processor(
             self._make_gh_raising(GitHubSecondaryRateLimitError("slow down"))
         )
-        with patch("ghbot.processor.github_api_call", _passthrough):
-            with pytest.raises(GitHubSecondaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough),
+            pytest.raises(GitHubSecondaryRateLimitError),
+        ):
+            await processor.run()

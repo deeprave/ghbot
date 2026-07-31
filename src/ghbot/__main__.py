@@ -1,17 +1,18 @@
 import asyncio
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 import click
-import httpx
 import gidgethub.httpx as gh_httpx
-from importlib.metadata import version
+import httpx
+
 from ghbot.config import DEFAULTS, load_config
 from ghbot.errors import FatalError
 from ghbot.executor import TaskPool
-from ghbot.log import configure, get_logger
 from ghbot.github.auth import get_auth_token
 from ghbot.github.repos import scan_repositories
+from ghbot.log import configure, get_logger
 from ghbot.processor import (
     InfoRepoProcessor,
     IssuesRepoProcessor,

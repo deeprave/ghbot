@@ -1,11 +1,11 @@
 import http
 import logging
 import logging.handlers
-import pytest
 from unittest.mock import AsyncMock
 
 import gidgethub
 import httpx
+import pytest
 
 from ghbot.errors import (
     GitHubApiError,

@@ -1,9 +1,11 @@
+import json
 import logging
 import logging.handlers
+from datetime import UTC, datetime
 
 import pytest
 
-from ghbot.log import configure, _SuppressRequestsFilter
+from ghbot.log import _JSONFormatter, _SuppressRequestsFilter, configure
 
 
 @pytest.fixture(autouse=True)
@@ -67,3 +69,20 @@ def test_suppress_filter_passes_other_records():
         exc_info=None,
     )
     assert f.filter(record) is True
+
+
+def test_json_formatter_uses_utc_timestamp():
+    record = logging.LogRecord(
+        name="ghbot.test",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="test",
+        args=(),
+        exc_info=None,
+    )
+    record.created = 0
+
+    payload = json.loads(_JSONFormatter().format(record))
+
+    assert payload["timestamp"] == datetime.fromtimestamp(0, UTC).isoformat()

@@ -22,13 +22,9 @@ class GitHubNotFoundError(GitHubApiError):
 class GitHubPrimaryRateLimitError(GitHubApiError):
     """gidgethub RateLimitExceeded (403) — quota exhausted, carries rate_limit object."""
 
-    pass
-
 
 class GitHubSecondaryRateLimitError(GitHubApiError):
     """429 Too Many Requests — slow down, retry after delay."""
-
-    pass
 
 
 class UnexpectedError(FatalError):

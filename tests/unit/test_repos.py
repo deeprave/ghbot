@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from ghbot.errors import GitHubNotFoundError
 from ghbot.github.repos import list_repos, scan_repositories
@@ -131,6 +132,7 @@ async def test_list_repos_retries_once_on_api_error():
 @pytest.mark.anyio
 async def test_list_repos_second_api_error_logs_and_skips(caplog):
     import logging
+
     from ghbot.errors import GitHubApiError
 
     call_count = 0

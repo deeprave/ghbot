@@ -104,9 +104,13 @@ processor constructor.
 Refactor `print_security_report(results)` into a renderer plus writer. One workable API:
 
 ```python
-def render_security_report(results: list[RepoResult], *, format: str = "plain") -> str: ...
+def render_security_report(
+    results: list[RepoResult], *, format: str = "plain"
+) -> str: ...
+
 
 def write_report(text: str, output: Path | None = None) -> None: ...
+
 
 def print_security_report(
     results: list[RepoResult],

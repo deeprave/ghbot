@@ -26,6 +26,7 @@ async def _run(self, fn, *args, **kwargs):
     finally:
         self._sem.release()
 
+
 async def __aexit__(self, *exc_info):
     if self._tasks:
         await asyncio.gather(*self._tasks, return_exceptions=True)
@@ -40,6 +41,7 @@ async def __aexit__(self, *exc_info):
 def _abort(self, reason: str) -> None:
     self._aborted = True
     self._abort_reason = reason
+
 
 async def submit(self, fn, *args, **kwargs) -> None:
     if self._aborted:
@@ -79,6 +81,7 @@ Relies on `github_api_call` using `raise GitHubApiError(...) from e` — the ori
 active = 0
 peak = 0
 
+
 async def task():
     nonlocal active, peak
     active += 1
@@ -86,6 +89,7 @@ async def task():
     await asyncio.sleep(0.01)
     active -= 1
     return {}
+
 
 async with TaskPool(limit=2) as pool:
     for _ in range(6):

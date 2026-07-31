@@ -1,16 +1,16 @@
 import asyncio
+
+import httpx
 import pytest
 
-from ghbot.executor import TaskPool
 from ghbot.errors import (
     FatalError,
+    GitHubApiError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
-    GitHubApiError,
 )
-import httpx
-
+from ghbot.executor import TaskPool
 
 # --- result collection and concurrency ---
 

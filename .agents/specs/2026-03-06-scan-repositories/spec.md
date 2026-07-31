@@ -77,7 +77,11 @@ src/ghbot/
 
 ```python
 class GitHubApiError(FatalError): ...
+
+
 class GitHubNotFoundError(GitHubApiError): ...
+
+
 class UnexpectedError(FatalError): ...
 ```
 
@@ -112,10 +116,13 @@ _main(cfg)
 ### Config merge in `main()`
 ```python
 cfg = {**DEFAULTS}
-cfg.update(load_config(config_path))          # config file overlays defaults
-if owners:   cfg["owners"] = list(owners)     # CLI overlays config file
-if log_file: cfg["log-file"] = log_file
-if log_json: cfg["log-json"] = log_json
+cfg.update(load_config(config_path))  # config file overlays defaults
+if owners:
+    cfg["owners"] = list(owners)  # CLI overlays config file
+if log_file:
+    cfg["log-file"] = log_file
+if log_json:
+    cfg["log-json"] = log_json
 # ... etc for each CLI flag that has a config equivalent
 ```
 
@@ -138,7 +145,9 @@ async def list_repos(owner: str, gh: GitHubAPI) -> AsyncGenerator[dict, None]:
     for attempt in range(2):
         try:
             async with github_api_call(gh):
-                async for repo in gh.getiter(f"/users/{owner}/repos", url_vars={"type": "all"}):
+                async for repo in gh.getiter(
+                    f"/users/{owner}/repos", url_vars={"type": "all"}
+                ):
                     yield repo
             return
         except GitHubNotFoundError:
