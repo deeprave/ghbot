@@ -492,9 +492,11 @@ def test_fatal_error_propagation(
     monitor = AsyncMock()
     processor = InfoRepoProcessor(owner=owner, repo=repo, gh=gh, monitor=monitor)
 
-    with mock_patch("ghbot.processor.github_api_call", _noop_github_api_call):
-        with pytest.raises(exc_type):
-            asyncio.run(processor.run())
+    with (
+        mock_patch("ghbot.processor.github_api_call", _noop_github_api_call),
+        pytest.raises(exc_type),
+    ):
+        asyncio.run(processor.run())
 
 
 # Feature: output-verbosity, Property 3: Run lifecycle events have correct severities

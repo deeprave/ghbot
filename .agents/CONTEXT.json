@@ -1,25 +1,25 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-07-29-scan-issues",
-    "path": ".agents/specs/2026-07-29-scan-issues",
+    "name": "2026-07-31-ruff-016-lint",
+    "path": ".agents/specs/2026-07-31-ruff-016-lint",
     "status": "implemented-not-committed",
     "progress": {
-      "tasks_completed": 6,
-      "tasks_total": 6
+      "tasks_completed": 5,
+      "tasks_total": 5
     },
     "present_task": null,
     "verification": {
       "status": "passing",
-      "last_run": "2026-07-29",
+      "last_run": "2026-07-31",
       "gates": {
-        "pytest": "266 passed",
+        "pytest": "267 passed",
         "ruff_check": "passing",
         "ty_check": "passing",
-        "ruff_format": "passing"
+        "ruff_format": "passing for CI scope (src tests)"
       }
     },
-    "revision_note": "Spec revised 2026-07-29 to INCLUDE pull requests alongside issues, tagged by `type` (issue|pr). Result keys renamed open_issue_count/open_issues -> open_item_count/open_items; records gain a `type` field; plain shows `#<n> [<type>] <title>`, table adds a Type column, JSON adds a type field; summary splits into Open issues / Open PRs. The first implementation (PR-excluding) is in the working tree and must be reworked to match."
+    "revision_note": "Ruff 0.16.1 lint remediation is complete. CI Ruff checks now target src and tests, excluding Markdown code blocks in README.md and historical .agents/specs documents."
   },
   "recent_specs": [
     {
@@ -51,16 +51,11 @@
     "pull_request_required": false,
     "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
   },
-  "requirements_summary": {
-    "title": "Scan Issues",
-    "problem": "ghbot can scan repositories for metadata (info) and security findings (security), but has no command for open issue tracking across an owner's repositories.",
-    "goal": "Add an `issues` subcommand backed by a new IssuesRepoProcessor reporting, per repository, `open_issue_count` (pull requests excluded) and `open_issues` — an ordered list of {number, title, labels} records.",
-    "cli": "ghbot --owner <name> issues [--plain|--table|--json] [--labels] [--output FILE]",
-    "output": "plain: per-repo `#<number> <description>` lines (with --labels, `+`-prefixed labels). table: one row per issue (Repository | # | Description; with --labels a comma-separated Labels column). json: repositories[] each with open_issue_count and issues[]; with --labels each issue carries a labels array. PRs excluded everywhere; plain/table omit repos with no open issues; json includes all. None -> N/A in text, null in json.",
-    "result_keys": [
-      "open_issue_count",
-      "open_issues"
-    ]
+  "current_diagnosis": {
+    "title": "Ruff 0.16 lint remediation",
+    "root_cause": "An unbounded Ruff development dependency resolved from 0.15.5 to 0.16.1 during uv sync --upgrade, enabling additional lint and Markdown formatting checks.",
+    "remediation": "Applied Ruff's mechanical fixes, manually combined nested test context managers, documented intentional catch-all exception handling, modernized TaskPool's self type, and made JSON log timestamps explicit UTC.",
+    "remaining": "No known lint or formatting gaps within CI's src/tests scope."
   },
   "skills": {
     "location": ".agents/skills",

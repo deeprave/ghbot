@@ -48,13 +48,25 @@ into `cli()`. `_main` gains `processor_cls`.
 @click.version_option(...)
 @click.option("--owner", ...)
 # ... all existing options ...
-def cli(ctx, config, verbose, quiet, log_file, log_level, log_json, requests, owner, concurrency):
+def cli(
+    ctx,
+    config,
+    verbose,
+    quiet,
+    log_file,
+    log_level,
+    log_json,
+    requests,
+    owner,
+    concurrency,
+):
     ctx.ensure_object(dict)
     cfg = {**DEFAULTS}
     cfg.update(load_config(config))
     # ... existing merge logic ...
     configure(...)
     ctx.obj["cfg"] = cfg
+
 
 @cli.command()
 @click.pass_context
@@ -65,6 +77,7 @@ def info(ctx):
     except FatalError as e:
         log.error(e.message)
         sys.exit(e.exit_code)
+
 
 @cli.command()
 @click.pass_context
@@ -115,10 +128,12 @@ class SecurityRepoProcessor:
         self._monitor = monitor
 
     @property
-    def owner(self) -> str: return self._owner
+    def owner(self) -> str:
+        return self._owner
 
     @property
-    def repo(self) -> str: return self._repo
+    def repo(self) -> str:
+        return self._repo
 
     async def run(self) -> RepoResult: ...
 ```
@@ -138,23 +153,34 @@ accessible but no open alerts.
 
 ```python
 async def _fetch_dependabot_alerts(self, result: RepoResult) -> None:
-    await self._monitor.send_event(FeedbackEvent("progress", "debug", "fetching dependabot alerts"))
+    await self._monitor.send_event(
+        FeedbackEvent("progress", "debug", "fetching dependabot alerts")
+    )
     try:
         async with github_api_call(self._gh):
-            count = sum(1 async for _ in self._gh.getiter(
-                "/repos/{owner}/{repo}/dependabot/alerts",
-                url_vars={"owner": self._owner, "repo": self._repo},
-                iterable_key=None,
-                extra_headers={"state": "open"},  # passed as query param via url_vars
-            ))
+            count = sum(
+                1
+                async for _ in self._gh.getiter(
+                    "/repos/{owner}/{repo}/dependabot/alerts",
+                    url_vars={"owner": self._owner, "repo": self._repo},
+                    iterable_key=None,
+                    extra_headers={
+                        "state": "open"
+                    },  # passed as query param via url_vars
+                )
+            )
         result.results["dependabot_alerts"] = count
     except GitHubNotFoundError:
-        await self._monitor.send_event(FeedbackEvent("fetch", "debug", "dependabot alerts not accessible"))
+        await self._monitor.send_event(
+            FeedbackEvent("fetch", "debug", "dependabot alerts not accessible")
+        )
         result.results["dependabot_alerts"] = None
     except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
         raise
     except GitHubApiError as e:
-        await self._monitor.send_event(FeedbackEvent("fetch", "error", f"failed to fetch dependabot alerts: {e}"))
+        await self._monitor.send_event(
+            FeedbackEvent("fetch", "error", f"failed to fetch dependabot alerts: {e}")
+        )
         result.results["dependabot_alerts"] = None
         result.errors.append(f"dependabot alerts: {e}")
 ```
@@ -183,8 +209,8 @@ Identical to `InfoRepoProcessor.run()`:
 
 from ghbot.processor import RepoResult
 
-def print_security_report(results: list[RepoResult]) -> None:
-    ...
+
+def print_security_report(results: list[RepoResult]) -> None: ...
 ```
 
 #### Summary calculation
@@ -192,12 +218,16 @@ def print_security_report(results: list[RepoResult]) -> None:
 ```python
 scanned = len(results)
 repos_with_issues = sum(
-    1 for r in results
-    if any(v not in (None, 0) for v in [
-        r.results.get("dependabot_alerts"),
-        r.results.get("code_scanning_alerts"),
-        r.results.get("secret_scanning_alerts"),
-    ])
+    1
+    for r in results
+    if any(
+        v not in (None, 0)
+        for v in [
+            r.results.get("dependabot_alerts"),
+            r.results.get("code_scanning_alerts"),
+            r.results.get("secret_scanning_alerts"),
+        ]
+    )
 )
 ```
 

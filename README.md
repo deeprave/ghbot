@@ -142,6 +142,7 @@ A processor is any object implementing the `RepoProcessor` protocol (`src/ghbot/
 ```python
 from typing import Protocol, runtime_checkable
 
+
 @runtime_checkable
 class RepoProcessor(Protocol):
     @property
@@ -158,9 +159,9 @@ It returns a `RepoResult`:
 class RepoResult:
     owner: str
     repo: str
-    status: ProcessingStatus = "success"      # "success" | "partial" | "failed"
+    status: ProcessingStatus = "success"  # "success" | "partial" | "failed"
     errors: list[str] = field(default_factory=list)
-    results: dict = field(default_factory=dict)   # your data goes here
+    results: dict = field(default_factory=dict)  # your data goes here
 ```
 
 ### 1. Write the processor
@@ -174,9 +175,12 @@ partial result, and re-raise rate-limit errors so the pool can handle them.
 from ghbot.processor import RepoResult, FeedbackEvent
 from ghbot.github.client import github_api_call
 from ghbot.errors import (
-    GitHubApiError, GitHubNotFoundError,
-    GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError,
+    GitHubApiError,
+    GitHubNotFoundError,
+    GitHubPrimaryRateLimitError,
+    GitHubSecondaryRateLimitError,
 )
+
 
 class TagsRepoProcessor:
     """Counts a repository's tags."""
@@ -187,16 +191,20 @@ class TagsRepoProcessor:
         self._owner, self._repo, self._gh, self._monitor = owner, repo, gh, monitor
 
     @property
-    def owner(self) -> str: return self._owner
+    def owner(self) -> str:
+        return self._owner
+
     @property
-    def repo(self) -> str: return self._repo
+    def repo(self) -> str:
+        return self._repo
 
     async def run(self) -> RepoResult:
         result = RepoResult(owner=self._owner, repo=self._repo)
         try:
             async with github_api_call(self._gh):
                 tags = [
-                    t async for t in self._gh.getiter(
+                    t
+                    async for t in self._gh.getiter(
                         "/repos/{owner}/{repo}/tags",
                         url_vars={"owner": self._owner, "repo": self._repo},
                     )

@@ -1,5 +1,6 @@
 import asyncio
 import platform
+
 from ghbot.errors import AuthError
 
 _token: str | None = None

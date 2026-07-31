@@ -1,4 +1,4 @@
-from typing import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator, Sequence
 
 import gidgethub.httpx as gh_httpx
 
@@ -9,7 +9,7 @@ from ghbot.log import get_logger
 log = get_logger(__name__)
 
 
-async def list_repos(owner: str, gh: gh_httpx.GitHubAPI) -> AsyncGenerator[dict, None]:
+async def list_repos(owner: str, gh: gh_httpx.GitHubAPI) -> AsyncGenerator[dict]:
     for attempt in range(2):
         try:
             async with github_api_call(gh):
@@ -29,7 +29,7 @@ async def list_repos(owner: str, gh: gh_httpx.GitHubAPI) -> AsyncGenerator[dict,
 
 async def scan_repositories(
     owners: Sequence[str], gh: gh_httpx.GitHubAPI
-) -> AsyncGenerator[tuple[str, dict], None]:
+) -> AsyncGenerator[tuple[str, dict]]:
     if not owners:
         log.warning("No owners specified")
         return

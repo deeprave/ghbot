@@ -229,14 +229,14 @@ class TestInfoRepoProcessorRun:
 
     @pytest.mark.anyio
     async def test_run_returns_success_status(self) -> None:
-        processor, monitor = self._make_processor()
+        processor, _monitor = self._make_processor()
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         assert result.status == "success"
 
     @pytest.mark.anyio
     async def test_run_returns_correct_owner_and_repo(self) -> None:
-        processor, monitor = self._make_processor()
+        processor, _monitor = self._make_processor()
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         assert result.owner == "acme"
@@ -244,7 +244,7 @@ class TestInfoRepoProcessorRun:
 
     @pytest.mark.anyio
     async def test_run_results_contains_all_9_keys(self) -> None:
-        processor, monitor = self._make_processor()
+        processor, _monitor = self._make_processor()
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         expected_keys = {
@@ -338,7 +338,7 @@ class TestInfoRepoProcessorGitHubApiErrorResilience:
         """A GitHubApiError on one step → status 'partial'."""
         from ghbot.errors import GitHubApiError
 
-        processor, monitor = self._make_processor_with_failing_step(
+        processor, _monitor = self._make_processor_with_failing_step(
             "/git/trees/", GitHubApiError("tree fetch failed")
         )
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
@@ -350,7 +350,7 @@ class TestInfoRepoProcessorGitHubApiErrorResilience:
         """A GitHubApiError on one step → error message in result.errors."""
         from ghbot.errors import GitHubApiError
 
-        processor, monitor = self._make_processor_with_failing_step(
+        processor, _monitor = self._make_processor_with_failing_step(
             "/git/trees/", GitHubApiError("tree fetch failed")
         )
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
@@ -365,7 +365,7 @@ class TestInfoRepoProcessorGitHubApiErrorResilience:
         """A GitHubApiError on file_count step → file_count defaults to 0."""
         from ghbot.errors import GitHubApiError
 
-        processor, monitor = self._make_processor_with_failing_step(
+        processor, _monitor = self._make_processor_with_failing_step(
             "/git/trees/", GitHubApiError("tree fetch failed")
         )
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
@@ -377,7 +377,7 @@ class TestInfoRepoProcessorGitHubApiErrorResilience:
         """A GitHubApiError on file_count step → other steps still populated."""
         from ghbot.errors import GitHubApiError
 
-        processor, monitor = self._make_processor_with_failing_step(
+        processor, _monitor = self._make_processor_with_failing_step(
             "/git/trees/", GitHubApiError("tree fetch failed")
         )
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
@@ -507,7 +507,7 @@ class TestInfoRepoProcessorEdgeCases:
             return _REPO_META
 
         gh.getitem = AsyncMock(side_effect=_getitem)
-        processor, monitor = self._make_processor(gh)
+        processor, _monitor = self._make_processor(gh)
 
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
@@ -558,7 +558,7 @@ class TestInfoRepoProcessorEdgeCases:
             return _REPO_META
 
         gh.getitem = AsyncMock(side_effect=_getitem)
-        processor, monitor = self._make_processor(gh)
+        processor, _monitor = self._make_processor(gh)
 
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
@@ -581,7 +581,7 @@ class TestInfoRepoProcessorEdgeCases:
             return _REPO_META
 
         gh.getitem = AsyncMock(side_effect=_getitem)
-        processor, monitor = self._make_processor(gh)
+        processor, _monitor = self._make_processor(gh)
 
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
@@ -655,7 +655,7 @@ class TestInfoRepoProcessorEdgeCases:
             return _REPO_META
 
         gh.getitem = AsyncMock(side_effect=_getitem)
-        processor, monitor = self._make_processor(gh)
+        processor, _monitor = self._make_processor(gh)
 
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
@@ -687,7 +687,7 @@ class TestInfoRepoProcessorEdgeCases:
             return _aiter()
 
         gh.getiter = MagicMock(side_effect=_getiter)
-        processor, monitor = self._make_processor(gh)
+        processor, _monitor = self._make_processor(gh)
 
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
@@ -755,7 +755,7 @@ class TestInfoRepoProcessorEdgeCases:
             return _aiter()
 
         gh.getiter = MagicMock(side_effect=_getiter)
-        processor, monitor = self._make_processor(gh)
+        processor, _monitor = self._make_processor(gh)
 
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
@@ -790,7 +790,7 @@ class TestInfoRepoProcessorUnexpectedExceptionContainment:
     @pytest.mark.anyio
     async def test_runtime_error_sets_status_failed(self) -> None:
         """RuntimeError during processing → status 'failed'."""
-        processor, monitor = self._make_processor_raising(RuntimeError("boom"))
+        processor, _monitor = self._make_processor_raising(RuntimeError("boom"))
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         assert result.status == "failed"
@@ -798,7 +798,7 @@ class TestInfoRepoProcessorUnexpectedExceptionContainment:
     @pytest.mark.anyio
     async def test_runtime_error_records_error(self) -> None:
         """RuntimeError during processing → error recorded in result.errors."""
-        processor, monitor = self._make_processor_raising(RuntimeError("boom"))
+        processor, _monitor = self._make_processor_raising(RuntimeError("boom"))
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         assert len(result.errors) >= 1
@@ -809,7 +809,7 @@ class TestInfoRepoProcessorUnexpectedExceptionContainment:
         """RuntimeError during processing → RepoResult returned, not raised."""
         from ghbot.processor import RepoResult
 
-        processor, monitor = self._make_processor_raising(RuntimeError("boom"))
+        processor, _monitor = self._make_processor_raising(RuntimeError("boom"))
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         assert isinstance(result, RepoResult)
@@ -826,7 +826,7 @@ class TestInfoRepoProcessorUnexpectedExceptionContainment:
     @pytest.mark.anyio
     async def test_value_error_sets_status_failed(self) -> None:
         """ValueError during processing → status 'failed'."""
-        processor, monitor = self._make_processor_raising(ValueError("bad value"))
+        processor, _monitor = self._make_processor_raising(ValueError("bad value"))
         with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
             result = await processor.run()
         assert result.status == "failed"
@@ -870,36 +870,42 @@ class TestInfoRepoProcessorFatalErrorPropagation:
         """GitHubPrimaryRateLimitError raised during a step → re-raised from run()."""
         from ghbot.errors import GitHubPrimaryRateLimitError
 
-        processor, monitor = self._make_processor_raising(
+        processor, _monitor = self._make_processor_raising(
             GitHubPrimaryRateLimitError("rate limit exceeded")
         )
-        with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
-            with pytest.raises(GitHubPrimaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough_github_api_call),
+            pytest.raises(GitHubPrimaryRateLimitError),
+        ):
+            await processor.run()
 
     @pytest.mark.anyio
     async def test_secondary_rate_limit_error_is_reraised(self) -> None:
         """GitHubSecondaryRateLimitError raised during a step → re-raised from run()."""
         from ghbot.errors import GitHubSecondaryRateLimitError
 
-        processor, monitor = self._make_processor_raising(
+        processor, _monitor = self._make_processor_raising(
             GitHubSecondaryRateLimitError("secondary rate limit")
         )
-        with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
-            with pytest.raises(GitHubSecondaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough_github_api_call),
+            pytest.raises(GitHubSecondaryRateLimitError),
+        ):
+            await processor.run()
 
     @pytest.mark.anyio
     async def test_primary_rate_limit_not_caught_as_unexpected(self) -> None:
         """GitHubPrimaryRateLimitError must NOT be swallowed as an unexpected exception."""
         from ghbot.errors import GitHubPrimaryRateLimitError
 
-        processor, monitor = self._make_processor_raising(
+        processor, _monitor = self._make_processor_raising(
             GitHubPrimaryRateLimitError("rate limit exceeded")
         )
-        with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
-            with pytest.raises(GitHubPrimaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough_github_api_call),
+            pytest.raises(GitHubPrimaryRateLimitError),
+        ):
+            await processor.run()
         # Status should NOT be "failed" — the exception escaped
         # (We can't check result.status here since run() raised, but the test
         # confirms the exception propagated rather than being swallowed.)
@@ -909,9 +915,11 @@ class TestInfoRepoProcessorFatalErrorPropagation:
         """GitHubSecondaryRateLimitError must NOT be swallowed as an unexpected exception."""
         from ghbot.errors import GitHubSecondaryRateLimitError
 
-        processor, monitor = self._make_processor_raising(
+        processor, _monitor = self._make_processor_raising(
             GitHubSecondaryRateLimitError("secondary rate limit")
         )
-        with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
-            with pytest.raises(GitHubSecondaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough_github_api_call),
+            pytest.raises(GitHubSecondaryRateLimitError),
+        ):
+            await processor.run()

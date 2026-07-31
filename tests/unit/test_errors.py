@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, patch
+
 from ghbot.errors import (
     AuthError,
     FatalError,
@@ -23,8 +24,9 @@ def test_auth_error_is_fatal_error():
 
 
 def test_main_catches_fatal_error_and_exits():
-    from ghbot.__main__ import cli
     from click.testing import CliRunner
+
+    from ghbot.__main__ import cli
 
     with patch(
         "ghbot.__main__._main",

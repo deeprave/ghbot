@@ -408,7 +408,7 @@ class TestSecurityRepoProcessorNotFound:
     @pytest.mark.anyio
     async def test_dependabot_not_found_sets_none(self):
         gh = self._make_gh_with_not_found("dependabot")
-        processor, monitor = _make_processor(gh)
+        processor, _monitor = _make_processor(gh)
         with patch("ghbot.processor.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["dependabot_alerts"] is None
@@ -431,7 +431,7 @@ class TestSecurityRepoProcessorNotFound:
     @pytest.mark.anyio
     async def test_code_scanning_not_found_sets_none(self):
         gh = self._make_gh_with_not_found("code-scanning")
-        processor, monitor = _make_processor(gh)
+        processor, _monitor = _make_processor(gh)
         with patch("ghbot.processor.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["code_scanning_alerts"] is None
@@ -440,7 +440,7 @@ class TestSecurityRepoProcessorNotFound:
     @pytest.mark.anyio
     async def test_secret_scanning_not_found_sets_none(self):
         gh = self._make_gh_with_not_found("secret-scanning")
-        processor, monitor = _make_processor(gh)
+        processor, _monitor = _make_processor(gh)
         with patch("ghbot.processor.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["secret_scanning_alerts"] is None
@@ -540,9 +540,11 @@ class TestSecurityRepoProcessorFatalErrors:
 
         gh.getiter = MagicMock(return_value=_fail())
         processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
-            with pytest.raises(GitHubPrimaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough),
+            pytest.raises(GitHubPrimaryRateLimitError),
+        ):
+            await processor.run()
 
     @pytest.mark.anyio
     async def test_secondary_rate_limit_reraises(self):
@@ -554,9 +556,11 @@ class TestSecurityRepoProcessorFatalErrors:
 
         gh.getiter = MagicMock(return_value=_fail())
         processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
-            with pytest.raises(GitHubSecondaryRateLimitError):
-                await processor.run()
+        with (
+            patch("ghbot.processor.github_api_call", _passthrough),
+            pytest.raises(GitHubSecondaryRateLimitError),
+        ):
+            await processor.run()
 
 
 # ---------------------------------------------------------------------------

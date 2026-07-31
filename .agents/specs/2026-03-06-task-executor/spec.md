@@ -64,8 +64,12 @@ src/ghbot/github/
 ### Error class addition
 
 ```python
-class GitHubPrimaryRateLimitError(GitHubApiError): ...   # gidgethub RateLimitExceeded (403)
-class GitHubSecondaryRateLimitError(GitHubApiError): ... # 429 Too Many Requests
+class GitHubPrimaryRateLimitError(
+    GitHubApiError
+): ...  # gidgethub RateLimitExceeded (403)
+
+
+class GitHubSecondaryRateLimitError(GitHubApiError): ...  # 429 Too Many Requests
 ```
 
 ### github_api_call exception mapping
@@ -87,8 +91,12 @@ Note: `RateLimitExceeded` must be caught before `HTTPException` (it's a subclass
 class TaskPool:
     def __init__(self, limit: int = 16, network_error_threshold: int = 3): ...
     async def __aenter__(self) -> "TaskPool": ...
-    async def __aexit__(self, *exc_info) -> None: ...  # waits for all tasks, logs summary
-    async def submit(self, fn, *args, **kwargs) -> None: ...  # blocks if full, no-op if aborted
+    async def __aexit__(
+        self, *exc_info
+    ) -> None: ...  # waits for all tasks, logs summary
+    async def submit(
+        self, fn, *args, **kwargs
+    ) -> None: ...  # blocks if full, no-op if aborted
 
     results: list[dict]
     stats: dict  # completed, not_found, network_error, rate_limited, unexpected

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any
+from typing import Any, Self
 
 import gidgethub
 import httpx
@@ -35,12 +35,12 @@ class TaskPool:
             "unexpected": 0,
         }
 
-    async def __aenter__(self) -> "TaskPool":
+    async def __aenter__(self) -> Self:
         self._sem = asyncio.Semaphore(self._limit)
         self._tasks = []
         return self
 
-    async def __aexit__(self, *exc_info: Any) -> None:
+    async def __aexit__(self, *exc_info: object) -> None:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         s = self.stats
@@ -65,7 +65,7 @@ class TaskPool:
             result = await fn(*args, **kwargs)
             self.results.append(result)
             self.stats["completed"] += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - TaskPool records unexpected task failures.
             await self._handle_error(e, fn, args, kwargs)
         finally:
             self._sem.release()
@@ -94,7 +94,7 @@ class TaskPool:
                 result = await fn(*args, **kwargs)
                 self.results.append(result)
                 self.stats["completed"] += 1
-            except Exception:
+            except Exception:  # noqa: BLE001 - retry failure aborts regardless of exception type.
                 self._abort(
                     f"Secondary rate limit retry failed. "
                     f"completed: {self.stats['completed']}, rate_limited: {self.stats['rate_limited']}"

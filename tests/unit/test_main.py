@@ -1,8 +1,9 @@
 import logging
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from click.testing import CliRunner
+
 import gidgethub.httpx as gh_httpx
+import pytest
+from click.testing import CliRunner
 
 from ghbot.processor import InfoRepoProcessor, SecurityRepoProcessor
 

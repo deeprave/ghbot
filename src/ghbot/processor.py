@@ -5,8 +5,8 @@ Defines the RepoProcessor protocol, Monitor protocol, and supporting data types
 Includes concrete implementations: LoggingMonitor and InfoRepoProcessor.
 """
 
-from dataclasses import dataclass, field
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from ghbot.errors import (
@@ -128,7 +128,7 @@ class InfoRepoProcessor:
             raise
         except FatalError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - processors report unexpected errors as failed results.
             await self._monitor.send_event(
                 FeedbackEvent("error", "error", f"unexpected error: {e}")
             )
@@ -418,7 +418,7 @@ class SecurityRepoProcessor:
             raise
         except FatalError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - processors report unexpected errors as failed results.
             await self._monitor.send_event(
                 FeedbackEvent("error", "error", f"unexpected error: {e}")
             )
@@ -698,7 +698,7 @@ class IssuesRepoProcessor:
             raise
         except FatalError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - processors report unexpected errors as failed results.
             await self._monitor.send_event(
                 FeedbackEvent("error", "error", f"unexpected error: {e}")
             )

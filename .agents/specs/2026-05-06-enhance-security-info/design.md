@@ -94,7 +94,7 @@ async def _dependabot_pr_is_ready(self, pr: dict, result: RepoResult) -> bool:
     if pr.get("mergeable") is False:
         return False
 
-    sha = ((pr.get("head") or {}).get("sha"))
+    sha = (pr.get("head") or {}).get("sha")
     if not sha:
         result.errors.append("dependabot pull request readiness: missing head sha")
         return False

@@ -32,8 +32,10 @@ async with TaskPool(limit=16) as pool:
 
 ## New error classes
 ```python
-class GitHubPrimaryRateLimitError(GitHubApiError): ...   # errors.py
-class GitHubSecondaryRateLimitError(GitHubApiError): ... # errors.py
+class GitHubPrimaryRateLimitError(GitHubApiError): ...  # errors.py
+
+
+class GitHubSecondaryRateLimitError(GitHubApiError): ...  # errors.py
 ```
 
 ## github_api_call exception mapping
