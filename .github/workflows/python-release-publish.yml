@@ -46,11 +46,39 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Require an unreleased version
+        uses: actions/github-script@v8
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+
+            async function requireMissing(description, request) {
+              try {
+                await request();
+              } catch (error) {
+                if (error.status === 404) {
+                  return;
+                }
+                throw error;
+              }
+              throw new Error(`${description} ${process.env.TAG} already exists.`);
+            }
+
+            await requireMissing("GitHub Release", () =>
+              github.rest.repos.getReleaseByTag({owner, repo, tag: process.env.TAG}),
+            );
+            await requireMissing("Git tag", () =>
+              github.rest.git.getRef({owner, repo, ref: `tags/${process.env.TAG}`}),
+            );
+
   publish:
     name: Publish to PyPI (trusted publishing)
     needs: validate-release
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       id-token: write
 
     steps:
@@ -82,4 +110,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.validate-release.outputs.tag }}
-        run: gh release create "$TAG" --target "$GITHUB_SHA" --generate-notes
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --generate-notes

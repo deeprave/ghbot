@@ -1,8 +1,8 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-09-dispatch-release-workflow",
-    "path": ".agents/specs/2026-11-09-dispatch-release-workflow",
+    "name": "2026-11-09-release-workflow-review-fixes",
+    "path": ".agents/specs/2026-11-09-release-workflow-review-fixes",
     "status": "implemented-not-committed",
     "progress": {
       "tasks_completed": 2,
@@ -19,7 +19,7 @@
         "ruff_format": "passing"
       }
     },
-    "revision_note": "Implemented and verified a manual, main-only release workflow that gates publication on an existing successful Validate run for the exact commit, reads the version from pyproject.toml, publishes via trusted PyPI, then creates the GitHub Release."
+    "revision_note": "Implemented and verified accepted release-workflow review fixes: checkout permission, pre-publication tag/release conflict detection, and explicit repository selection for release creation."
   },
   "recent_specs": [
     {
