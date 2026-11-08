@@ -5,7 +5,7 @@ import gidgethub.httpx as gh_httpx
 import pytest
 from click.testing import CliRunner
 
-from ghbot.processor import InfoRepoProcessor, SecurityRepoProcessor
+from ghbot.processor import DriftRepoProcessor, InfoRepoProcessor, SecurityRepoProcessor
 
 
 async def _scan_stub(owners, gh):
@@ -533,3 +533,38 @@ def test_requests_flag_true():
     mock_configure.assert_called_once()
     _, kwargs = mock_configure.call_args
     assert kwargs.get("requests") is True
+
+
+def test_drift_subcommand_uses_drift_processor_and_default_report():
+    from ghbot.processor import RepoResult
+
+    results = [RepoResult(owner="acme", repo="widgets")]
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=results)) as mock_main,
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_drift_report") as mock_report,
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["drift"])
+
+    assert result.exit_code == 0
+    assert mock_main.call_args.args[1] is DriftRepoProcessor
+    assert mock_main.call_args.kwargs["options"] == {"format": "plain"}
+    mock_report.assert_called_once_with(results, format="plain", output=None)
+
+
+def test_drift_subcommand_passes_json_format_and_output(tmp_path):
+    output = tmp_path / "drift.json"
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
+        patch("ghbot.__main__.configure"),
+        patch("ghbot.__main__.print_drift_report") as mock_report,
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["drift", "--json", "--output", str(output)])
+
+    assert result.exit_code == 0
+    assert mock_main.call_args.kwargs["options"] == {"format": "json"}
+    assert mock_report.call_args.kwargs == {"format": "json", "output": output}

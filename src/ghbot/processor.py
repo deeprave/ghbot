@@ -5,6 +5,7 @@ Defines the RepoProcessor protocol, Monitor protocol, and supporting data types
 Includes concrete implementations: LoggingMonitor and InfoRepoProcessor.
 """
 
+from base64 import b64decode
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
@@ -777,3 +778,215 @@ def _item_record(item: dict[str, Any]) -> dict[str, Any]:
 def _issues_activity_message(result: RepoResult) -> str | None:
     count = result.results.get("open_item_count")
     return f"found {count} open items" if count else None
+
+
+class DriftRepoProcessor:
+    """Find commits on a repository's default branch since its stable release."""
+
+    def __init__(
+        self,
+        owner: str,
+        repo: str,
+        gh: GitHubClient,
+        monitor: Monitor,
+        options: dict | None = None,
+    ) -> None:
+        if not owner:
+            raise ValueError("owner must be a non-empty string")
+        if not repo:
+            raise ValueError("repo must be a non-empty string")
+        self._owner = owner
+        self._repo = repo
+        self._gh = gh
+        self._monitor = monitor
+        self._options = dict(options or {})
+        self._deferred_events: list[FeedbackEvent] = []
+
+    @property
+    def owner(self) -> str:
+        return self._owner
+
+    @property
+    def repo(self) -> str:
+        return self._repo
+
+    async def run(self) -> RepoResult:
+        result = RepoResult(owner=self._owner, repo=self._repo)
+        self._deferred_events = []
+        result.results.update(
+            {
+                "latest_release_tag": None,
+                "latest_release_published_at": None,
+                "default_branch": None,
+                "commits_since_release": None,
+                "pypi_publishing_configured": None,
+            }
+        )
+        try:
+            if (
+                await self._fetch_release(result)
+                and await self._fetch_default_branch(result)
+                and await self._fetch_drift(result)
+                and result.results["commits_since_release"] > 0
+            ):
+                await self._detect_pypi_configuration(result)
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except FatalError:
+            raise
+        except Exception as e:  # noqa: BLE001 - processors report unexpected errors as failed results.
+            await self._monitor.send_event(
+                FeedbackEvent("error", "error", f"unexpected error: {e}")
+            )
+            result.status = "failed"
+            result.errors.append(str(e))
+        else:
+            if result.errors:
+                result.status = "partial"
+            await self._defer_event(
+                FeedbackEvent("progress", "debug", "processing finished")
+            )
+            if commits := result.results["commits_since_release"]:
+                await self._monitor.send_event(
+                    FeedbackEvent(
+                        "progress",
+                        "info",
+                        f"found {commits} commits since {result.results['latest_release_tag']}",
+                    )
+                )
+                for event in self._deferred_events:
+                    await self._monitor.send_event(event)
+        return result
+
+    async def _fetch_release(self, result: RepoResult) -> bool:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "fetching latest release")
+        )
+        try:
+            async with github_api_call(self._gh):
+                release = await self._gh.getitem(
+                    "/repos/{owner}/{repo}/releases/latest",
+                    url_vars={"owner": self._owner, "repo": self._repo},
+                )
+            result.results["latest_release_tag"] = release.get("tag_name")
+            result.results["latest_release_published_at"] = release.get("published_at")
+            return bool(result.results["latest_release_tag"])
+        except GitHubNotFoundError:
+            await self._defer_event(
+                FeedbackEvent("fetch", "debug", "no stable release available")
+            )
+            return False
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            await self._record_error(result, "latest release", e)
+            return False
+
+    async def _fetch_default_branch(self, result: RepoResult) -> bool:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "fetching repository metadata")
+        )
+        try:
+            async with github_api_call(self._gh):
+                repository = await self._gh.getitem(
+                    "/repos/{owner}/{repo}",
+                    url_vars={"owner": self._owner, "repo": self._repo},
+                )
+            result.results["default_branch"] = repository.get("default_branch")
+            return bool(result.results["default_branch"])
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            await self._record_error(result, "repository metadata", e)
+            return False
+
+    async def _fetch_drift(self, result: RepoResult) -> bool:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "comparing release to default branch")
+        )
+        basehead = (
+            f"{result.results['latest_release_tag']}..."
+            f"{result.results['default_branch']}"
+        )
+        try:
+            async with github_api_call(self._gh):
+                comparison = await self._gh.getitem(
+                    "/repos/{owner}/{repo}/compare/{basehead}",
+                    url_vars={
+                        "owner": self._owner,
+                        "repo": self._repo,
+                        "basehead": basehead,
+                    },
+                )
+            result.results["commits_since_release"] = comparison.get("ahead_by")
+            return isinstance(result.results["commits_since_release"], int)
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            await self._record_error(result, "release comparison", e)
+            return False
+
+    async def _detect_pypi_configuration(self, result: RepoResult) -> None:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "checking PyPI workflow configuration")
+        )
+        try:
+            async with github_api_call(self._gh):
+                tree = await self._gh.getitem(
+                    "/repos/{owner}/{repo}/git/trees/{branch}?recursive=1",
+                    url_vars={
+                        "owner": self._owner,
+                        "repo": self._repo,
+                        "branch": result.results["default_branch"],
+                    },
+                )
+            if tree.get("truncated"):
+                await self._record_error(
+                    result,
+                    "PyPI workflow configuration",
+                    ValueError("workflow tree listing was truncated"),
+                )
+                return
+            workflows = [
+                item
+                for item in tree.get("tree", [])
+                if item.get("type") == "blob"
+                and item.get("path", "").startswith(".github/workflows/")
+                and item.get("path", "").endswith((".yml", ".yaml"))
+            ]
+            for workflow in workflows:
+                path = workflow["path"]
+                if "pypi" in path.lower():
+                    result.results["pypi_publishing_configured"] = True
+                    return
+                async with github_api_call(self._gh):
+                    blob = await self._gh.getitem(
+                        "/repos/{owner}/{repo}/git/blobs/{sha}",
+                        url_vars={
+                            "owner": self._owner,
+                            "repo": self._repo,
+                            "sha": workflow["sha"],
+                        },
+                    )
+                content = b64decode(blob.get("content", "")).decode(
+                    "utf-8", errors="replace"
+                )
+                if "pypi" in content.lower():
+                    result.results["pypi_publishing_configured"] = True
+                    return
+            result.results["pypi_publishing_configured"] = False
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except (GitHubApiError, ValueError) as e:
+            await self._record_error(result, "PyPI workflow configuration", e)
+
+    async def _defer_event(self, event: FeedbackEvent) -> None:
+        self._deferred_events.append(event)
+
+    async def _record_error(
+        self, result: RepoResult, operation: str, error: Exception
+    ) -> None:
+        result.errors.append(f"{operation}: {error}")
+        await self._monitor.send_event(
+            FeedbackEvent("fetch", "error", f"failed to fetch {operation}: {error}")
+        )
