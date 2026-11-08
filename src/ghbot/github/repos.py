@@ -35,4 +35,7 @@ async def scan_repositories(
         return
     for owner in owners:
         async for repo in list_repos(owner, gh):
+            if repo.get("archived", False):
+                log.debug("Archived repository, skipping: %s/%s", owner, repo["name"])
+                continue
             yield owner, repo
