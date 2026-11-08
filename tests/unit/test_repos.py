@@ -97,6 +97,22 @@ async def test_scan_repositories_multiple_owners():
 
 
 @pytest.mark.anyio
+async def test_scan_repositories_skips_archived_repositories():
+    async def _stub(owner, gh):
+        yield {"name": "active", "archived": False}
+        yield {"name": "archived", "archived": True}
+        yield {"name": "missing-flag"}
+
+    with patch("ghbot.github.repos.list_repos", side_effect=_stub):
+        result = [
+            (owner, repo["name"])
+            async for owner, repo in scan_repositories(["acme"], AsyncMock())
+        ]
+
+    assert result == [("acme", "active"), ("acme", "missing-flag")]
+
+
+@pytest.mark.anyio
 async def test_scan_repositories_empty_owners_warns(caplog):
     import logging
 

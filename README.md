@@ -83,6 +83,24 @@ uvx ghbot --owner acme issues [--plain | --table | --json] [--labels] [--output 
 The summary splits `Open issues` and `Open PRs`. Plain/table omit repos with nothing open; JSON
 includes every scanned repo.
 
+### `drift` — commits since the latest stable release
+
+Finds repositories whose configured default branch has commits newer than their latest published
+stable GitHub release. Repositories without a stable release, or with no commits since it, are not
+listed. For each reported repository, `drift` also indicates whether its GitHub Actions workflows
+appear configured to publish to PyPI; this is configuration detection only and does not query PyPI.
+
+```bash
+uvx ghbot --owner acme drift [--plain | --table | --json] [--output FILE]
+```
+
+| Option | Meaning |
+|---|---|
+| `--plain` (default) | Summary + per-repository release, publication time, branch, commit count, and PyPI configuration |
+| `--table` | Markdown table for repositories with commits since release |
+| `--json` | Structured summary and reportable repositories; unknown PyPI configuration is `null` |
+| `--output FILE` | Write the report to a file instead of stdout |
+
 ### `info` — repository summary statistics
 
 Gathers per-repository facts (description, languages, contributors, latest release, file count, open
@@ -262,4 +280,3 @@ Contributions go through pull requests; `main` is protected and gated by the `Va
 ## License
 
 MIT — see [LICENSE.md](LICENSE.md).
- 

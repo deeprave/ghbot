@@ -1,8 +1,8 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-07-31-ruff-016-lint",
-    "path": ".agents/specs/2026-07-31-ruff-016-lint",
+    "name": "2026-11-08-release-drift",
+    "path": ".agents/specs/2026-11-08-release-drift",
     "status": "implemented-not-committed",
     "progress": {
       "tasks_completed": 5,
@@ -11,15 +11,15 @@
     "present_task": null,
     "verification": {
       "status": "passing",
-      "last_run": "2026-07-31",
+      "last_run": "2026-11-09",
       "gates": {
-        "pytest": "267 passed",
+        "pytest": "285 passed",
         "ruff_check": "passing",
         "ty_check": "passing",
-        "ruff_format": "passing for CI scope (src tests)"
+        "ruff_format": "passing"
       }
     },
-    "revision_note": "Ruff 0.16.1 lint remediation is complete. CI Ruff checks now target src and tests, excluding Markdown code blocks in README.md and historical .agents/specs documents."
+    "revision_note": "Drift is implemented and verified: stable release comparison, default-branch drift counts, low-noise monitoring, fatal-error propagation, truncated workflow trees reported as unknown, PyPI workflow detection, complete shared reports, and the drift CLI command."
   },
   "recent_specs": [
     {

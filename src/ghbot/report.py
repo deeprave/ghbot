@@ -1,4 +1,4 @@
-"""Report formatting for security and issues scan results."""
+"""Report formatting for security, issues, and drift scan results."""
 
 from __future__ import annotations
 
@@ -251,6 +251,184 @@ def _table_row(
         f"|{secrets:>{_SECRETS_WIDTH}}"
         f"|{dependabot_prs:>{_DEPENDABOT_PRS_WIDTH}}"
         f"|{ready_prs:>{_READY_PRS_WIDTH}}|"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Drift report (commits since latest stable release)
+# ---------------------------------------------------------------------------
+
+_DRIFT_REPOSITORY_WIDTH = 32
+_DRIFT_RELEASE_WIDTH = 14
+_DRIFT_PUBLISHED_WIDTH = 22
+_DRIFT_BRANCH_WIDTH = 14
+_DRIFT_COMMITS_WIDTH = 10
+_DRIFT_PYPI_WIDTH = 8
+
+
+def render_drift_report(results: list[RepoResult], *, format: str = "plain") -> str:
+    match format:
+        case "plain":
+            return _render_drift_plain(results)
+        case "table":
+            return _render_drift_table(results)
+        case "json":
+            return _render_drift_json(results)
+        case _:
+            raise ValueError(f"unsupported drift report format: {format}")
+
+
+def print_drift_report(
+    results: list[RepoResult], *, format: str = "plain", output: Path | None = None
+) -> None:
+    text = render_drift_report(results, format=format)
+    if output is None:
+        sys.stdout.write(text)
+        return
+    try:
+        output.write_text(text, encoding="utf-8")
+    except OSError as e:
+        raise click.ClickException(f"failed to write output file: {e}") from e
+
+
+def _drift_repos_to_show(results: list[RepoResult]) -> list[RepoResult]:
+    return sorted(
+        (
+            result
+            for result in results
+            if isinstance(result.results.get("commits_since_release"), int)
+            and result.results["commits_since_release"] > 0
+        ),
+        key=lambda result: f"{result.owner}/{result.repo}",
+    )
+
+
+def _drift_summary(results: list[RepoResult]) -> dict[str, int]:
+    reportable = _drift_repos_to_show(results)
+    return {
+        "repos_scanned": len(results),
+        "released_repos": sum(
+            1 for result in results if result.results.get("latest_release_tag")
+        ),
+        "repos_with_drift": len(reportable),
+        "commits_since_release": sum(
+            result.results["commits_since_release"] for result in reportable
+        ),
+    }
+
+
+def _drift_summary_lines(results: list[RepoResult]) -> list[str]:
+    summary = _drift_summary(results)
+    return [
+        _fmt("Repos scanned:", summary["repos_scanned"]),
+        _fmt("Released repos:", summary["released_repos"]),
+        _fmt("Repos with drift:", summary["repos_with_drift"]),
+        _fmt("Commits since release:", summary["commits_since_release"]),
+    ]
+
+
+def _render_drift_plain(results: list[RepoResult]) -> str:
+    lines = _drift_summary_lines(results)
+    for result in _drift_repos_to_show(results):
+        lines.extend(
+            [
+                "",
+                f"{result.owner}/{result.repo}",
+                _fmt("  Latest release:", result.results["latest_release_tag"]),
+                _fmt(
+                    "  Release published:",
+                    _display(result.results["latest_release_published_at"]),
+                ),
+                _fmt("  Default branch:", result.results["default_branch"]),
+                _fmt(
+                    "  Commits since release:",
+                    result.results["commits_since_release"],
+                ),
+                _fmt(
+                    "  PyPI configured:",
+                    _display_drift_pypi(result.results["pypi_publishing_configured"]),
+                ),
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_drift_table(results: list[RepoResult]) -> str:
+    lines = _drift_summary_lines(results)
+    reportable = _drift_repos_to_show(results)
+    if reportable:
+        lines.extend(["", _drift_table_header(), _drift_table_separator()])
+        lines.extend(_drift_table_row(result) for result in reportable)
+    return "\n".join(lines) + "\n"
+
+
+def _render_drift_json(results: list[RepoResult]) -> str:
+    return (
+        json.dumps(
+            {
+                "summary": _drift_summary(results),
+                "repositories": [
+                    {
+                        "owner": result.owner,
+                        "repo": result.repo,
+                        "repository": f"{result.owner}/{result.repo}",
+                        "default_branch": result.results["default_branch"],
+                        "latest_release_tag": result.results["latest_release_tag"],
+                        "latest_release_published_at": result.results[
+                            "latest_release_published_at"
+                        ],
+                        "commits_since_release": result.results[
+                            "commits_since_release"
+                        ],
+                        "pypi_publishing_configured": result.results[
+                            "pypi_publishing_configured"
+                        ],
+                    }
+                    for result in _drift_repos_to_show(results)
+                ],
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
+def _display_drift_pypi(value: bool | None) -> str:
+    if value is None:
+        return "N/A"
+    return "yes" if value else "no"
+
+
+def _drift_table_header() -> str:
+    return (
+        f"|{'Repository':<{_DRIFT_REPOSITORY_WIDTH}}"
+        f"|{' Release':>{_DRIFT_RELEASE_WIDTH}}"
+        f"|{' Published':>{_DRIFT_PUBLISHED_WIDTH}}"
+        f"|{' Branch':>{_DRIFT_BRANCH_WIDTH}}"
+        f"|{' Commits':>{_DRIFT_COMMITS_WIDTH}}"
+        f"|{' PyPI':>{_DRIFT_PYPI_WIDTH}}|"
+    )
+
+
+def _drift_table_separator() -> str:
+    return (
+        f"|{'-' * _DRIFT_REPOSITORY_WIDTH}"
+        f"|{'-' * _DRIFT_RELEASE_WIDTH}"
+        f"|{'-' * _DRIFT_PUBLISHED_WIDTH}"
+        f"|{'-' * _DRIFT_BRANCH_WIDTH}"
+        f"|{'-' * _DRIFT_COMMITS_WIDTH}"
+        f"|{'-' * _DRIFT_PYPI_WIDTH}|"
+    )
+
+
+def _drift_table_row(result: RepoResult) -> str:
+    return (
+        f"|{f'{result.owner}/{result.repo}':<{_DRIFT_REPOSITORY_WIDTH}}"
+        f"|{_display(result.results['latest_release_tag']):>{_DRIFT_RELEASE_WIDTH}}"
+        f"|{_display(result.results['latest_release_published_at']):>{_DRIFT_PUBLISHED_WIDTH}}"
+        f"|{_display(result.results['default_branch']):>{_DRIFT_BRANCH_WIDTH}}"
+        f"|{result.results['commits_since_release']:>{_DRIFT_COMMITS_WIDTH}}"
+        f"|{_display_drift_pypi(result.results['pypi_publishing_configured']):>{_DRIFT_PYPI_WIDTH}}|"
     )
 
 
