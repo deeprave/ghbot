@@ -1,25 +1,25 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-08-release-drift",
-    "path": ".agents/specs/2026-11-08-release-drift",
+    "name": "2026-11-09-dispatch-release-workflow",
+    "path": ".agents/specs/2026-11-09-dispatch-release-workflow",
     "status": "implemented-not-committed",
     "progress": {
-      "tasks_completed": 5,
-      "tasks_total": 5
+      "tasks_completed": 2,
+      "tasks_total": 2
     },
     "present_task": null,
     "verification": {
       "status": "passing",
       "last_run": "2026-11-09",
       "gates": {
-        "pytest": "285 passed",
+        "pytest": "287 passed",
         "ruff_check": "passing",
         "ty_check": "passing",
         "ruff_format": "passing"
       }
     },
-    "revision_note": "Drift is implemented and verified: stable release comparison, default-branch drift counts, low-noise monitoring, fatal-error propagation, truncated workflow trees reported as unknown, PyPI workflow detection, complete shared reports, and the drift CLI command."
+    "revision_note": "Implemented and verified a manual, main-only release workflow that gates publication on an existing successful Validate run for the exact commit, reads the version from pyproject.toml, publishes via trusted PyPI, then creates the GitHub Release."
   },
   "recent_specs": [
     {
