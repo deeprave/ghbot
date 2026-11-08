@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "ghbot"
-version = "0.9.5"
+version = "0.10.0"
 description = "Autofix for github"
 readme = "README.md"
 authors = [
