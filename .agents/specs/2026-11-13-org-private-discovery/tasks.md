@@ -1,0 +1,17 @@
+# Implementation Tasks
+
+- [x] 1. Classify owners and select the listing endpoint (`tests/unit/test_repos.py`, `src/ghbot/github/repos.py`)
+  - [x] 1.1 Add failing async tests for `User` and `Organization` metadata and assert the chosen listing URL/template and `url_vars`.
+  - [x] 1.2 Implement metadata lookup and parameterized endpoint selection inside the existing two-attempt discovery boundary.
+- [x] 2. Expose discovered owner type through the shared scanner (`tests/unit/test_repos.py`, `src/ghbot/github/repos.py`)
+  - [x] 2.1 Add failing tests that a private organisation repository yields `owner_type="Organization"`, unknown types yield `None`, and archived repositories remain excluded.
+  - [x] 2.2 Implement `DiscoveredRepository` and yield it from the scanner.
+- [x] 3. Pass owner type to processors (`tests/unit/test_main.py`, processor tests, `src/ghbot/__main__.py`, `src/ghbot/processor.py`)
+  - [x] 3.1 Add failing tests that `_main()` supplies each discovery record's owner type through the keyword-only processor argument, preserves command options, and that built-in processors default `owner_type` to `None`.
+  - [x] 3.2 Update `RepoProcessor`, built-in constructors, and `_main()` for keyword-only `owner_type: str | None = None`.
+- [x] 4. Add release-visible changelog entries (`CHANGELOG.md`)
+  - [x] 4.1 Add assertions for the `0.10.0` drift entry and the Unreleased `owner_type` breaking-change entry.
+  - [x] 4.2 Create the versioned changelog with those entries.
+- [x] 5. Preserve error policy and verify (`tests/unit/test_repos.py`, `src/ghbot/github/repos.py`)
+  - [x] 5.1 Add failing tests for lookup/list retry, not-found skip, and rate-limit propagation.
+  - [x] 5.2 Implement the minimum error and fallback policy, update `spec-lite.md`, then run `uv run pytest -v -Werror -Walways`, `uv run ruff check`, `uv run ty check src/`, and `uv run ruff format --check`.

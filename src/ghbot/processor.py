@@ -66,6 +66,9 @@ class RepoProcessor(Protocol):
     @property
     def repo(self) -> str: ...
 
+    @property
+    def owner_type(self) -> str | None: ...
+
     async def run(self) -> RepoResult: ...
 
 
@@ -91,6 +94,8 @@ class InfoRepoProcessor:
         gh: GitHubClient,
         monitor: Monitor,
         options: dict | None = None,
+        *,
+        owner_type: str | None = None,
     ) -> None:
         if not owner:
             raise ValueError("owner must be a non-empty string")
@@ -101,6 +106,7 @@ class InfoRepoProcessor:
         self._gh = gh
         self._monitor = monitor
         self._options = dict(options or {})
+        self._owner_type = owner_type
 
     @property
     def owner(self) -> str:
@@ -109,6 +115,10 @@ class InfoRepoProcessor:
     @property
     def repo(self) -> str:
         return self._repo
+
+    @property
+    def owner_type(self) -> str | None:
+        return self._owner_type
 
     async def run(self) -> RepoResult:
         result = RepoResult(owner=self._owner, repo=self._repo)
@@ -387,6 +397,8 @@ class SecurityRepoProcessor:
         gh: GitHubClient,
         monitor: Monitor,
         options: dict | None = None,
+        *,
+        owner_type: str | None = None,
     ) -> None:
         if not owner:
             raise ValueError("owner must be a non-empty string")
@@ -397,6 +409,7 @@ class SecurityRepoProcessor:
         self._gh = gh
         self._monitor = monitor
         self._options = dict(options or {})
+        self._owner_type = owner_type
         self._deferred_events: list[FeedbackEvent] = []
 
     @property
@@ -406,6 +419,10 @@ class SecurityRepoProcessor:
     @property
     def repo(self) -> str:
         return self._repo
+
+    @property
+    def owner_type(self) -> str | None:
+        return self._owner_type
 
     async def run(self) -> RepoResult:
         result = RepoResult(owner=self._owner, repo=self._repo)
@@ -670,6 +687,8 @@ class IssuesRepoProcessor:
         gh: GitHubClient,
         monitor: Monitor,
         options: dict | None = None,
+        *,
+        owner_type: str | None = None,
     ) -> None:
         if not owner:
             raise ValueError("owner must be a non-empty string")
@@ -680,6 +699,7 @@ class IssuesRepoProcessor:
         self._gh = gh
         self._monitor = monitor
         self._options = dict(options or {})
+        self._owner_type = owner_type
         self._deferred_events: list[FeedbackEvent] = []
 
     @property
@@ -689,6 +709,10 @@ class IssuesRepoProcessor:
     @property
     def repo(self) -> str:
         return self._repo
+
+    @property
+    def owner_type(self) -> str | None:
+        return self._owner_type
 
     async def run(self) -> RepoResult:
         result = RepoResult(owner=self._owner, repo=self._repo)
@@ -790,6 +814,8 @@ class DriftRepoProcessor:
         gh: GitHubClient,
         monitor: Monitor,
         options: dict | None = None,
+        *,
+        owner_type: str | None = None,
     ) -> None:
         if not owner:
             raise ValueError("owner must be a non-empty string")
@@ -800,6 +826,7 @@ class DriftRepoProcessor:
         self._gh = gh
         self._monitor = monitor
         self._options = dict(options or {})
+        self._owner_type = owner_type
         self._deferred_events: list[FeedbackEvent] = []
 
     @property
@@ -809,6 +836,10 @@ class DriftRepoProcessor:
     @property
     def repo(self) -> str:
         return self._repo
+
+    @property
+    def owner_type(self) -> str | None:
+        return self._owner_type
 
     async def run(self) -> RepoResult:
         result = RepoResult(owner=self._owner, repo=self._repo)

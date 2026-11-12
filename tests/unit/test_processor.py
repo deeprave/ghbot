@@ -128,6 +128,10 @@ class TestRepoProcessorProtocol:
             def repo(self) -> str:
                 return "widgets"
 
+            @property
+            def owner_type(self) -> str | None:
+                return None
+
             async def run(self) -> RepoResult:
                 return RepoResult(owner=self.owner, repo=self.repo)
 
