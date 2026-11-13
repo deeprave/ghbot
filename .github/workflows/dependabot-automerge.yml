@@ -33,7 +33,8 @@ jobs:
         id: app-token
         if: >-
           steps.dependabot-metadata.outputs.update-type == 'version-update:semver-patch' &&
-          steps.dependabot-metadata.outputs.package-ecosystem == 'uv'
+          (steps.dependabot-metadata.outputs.package-ecosystem == 'uv' ||
+          steps.dependabot-metadata.outputs.package-ecosystem == 'github_actions')
         uses: actions/create-github-app-token@v3
         with:
           client-id: "${{ vars.AUTOMERGE_APP_CLIENT_ID }}"
@@ -41,10 +42,11 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Enable auto-merge for Python patch updates
+      - name: Enable auto-merge for dependency patch updates
         if: >-
           steps.dependabot-metadata.outputs.update-type == 'version-update:semver-patch' &&
-          steps.dependabot-metadata.outputs.package-ecosystem == 'uv'
+          (steps.dependabot-metadata.outputs.package-ecosystem == 'uv' ||
+          steps.dependabot-metadata.outputs.package-ecosystem == 'github_actions')
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           GH_TOKEN: "${{ steps.app-token.outputs.token }}"

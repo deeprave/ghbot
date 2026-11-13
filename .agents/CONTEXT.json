@@ -1,12 +1,12 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-13-org-private-discovery",
-    "path": ".agents/specs/2026-11-13-org-private-discovery",
+    "name": "2026-11-13-automerge-actions-patches",
+    "path": ".agents/specs/2026-11-13-automerge-actions-patches",
     "status": "implemented-not-committed",
     "progress": {
-      "tasks_completed": 6,
-      "tasks_total": 6
+      "tasks_completed": 2,
+      "tasks_total": 2
     },
     "present_task": null,
     "verification": {
@@ -19,7 +19,7 @@
         "ruff_format": "passing"
       }
     },
-    "revision_note": "Implemented and verified issue #38, including accepted PR #39 review remediation: buffered discovery retries, secondary-rate-limit 403 classification, a narrower RepoProcessor protocol, and updated owner/extension documentation."
+    "revision_note": "Implemented a narrow workflow-only change to auto-merge Dependabot GitHub Actions patch updates alongside existing uv patch updates; inspected shared conditions and preserved grouping, authentication, and action references."
   },
   "recent_specs": [
     {
@@ -52,9 +52,9 @@
     "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
   },
   "requirements_summary": {
-    "feature": "Owner-aware repository discovery for accessible private organisation repositories.",
-    "behaviour": "Classify owners before listing, select the organisation or user endpoint, skip archived repositories, and forward owner_type as optional constructor context.",
-    "review_remediation": "Buffer listing attempts before yielding, classify documented secondary-rate-limit 403s, keep owner_type out of the RepoProcessor structural protocol, and document owner/extension behaviour."
+    "feature": "Auto-merge Dependabot GitHub Actions patch updates.",
+    "behaviour": "Permit only patch updates for uv and github_actions through the existing GitHub App token flow.",
+    "constraints": "Do not change Dependabot grouping or version tag pinning; do not add workflow-YAML tests."
   },
   "skills": {
     "location": ".agents/skills",
