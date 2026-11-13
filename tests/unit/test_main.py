@@ -5,11 +5,12 @@ import gidgethub.httpx as gh_httpx
 import pytest
 from click.testing import CliRunner
 
+from ghbot.github.repos import DiscoveredRepository
 from ghbot.processor import DriftRepoProcessor, InfoRepoProcessor, SecurityRepoProcessor
 
 
 async def _scan_stub(owners, gh):
-    yield "owner1", {"name": "repo1"}
+    yield DiscoveredRepository("owner1", {"name": "repo1"}, "User")
 
 
 async def _empty_scan(owners, gh):
@@ -89,7 +90,7 @@ async def test_main_submits_processor_run_for_each_repo():
         await _main({"owners": ["owner1"], "concurrency": 16}, mock_processor_cls)
     mock_lm.assert_called_once_with("owner1", "repo1")
     mock_processor_cls.assert_called_once_with(
-        "owner1", "repo1", mock_gh, mock_monitor, options=None
+        "owner1", "repo1", mock_gh, mock_monitor, options=None, owner_type="User"
     )
     mock_pool.submit.assert_called_once_with(mock_processor.run)
 
@@ -123,8 +124,65 @@ async def test_main_passes_options_to_processor_constructor():
             options=options,
         )
     mock_processor_cls.assert_called_once_with(
-        "owner1", "repo1", mock_gh, mock_monitor, options=options
+        "owner1", "repo1", mock_gh, mock_monitor, options=options, owner_type="User"
     )
+
+
+@pytest.mark.anyio
+async def test_main_passes_discovered_owner_type_as_keyword_only_argument():
+    """_main preserves command options while forwarding the discovery owner type."""
+    mock_gh = MagicMock(spec=gh_httpx.GitHubAPI)
+    mock_pool = AsyncMock()
+    mock_pool.__aenter__ = AsyncMock(return_value=mock_pool)
+    mock_pool.__aexit__ = AsyncMock(return_value=False)
+    mock_pool.stats = {}
+    mock_pool.results = []
+    mock_monitor = AsyncMock()
+    mock_processor = AsyncMock()
+    mock_processor.run = AsyncMock()
+    mock_processor_cls = MagicMock(return_value=mock_processor)
+
+    async def _scan_organisation(owners, gh):
+        yield DiscoveredRepository("acme", {"name": "private"}, "Organization")
+
+    with (
+        patch("ghbot.__main__.get_auth_token", new=AsyncMock(return_value="tok")),
+        patch("ghbot.__main__.gh_httpx.GitHubAPI", return_value=mock_gh),
+        patch("ghbot.__main__.scan_repositories", side_effect=_scan_organisation),
+        patch("ghbot.__main__.TaskPool", return_value=mock_pool),
+        patch("ghbot.__main__.LoggingMonitor", return_value=mock_monitor),
+    ):
+        from ghbot.__main__ import _main
+
+        await _main(
+            {"owners": ["acme"], "concurrency": 16},
+            mock_processor_cls,
+            options={"format": "json"},
+        )
+
+    mock_processor_cls.assert_called_once_with(
+        "acme",
+        "private",
+        mock_gh,
+        mock_monitor,
+        options={"format": "json"},
+        owner_type="Organization",
+    )
+
+
+def test_builtin_processors_default_owner_type_to_none():
+    """Built-in processors remain directly constructible without owner type."""
+    from ghbot.processor import IssuesRepoProcessor
+
+    gh = MagicMock()
+    monitor = AsyncMock()
+    for processor_cls in (
+        InfoRepoProcessor,
+        SecurityRepoProcessor,
+        IssuesRepoProcessor,
+        DriftRepoProcessor,
+    ):
+        assert processor_cls("acme", "widgets", gh, monitor).owner_type is None
 
 
 @pytest.mark.anyio

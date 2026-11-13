@@ -100,6 +100,17 @@ async def test_403_plain_raises_not_found_error():
 
 
 @pytest.mark.anyio
+async def test_secondary_rate_limit_403_raises_secondary_rate_limit_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubSecondaryRateLimitError):
+        async with github_api_call(gh):
+            raise gidgethub.BadRequest(
+                http.HTTPStatus.FORBIDDEN,
+                "You have exceeded a secondary rate limit.",
+            )
+
+
+@pytest.mark.anyio
 async def test_github_api_call_logs_debug_on_entry():
     requests_logger = logging.getLogger("ghbot.requests")
     handler = logging.handlers.MemoryHandler(

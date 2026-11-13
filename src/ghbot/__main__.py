@@ -40,10 +40,15 @@ async def _main(
     async with httpx.AsyncClient() as client:
         gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
         async with TaskPool(limit=cfg["concurrency"]) as pool:
-            async for owner, repo in scan_repositories(cfg["owners"], gh):
-                monitor = LoggingMonitor(owner, repo["name"])
+            async for discovered in scan_repositories(cfg["owners"], gh):
+                monitor = LoggingMonitor(discovered.owner, discovered.name)
                 processor = processor_cls(
-                    owner, repo["name"], gh, monitor, options=options
+                    discovered.owner,
+                    discovered.name,
+                    gh,
+                    monitor,
+                    options=options,
+                    owner_type=discovered.owner_type,
                 )
                 await pool.submit(processor.run)
     log.info("stats: %s", pool.stats)
