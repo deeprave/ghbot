@@ -15,3 +15,7 @@
 - [x] 5. Preserve error policy and verify (`tests/unit/test_repos.py`, `src/ghbot/github/repos.py`)
   - [x] 5.1 Add failing tests for lookup/list retry, not-found skip, and rate-limit propagation.
   - [x] 5.2 Implement the minimum error and fallback policy, update `spec-lite.md`, then run `uv run pytest -v -Werror -Walways`, `uv run ruff check`, `uv run ty check src/`, and `uv run ruff format --check`.
+- [x] 6. Address accepted PR #39 review feedback (`src/ghbot/github/client.py`, `src/ghbot/github/repos.py`, `src/ghbot/processor.py`, `README.md`)
+  - [x] 6.1 Add focused failing coverage for buffered discovery retries and secondary-rate-limit 403 classification.
+  - [x] 6.2 Buffer successful repository listings, classify documented secondary-limit 403s, narrow the processor protocol, and update extension/owner documentation.
+  - [x] 6.3 Run the Python quality gates and update tracking context.

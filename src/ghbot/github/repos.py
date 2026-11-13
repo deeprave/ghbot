@@ -51,10 +51,14 @@ async def list_repos(
                 else "/users/{owner}/repos"
             )
             async with github_api_call(gh):
-                async for repo in gh.getiter(
-                    list_path, url_vars={"owner": owner, "type": "all"}
-                ):
-                    yield DiscoveredRepository(owner, repo, owner_type)
+                repositories = [
+                    DiscoveredRepository(owner, repo, owner_type)
+                    async for repo in gh.getiter(
+                        list_path, url_vars={"owner": owner, "type": "all"}
+                    )
+                ]
+            for repository in repositories:
+                yield repository
             return
         except GitHubNotFoundError:
             log.warning("Owner not found, skipping: %s", owner)

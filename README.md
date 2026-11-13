@@ -33,8 +33,8 @@ That token is fetched once, cached in memory for the duration of the run, and ne
 uvx ghbot --owner <owner> <command> [options]
 ```
 
-`--owner` may be repeated or comma-separated, and targets a GitHub user (all of that user's
-repositories are scanned):
+`--owner` may be repeated or comma-separated, and targets a GitHub user or organisation. ghbot
+scans repositories accessible to the configured token and skips archived repositories:
 
 ```bash
 uvx ghbot --owner acme security
@@ -138,8 +138,8 @@ log-json = false
 ```
 gh auth token
       │
-scan_repositories(owners)          discover every repo for each owner
-      │  (owner, repo) stream
+scan_repositories(owners)          discover each accessible non-archived repo
+      │  DiscoveredRepository(owner, metadata, owner_type) stream
 TaskPool (bounded concurrency)     one processor instance per repo, run in parallel
       │
 Processor.run() ─► RepoResult      fetch via the GitHub API, return structured results
@@ -184,10 +184,12 @@ class RepoResult:
 
 ### 1. Write the processor
 
-Constructors take `(owner, repo, gh, monitor, options=None)`. Fetch through `github_api_call` and
-build URLs with `url_vars` (never f-strings). Follow the standard per-step error policy: treat
-403/404 as "unavailable" (store `None`, don't error), turn a non-fatal `GitHubApiError` into a
-partial result, and re-raise rate-limit errors so the pool can handle them.
+Constructors take `(owner, repo, gh, monitor, options=None, *, owner_type=None)`. `owner_type` is
+the resolved owner-account type (`"User"`, `"Organization"`, or `None`) selected during discovery;
+accept it even when the processor does not need it. Fetch through `github_api_call` and build URLs
+with `url_vars` (never f-strings). Follow the standard per-step error policy: treat 403/404 as
+"unavailable" (store `None`, don't error), turn a non-fatal `GitHubApiError` into a partial result,
+and re-raise rate-limit errors so the pool can handle them.
 
 ```python
 from ghbot.processor import RepoResult, FeedbackEvent
@@ -203,7 +205,7 @@ from ghbot.errors import (
 class TagsRepoProcessor:
     """Counts a repository's tags."""
 
-    def __init__(self, owner, repo, gh, monitor, options=None):
+    def __init__(self, owner, repo, gh, monitor, options=None, *, owner_type=None):
         if not owner or not repo:
             raise ValueError("owner and repo are required")
         self._owner, self._repo, self._gh, self._monitor = owner, repo, gh, monitor

@@ -36,7 +36,7 @@ Issue #38 identifies a repository-discovery gap: listing an organisation through
 2. THE resolved owner type SHALL be `User`, `Organization`, or `None` when account metadata lacks a recognised type.
 3. FOR EACH processor invocation, THE main loop SHALL pass the discovered repository's owner type through a keyword-only `owner_type` argument.
 4. THE raw GitHub repository metadata SHALL remain available in the discovered-repository record.
-5. THE `RepoProcessor` protocol and every built-in processor constructor SHALL accept `owner_type: str | None = None` as a keyword-only argument.
+5. EVERY built-in processor constructor and custom processor constructor used with `_main()` SHALL accept `owner_type: str | None = None` as a keyword-only argument.
 
 ### Requirement 3: Preserve shared scanning behaviour
 

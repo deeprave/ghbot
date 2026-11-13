@@ -66,9 +66,6 @@ class RepoProcessor(Protocol):
     @property
     def repo(self) -> str: ...
 
-    @property
-    def owner_type(self) -> str | None: ...
-
     async def run(self) -> RepoResult: ...
 
 

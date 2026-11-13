@@ -35,5 +35,7 @@ async def github_api_call(gh):
         if e.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
             raise GitHubSecondaryRateLimitError(str(e)) from e
         if e.status_code == http.HTTPStatus.FORBIDDEN:
+            if "secondary rate limit" in str(e).lower():
+                raise GitHubSecondaryRateLimitError(str(e)) from e
             raise GitHubNotFoundError(str(e)) from e  # access denied — skip
         raise GitHubApiError(str(e)) from e

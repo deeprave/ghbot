@@ -226,6 +226,7 @@ async def test_list_repos_retries_once_on_api_error():
         nonlocal call_count
         call_count += 1
         if call_count == 1:
+            yield {"name": "partial-first-attempt"}
             raise GitHubApiError("api error")
         yield {"name": "repo1"}
 

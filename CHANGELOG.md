@@ -6,7 +6,7 @@ All notable changes to ghbot are documented in this file.
 
 ### Breaking changes
 
-- Custom `RepoProcessor` implementations must accept the new keyword-only
+- Custom processor constructors used with `_main()` must accept the new keyword-only
   `owner_type: str | None = None` argument. Built-in processors default it to
   `None`.
 
