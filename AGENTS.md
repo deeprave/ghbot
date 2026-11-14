@@ -39,8 +39,6 @@ skill before the step, and re-run it to iterate. The recommended skill is in (pa
    loop; do not proceed until it is a clean PASS.
 7. Review (/review) — quality, steering, and security pass on the diff. Address findings with
    /build, then re-review.
-8. Commit — direct to main once tests and gates pass (see CONTEXT.json commit_policy).
-
 After /compact or major changes, run /context to regenerate CONTEXT.json.
 
 Alternate entry points (shorter cycles):
