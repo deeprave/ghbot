@@ -1,25 +1,27 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-14-env-token-auth",
-    "path": ".agents/specs/2026-11-14-env-token-auth",
-    "status": "verified-not-committed",
+    "name": "2026-11-14-pre-commit-gates",
+    "path": ".agents/specs/2026-11-14-pre-commit-gates",
+    "status": "implemented-not-committed",
     "progress": {
-      "tasks_completed": 4,
-      "tasks_total": 4
+      "tasks_completed": 3,
+      "tasks_total": 3
     },
     "present_task": null,
     "verification": {
       "status": "passed",
       "last_run": "2026-11-14",
       "gates": {
+        "pre_commit": "passed with no-commit-to-branch intentionally skipped on main",
+        "branch_guard": "rejected on main as expected",
         "tests": "passed (312 tests)",
         "lint": "passed",
         "type_check": "passed",
         "format": "passed"
       }
     },
-    "revision_note": "Verified environment-token authentication: env = true persistently selects GITHUB_API_TOKEN, while --no-env overrides it for one invocation; all Python gates pass."
+    "revision_note": "Activated pre-commit quality gates: standard hygiene hooks plus the repository's Ruff, ty, and pytest gates."
   },
   "recent_specs": [
     {
@@ -52,9 +54,9 @@
     "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
   },
   "requirements_summary": {
-    "feature": "Explicit environment API token authentication.",
-    "behaviour": "-e/--env or env = true selects GITHUB_API_TOKEN; --no-env overrides configuration and restores gh auth token.",
-    "constraints": "Do not use GITHUB_TOKEN, token values in config/.env/logs, or a shared cache between sources."
+    "feature": "Repository-managed pre-commit quality gates.",
+    "behaviour": "Standard hygiene hooks and project-wide Ruff, ty, and pytest gates run before commits.",
+    "constraints": "Use uv; keep the configuration declarative and do not change runtime behaviour."
   },
   "skills": {
     "location": ".agents/skills",
