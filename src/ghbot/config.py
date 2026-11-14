@@ -10,6 +10,7 @@ DEFAULTS: dict[str, Any] = {
     "log-json": False,
     "log-level": "info",
     "concurrency": 16,
+    "env": False,
 }
 
 _SEARCH_PATHS = [

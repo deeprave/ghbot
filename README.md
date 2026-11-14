@@ -14,18 +14,26 @@ repository (security posture, open issues, …). New capabilities are added by w
 
 ## Requirements
 
-- The [GitHub CLI](https://cli.github.com) (`gh`), installed and authenticated (`gh auth login`).
+- By default, the [GitHub CLI](https://cli.github.com) (`gh`), installed and authenticated (`gh auth login`).
+- Alternatively, an API token in `GITHUB_API_TOKEN` when using `--env` or `env = true`.
 
 ## Authentication
 
-`ghbot` has no credentials of its own. At startup it runs `gh auth token` and uses the token that
-`gh` **already holds** from your `gh auth login` — it does **not** generate a new token. Your
-effective access is therefore exactly your `gh` login's scopes.
+By default, `ghbot` has no credentials of its own. At startup it runs `gh auth token` and uses the
+token that `gh` **already holds** from your `gh auth login` — it does **not** generate a new token.
+Your effective access is therefore exactly your `gh` login's scopes.
 
-That token is fetched once, cached in memory for the duration of the run, and never written to disk
-(if `gh` is missing or you're not logged in, `ghbot` stops with a clear message). `gh` is used
-**only** to obtain the token — all repository data is then fetched by calling the GitHub REST API
-**directly** (via `httpx` + `gidgethub`), not by shelling out to `gh` for each request.
+Use the global `-e` / `--env` option, or set `env = true` in `ghbot.toml`, to read the API token
+from `GITHUB_API_TOKEN` instead. `--no-env` overrides `env = true` for one invocation and returns
+to the default `gh auth token` source. Environment-token mode never invokes `gh`; it fails clearly
+if that variable is unset or empty. `GITHUB_TOKEN` is not used, so workflow tokens cannot change
+local command behaviour accidentally.
+
+The selected token is fetched once, cached in memory for the duration of the run, and never
+written to disk. In the default mode, if `gh` is missing or you are not logged in, `ghbot` stops
+with a clear message. `gh` is used **only** for the default token source — all repository data is
+then fetched by calling the GitHub REST API **directly** (via `httpx` + `gidgethub`), not by
+shelling out to `gh` for each request.
 
 ## Running
 
@@ -116,6 +124,7 @@ Global options go **before** the command:
 | `--owner <o>` | Owner(s) to scan; repeatable or comma-separated |
 | `--concurrency <n>` | Max repositories processed at once (default 16) |
 | `--config <path>` | Config file (see below) |
+| `-e`, `--env` / `--no-env` | Read the API token from `GITHUB_API_TOKEN`, or override `env = true` to use `gh auth token` |
 | `--verbose` / `--quiet` | Console log level: debug / warnings-only |
 | `--log-file <path>` | Also write logs to a file |
 | `--log-level <lvl>` | File log level: `trace`/`debug`/`info`/`warn`/`error` |
@@ -124,19 +133,22 @@ Global options go **before** the command:
 
 ## Configuration
 
-Options can be set in `ghbot.toml` (current directory) or `~/.config/ghbot/config.toml`. Some CLI flags override the file (notably `--owner`, `--concurrency`, `--log-file`, and `--log-json`).
+Options can be set in `ghbot.toml` (current directory) or `~/.config/ghbot/config.toml`. Some CLI flags override the file (notably `--owner`, `--concurrency`, `--log-file`, and `--log-json`); `--env` enables environment-token mode and `--no-env` disables it for one invocation.
 
 ```toml
 owners = ["acme", "globex"]
 concurrency = 16
 log-level = "info"
 log-json = false
+env = true  # use GITHUB_API_TOKEN instead of gh auth token
 ```
 
 ## How it works
 
 ```
-gh auth token
+authentication source
+      ├─ `--env`, or `env = true` without `--no-env` ─► GITHUB_API_TOKEN
+      └─ `--no-env`, or otherwise ────────────────────► gh auth token
       │
 scan_repositories(owners)          discover each accessible non-archived repo
       │  DiscoveredRepository(owner, metadata, owner_type) stream

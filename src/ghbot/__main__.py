@@ -36,7 +36,7 @@ async def _main(
     cfg: dict, processor_cls: type, options: dict | None = None
 ) -> list[RepoResult]:
     log.info("ghbot starting")
-    token = await get_auth_token()
+    token = await get_auth_token(use_environment=cfg.get("env", False))
     async with httpx.AsyncClient() as client:
         gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
         async with TaskPool(limit=cfg["concurrency"]) as pool:
@@ -61,6 +61,13 @@ async def _main(
 @click.option("--verbose", is_flag=True, default=False, help="Console log level: debug")
 @click.option("--quiet", is_flag=True, default=False, help="Console log level: warn")
 @click.option("--log-file", default=None, help="Write logs to file")
+@click.option(
+    "-e",
+    "--env/--no-env",
+    "use_environment_token",
+    default=None,
+    help="Read API token from GITHUB_API_TOKEN (or use gh with --no-env)",
+)
 @click.option(
     "--log-level",
     default="info",
@@ -101,6 +108,7 @@ def cli(
     verbose: bool,
     quiet: bool,
     log_file: str | None,
+    use_environment_token: bool | None,
     log_level: str,
     log_json: bool,
     requests: bool,
@@ -116,6 +124,8 @@ def cli(
         cfg["owners"] = [o for o in cfg["owners"].split(",") if o]
     if log_file:
         cfg["log-file"] = log_file
+    if use_environment_token is not None:
+        cfg["env"] = use_environment_token
     if log_json:
         cfg["log-json"] = log_json
     if concurrency is not None:

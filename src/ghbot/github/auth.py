@@ -1,9 +1,10 @@
 import asyncio
+import os
 import platform
 
 from ghbot.errors import AuthError
 
-_token: str | None = None
+_tokens: dict[str, str | None] = {"environment": None, "gh": None}
 _lock = asyncio.Lock()
 
 _INSTALL_HINTS = {
@@ -13,10 +14,17 @@ _INSTALL_HINTS = {
 }
 
 
-async def get_auth_token() -> str:
-    global _token
+async def get_auth_token(*, use_environment: bool = False) -> str:
+    """Return an API token from the selected authentication source."""
+    source = "environment" if use_environment else "gh"
     async with _lock:
-        if _token is None:
+        if _tokens[source] is None:
+            if use_environment:
+                token = os.environ.get("GITHUB_API_TOKEN", "").strip()
+                if not token:
+                    raise AuthError("GITHUB_API_TOKEN is not set or is empty")
+                _tokens[source] = token
+                return token
             try:
                 proc = await asyncio.create_subprocess_exec(
                     "gh",
@@ -35,7 +43,10 @@ async def get_auth_token() -> str:
                 ) from e
             if proc.returncode != 0:
                 raise AuthError("Not authenticated. Run: gh auth login")
-            _token = stdout.decode().strip()
-            if not _token:
+            token = stdout.decode().strip()
+            if not token:
                 raise AuthError("gh returned an empty token. Run: gh auth login")
-    return _token
+            _tokens[source] = token
+    token = _tokens[source]
+    assert token is not None
+    return token

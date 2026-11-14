@@ -17,10 +17,10 @@ def _make_proc(returncode: int, stdout: bytes) -> MagicMock:
 def reset_auth_state():
     import ghbot.github.auth as auth_mod
 
-    auth_mod._token = None
+    auth_mod._tokens = {"environment": None, "gh": None}
     auth_mod._lock = asyncio.Lock()
     yield
-    auth_mod._token = None
+    auth_mod._tokens = {"environment": None, "gh": None}
     auth_mod._lock = asyncio.Lock()
 
 
@@ -71,6 +71,70 @@ async def test_gh_empty_token_raises_auth_error():
 
         await get_auth_token()
     assert "gh auth login" in exc_info.value.message
+
+
+@pytest.mark.anyio
+async def test_environment_token_is_trimmed_without_invoking_gh(monkeypatch):
+    monkeypatch.setenv("GITHUB_API_TOKEN", "  environment-token  \n")
+    with patch("asyncio.create_subprocess_exec") as create_subprocess:
+        from ghbot.github.auth import get_auth_token
+
+        token = await get_auth_token(use_environment=True)
+
+    assert token == "environment-token"
+    create_subprocess.assert_not_called()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("value", [None, "", " \t\n"])
+async def test_environment_token_missing_or_empty_never_invokes_gh(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("GITHUB_API_TOKEN", raising=False)
+    else:
+        monkeypatch.setenv("GITHUB_API_TOKEN", value)
+
+    with (
+        patch("asyncio.create_subprocess_exec") as create_subprocess,
+        pytest.raises(AuthError) as exc_info,
+    ):
+        from ghbot.github.auth import get_auth_token
+
+        await get_auth_token(use_environment=True)
+
+    assert "GITHUB_API_TOKEN" in exc_info.value.message
+    create_subprocess.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_environment_token_mode_does_not_use_github_token(monkeypatch):
+    monkeypatch.delenv("GITHUB_API_TOKEN", raising=False)
+    monkeypatch.setenv("GITHUB_TOKEN", "workflow-token")
+
+    with (
+        patch("asyncio.create_subprocess_exec") as create_subprocess,
+        pytest.raises(AuthError) as exc_info,
+    ):
+        from ghbot.github.auth import get_auth_token
+
+        await get_auth_token(use_environment=True)
+
+    assert "GITHUB_API_TOKEN" in exc_info.value.message
+    create_subprocess.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_environment_and_gh_tokens_have_isolated_caches(monkeypatch):
+    monkeypatch.setenv("GITHUB_API_TOKEN", "environment-token")
+    with patch(
+        "asyncio.create_subprocess_exec", return_value=_make_proc(0, b"gh-token\n")
+    ) as create_subprocess:
+        from ghbot.github.auth import get_auth_token
+
+        assert await get_auth_token(use_environment=True) == "environment-token"
+        assert await get_auth_token() == "gh-token"
+        assert await get_auth_token(use_environment=True) == "environment-token"
+
+    create_subprocess.assert_called_once()
 
 
 @pytest.mark.anyio

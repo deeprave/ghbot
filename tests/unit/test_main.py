@@ -45,6 +45,57 @@ async def test_main_reads_owners_from_cfg():
 
 
 @pytest.mark.anyio
+async def test_main_uses_environment_token_when_selected():
+    """_main selects the environment source only when configured by the CLI."""
+    mock_gh = MagicMock(spec=gh_httpx.GitHubAPI)
+    mock_pool = AsyncMock()
+    mock_pool.__aenter__ = AsyncMock(return_value=mock_pool)
+    mock_pool.__aexit__ = AsyncMock(return_value=False)
+    mock_pool.stats = {}
+    mock_pool.results = []
+    with (
+        patch(
+            "ghbot.__main__.get_auth_token", new=AsyncMock(return_value="tok")
+        ) as mock_auth,
+        patch("ghbot.__main__.gh_httpx.GitHubAPI", return_value=mock_gh),
+        patch("ghbot.__main__.scan_repositories", side_effect=_empty_scan),
+        patch("ghbot.__main__.TaskPool", return_value=mock_pool),
+    ):
+        from ghbot.__main__ import _main
+
+        await _main(
+            {"owners": [], "concurrency": 16, "env": True},
+            InfoRepoProcessor,
+        )
+
+    mock_auth.assert_awaited_once_with(use_environment=True)
+
+
+@pytest.mark.anyio
+async def test_main_defaults_to_gh_token_authentication():
+    """Without -e/--env, _main keeps the existing gh token behaviour."""
+    mock_gh = MagicMock(spec=gh_httpx.GitHubAPI)
+    mock_pool = AsyncMock()
+    mock_pool.__aenter__ = AsyncMock(return_value=mock_pool)
+    mock_pool.__aexit__ = AsyncMock(return_value=False)
+    mock_pool.stats = {}
+    mock_pool.results = []
+    with (
+        patch(
+            "ghbot.__main__.get_auth_token", new=AsyncMock(return_value="tok")
+        ) as mock_auth,
+        patch("ghbot.__main__.gh_httpx.GitHubAPI", return_value=mock_gh),
+        patch("ghbot.__main__.scan_repositories", side_effect=_empty_scan),
+        patch("ghbot.__main__.TaskPool", return_value=mock_pool),
+    ):
+        from ghbot.__main__ import _main
+
+        await _main({"owners": [], "concurrency": 16}, InfoRepoProcessor)
+
+    mock_auth.assert_awaited_once_with(use_environment=False)
+
+
+@pytest.mark.anyio
 async def test_main_creates_taskpool_with_concurrency():
     """_main creates TaskPool with limit=cfg["concurrency"]."""
     mock_gh = MagicMock(spec=gh_httpx.GitHubAPI)
@@ -255,6 +306,20 @@ def test_info_subcommand_calls_main_with_info_processor():
     mock_main.assert_called_once()
     _, processor_cls = mock_main.call_args[0]
     assert processor_cls is InfoRepoProcessor
+
+
+def test_env_flag_selects_environment_authentication():
+    """The global -e/--env flag is passed to the main loop."""
+    with (
+        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
+        patch("ghbot.__main__.configure"),
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["--env", "info"])
+
+    assert result.exit_code == 0
+    assert mock_main.call_args.args[0]["env"] is True
 
 
 def test_security_subcommand_calls_main_with_security_processor():
@@ -517,6 +582,52 @@ def test_config_file_overrides_defaults(tmp_path):
         result = CliRunner().invoke(cli, ["--config", str(cfg_file), "info"])
     assert result.exit_code == 0
     assert "file-owner" in captured["owners"]
+
+
+def test_config_env_true_selects_environment_authentication(tmp_path):
+    """env = true persists environment-token mode without a CLI flag."""
+    cfg_file = tmp_path / "ghbot.toml"
+    cfg_file.write_text("env = true\n")
+    captured = {}
+
+    async def _capture(cfg, processor_cls):
+        captured.update(cfg)
+        return []
+
+    with (
+        patch("ghbot.__main__._main", side_effect=_capture),
+        patch("ghbot.__main__.configure"),
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, ["--config", str(cfg_file), "info"])
+
+    assert result.exit_code == 0
+    assert captured["env"] is True
+
+
+def test_no_env_flag_overrides_configured_environment_authentication(tmp_path):
+    """--no-env restores gh authentication for one configured environment run."""
+    cfg_file = tmp_path / "ghbot.toml"
+    cfg_file.write_text("env = true\n")
+    captured = {}
+
+    async def _capture(cfg, processor_cls):
+        captured.update(cfg)
+        return []
+
+    with (
+        patch("ghbot.__main__._main", side_effect=_capture),
+        patch("ghbot.__main__.configure"),
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(
+            cli, ["--config", str(cfg_file), "--no-env", "info"]
+        )
+
+    assert result.exit_code == 0
+    assert captured["env"] is False
 
 
 def test_cli_concurrency_overrides_config_file(tmp_path):

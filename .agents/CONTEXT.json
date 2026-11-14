@@ -1,25 +1,25 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-13-automerge-actions-patches",
-    "path": ".agents/specs/2026-11-13-automerge-actions-patches",
-    "status": "implemented-not-committed",
+    "name": "2026-11-14-env-token-auth",
+    "path": ".agents/specs/2026-11-14-env-token-auth",
+    "status": "verified-not-committed",
     "progress": {
-      "tasks_completed": 2,
-      "tasks_total": 2
+      "tasks_completed": 4,
+      "tasks_total": 4
     },
     "present_task": null,
     "verification": {
-      "status": "passing",
-      "last_run": "2026-11-13",
+      "status": "passed",
+      "last_run": "2026-11-14",
       "gates": {
-        "pytest": "301 passed",
-        "ruff_check": "passing",
-        "ty_check": "passing",
-        "ruff_format": "passing"
+        "tests": "passed (312 tests)",
+        "lint": "passed",
+        "type_check": "passed",
+        "format": "passed"
       }
     },
-    "revision_note": "Implemented a narrow workflow-only change to auto-merge Dependabot GitHub Actions patch updates alongside existing uv patch updates; inspected shared conditions and preserved grouping, authentication, and action references."
+    "revision_note": "Verified environment-token authentication: env = true persistently selects GITHUB_API_TOKEN, while --no-env overrides it for one invocation; all Python gates pass."
   },
   "recent_specs": [
     {
@@ -52,9 +52,9 @@
     "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
   },
   "requirements_summary": {
-    "feature": "Auto-merge Dependabot GitHub Actions patch updates.",
-    "behaviour": "Permit only patch updates for uv and github_actions through the existing GitHub App token flow.",
-    "constraints": "Do not change Dependabot grouping or version tag pinning; do not add workflow-YAML tests."
+    "feature": "Explicit environment API token authentication.",
+    "behaviour": "-e/--env or env = true selects GITHUB_API_TOKEN; --no-env overrides configuration and restores gh auth token.",
+    "constraints": "Do not use GITHUB_TOKEN, token values in config/.env/logs, or a shared cache between sources."
   },
   "skills": {
     "location": ".agents/skills",
