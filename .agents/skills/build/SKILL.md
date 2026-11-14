@@ -21,10 +21,6 @@ in sync.
       `uv run ruff format` as appropriate).
    d. Mark the task complete: change `- [ ]` to `- [x]` in `tasks.md`.
    e. Update `.agents/CONTEXT.json` with the new progress.
-4. Follow the repo commit policy (see `.agents/CONTEXT.json` → `commit_policy`): direct commits to
-   `main` are acceptable once tests and the Python quality checks pass. Commit only when the user
-   asks, with a descriptive message.
-
 ## Critical
 
 - Always update `tasks.md` and `.agents/CONTEXT.json` after each task.
