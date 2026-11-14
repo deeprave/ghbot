@@ -52,4 +52,5 @@ dev = [
     "ruff>=0.15.5",
     "ty>=0.0.63",
     "hypothesis>=6.152.4",
+    "pre-commit>=4.7.0",
 ]
