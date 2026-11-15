@@ -32,6 +32,23 @@ from ghbot.runner import run_mode
 
 log = get_logger(__name__)
 
+_OPEN_PULL_REQUESTS_QUERY = """
+query OpenPullRequests($owner: String!, $repo: String!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(first: 100, states: OPEN, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { author { login } mergeStateStatus }
+    }
+  }
+}
+"""
+_PULL_REQUEST_METRIC_KEYS = (
+    "dependabot_open_pull_requests",
+    "dependabot_merge_ready_pull_requests",
+    "other_open_pull_requests",
+    "other_merge_ready_pull_requests",
+)
+
 
 class IssuesRepoProcessor:
     """Collect open issues and pull requests for one repository."""
@@ -75,6 +92,7 @@ class IssuesRepoProcessor:
         self._deferred_events = []
         try:
             await self._fetch_open_items(result)
+            await self._fetch_open_pull_request_metrics(result)
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except FatalError:
@@ -133,6 +151,74 @@ class IssuesRepoProcessor:
             result.results["open_items"] = None
             result.errors.append(f"open items: {error}")
 
+    async def _fetch_open_pull_request_metrics(self, result: RepoResult) -> None:
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "fetching open pull requests")
+        )
+        metrics = {
+            "dependabot_open_pull_requests": 0,
+            "dependabot_merge_ready_pull_requests": 0,
+            "other_open_pull_requests": 0,
+            "other_merge_ready_pull_requests": 0,
+        }
+        after = None
+        continuation_cursors: set[str] = set()
+        try:
+            while True:
+                async with github_api_call(self._gh):
+                    data = await self._gh.graphql(
+                        _OPEN_PULL_REQUESTS_QUERY,
+                        owner=self._owner,
+                        repo=self._repo,
+                        after=after,
+                    )
+                connection = _pull_request_connection(data)
+                for pull_request in connection["nodes"]:
+                    author = pull_request.get("author")
+                    if author is None:
+                        author = {}
+                    if not isinstance(author, dict):
+                        raise TypeError("pull-request author is invalid")
+                    prefix = (
+                        "dependabot"
+                        if author.get("login") == "dependabot[bot]"
+                        else "other"
+                    )
+                    metrics[f"{prefix}_open_pull_requests"] += 1
+                    if pull_request.get("mergeStateStatus") == "CLEAN":
+                        metrics[f"{prefix}_merge_ready_pull_requests"] += 1
+                page_info = connection["pageInfo"]
+                if not page_info["hasNextPage"]:
+                    break
+                after = page_info["endCursor"]
+                if not isinstance(after, str) or not after:
+                    raise ValueError("missing cursor for next pull-request page")
+                if after in continuation_cursors:
+                    raise ValueError("repeated cursor for next pull-request page")
+                continuation_cursors.add(after)
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as error:
+            await self._record_pull_request_metric_error(result, error)
+        except (KeyError, TypeError, ValueError) as error:
+            await self._record_pull_request_metric_error(
+                result, GitHubApiError(f"malformed pull-request response: {error}")
+            )
+        else:
+            result.results.update(metrics)
+
+    async def _record_pull_request_metric_error(
+        self, result: RepoResult, error: GitHubApiError
+    ) -> None:
+        await self._monitor.send_event(
+            FeedbackEvent(
+                "fetch", "error", f"failed to fetch open pull requests: {error}"
+            )
+        )
+        for key in _PULL_REQUEST_METRIC_KEYS:
+            result.results[key] = None
+        result.errors.append(f"open pull requests: {error}")
+
 
 @dataclass(slots=True)
 class IssuesCollectionReport:
@@ -151,6 +237,7 @@ class IssuesCollectionReport:
                     "repo": result.repo,
                     "repository": f"{result.owner}/{result.repo}",
                     "open_item_count": result.results.get("open_item_count"),
+                    **_pull_request_metrics(result),
                     "items": [
                         _item_json(item, self.labels) for item in _item_records(result)
                     ],
@@ -171,6 +258,7 @@ class IssuesCollectionReport:
                     [
                         "",
                         f"{result.owner}/{result.repo}  ({result.results.get('open_item_count')} open)",
+                        *_pull_request_metric_lines(result, indent="  "),
                         *[
                             "  " + _item_plain_line(item, self.labels)
                             for item in _item_records(result)
@@ -178,18 +266,12 @@ class IssuesCollectionReport:
                     ]
                 )
             return style.render_lines(lines)
-        rows = [
-            (f"{result.owner}/{result.repo}", item)
-            for result in active
-            for item in _item_records(result)
-        ]
+        rows = [(result, item) for result in active for item in _item_records(result)]
         if rows:
             lines.extend(
                 ["", _table_header(self.labels), _table_separator(self.labels)]
             )
-            lines.extend(
-                _table_row(repository, item, self.labels) for repository, item in rows
-            )
+            lines.extend(_table_row(result, item, self.labels) for result, item in rows)
         assert isinstance(style, TableReportStyle)
         return style.render_lines(lines)
 
@@ -254,6 +336,26 @@ def _item_type(item: dict[str, Any]) -> str:
     return "pr" if "pull_request" in item else "issue"
 
 
+def _pull_request_connection(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise TypeError("response is not an object")
+    repository = data.get("repository")
+    if not isinstance(repository, dict):
+        raise TypeError("repository is missing")
+    connection = repository.get("pullRequests")
+    if not isinstance(connection, dict):
+        raise TypeError("pullRequests is missing")
+    nodes = connection.get("nodes")
+    if not isinstance(nodes, list) or not all(isinstance(node, dict) for node in nodes):
+        raise ValueError("pull-request nodes are invalid")
+    page_info = connection.get("pageInfo")
+    if not isinstance(page_info, dict) or not isinstance(
+        page_info.get("hasNextPage"), bool
+    ):
+        raise TypeError("pull-request page info is invalid")
+    return connection
+
+
 def _item_labels(item: dict[str, Any]) -> list[str]:
     return [
         label["name"]
@@ -304,6 +406,11 @@ def _summary(results: list[RepoResult]) -> dict[str, int | None]:
         "repos_with_items": sum(1 for result in results if _has_open_items(result)),
         "open_issues": _type_total(results, "issue"),
         "open_prs": _type_total(results, "pr"),
+        **{
+            key: _pull_request_metric_total(results, key)
+            for key in _PULL_REQUEST_METRIC_KEYS
+        },
+        "pull_request_metrics_complete": _pull_request_metrics_complete(results),
     }
 
 
@@ -314,6 +421,24 @@ def _summary_lines(results: list[RepoResult]) -> list[str]:
         _fmt("Repos with open items:", _display(summary["repos_with_items"])),
         _fmt("Open issues:", _display(summary["open_issues"])),
         _fmt("Open PRs:", _display(summary["open_prs"])),
+        _fmt(
+            "Dependabot PRs:",
+            _display(summary["dependabot_open_pull_requests"]),
+        ),
+        _fmt(
+            "Dependabot merge-ready PRs:",
+            _display(summary["dependabot_merge_ready_pull_requests"]),
+        ),
+        _fmt("Other PRs:", _display(summary["other_open_pull_requests"])),
+        _fmt(
+            "Other merge-ready PRs:",
+            _display(summary["other_merge_ready_pull_requests"]),
+        ),
+        *(
+            []
+            if summary["pull_request_metrics_complete"]
+            else ["Pull-request metrics unavailable: incomplete repository data"]
+        ),
     ]
 
 
@@ -338,6 +463,46 @@ def _item_json(item: dict, labels: bool) -> dict:
     return value
 
 
+def _pull_request_metrics(result: RepoResult) -> dict[str, int | None]:
+    return {key: result.results.get(key) for key in _PULL_REQUEST_METRIC_KEYS}
+
+
+def _pull_request_metric_total(results: list[RepoResult], key: str) -> int | None:
+    values = [result.results.get(key) for result in results]
+    return (
+        None
+        if any(value is None for value in values)
+        else sum(value for value in values if isinstance(value, int))
+    )
+
+
+def _pull_request_metrics_complete(results: list[RepoResult]) -> bool:
+    return all(
+        result.results.get(key) is not None
+        for result in results
+        for key in _PULL_REQUEST_METRIC_KEYS
+    )
+
+
+def _pull_request_metric_lines(result: RepoResult, *, indent: str = "") -> list[str]:
+    metrics = _pull_request_metrics(result)
+    return [
+        indent
+        + _fmt("Dependabot PRs:", _display(metrics["dependabot_open_pull_requests"])),
+        indent
+        + _fmt(
+            "Dependabot merge-ready PRs:",
+            _display(metrics["dependabot_merge_ready_pull_requests"]),
+        ),
+        indent + _fmt("Other PRs:", _display(metrics["other_open_pull_requests"])),
+        indent
+        + _fmt(
+            "Other merge-ready PRs:",
+            _display(metrics["other_merge_ready_pull_requests"]),
+        ),
+    ]
+
+
 def _fmt(label: str, value: int | str) -> str:
     return f"{label:<26}{value:>8}"
 
@@ -348,22 +513,31 @@ def _display(value: int | None) -> int | str:
 
 def _table_header(labels: bool) -> str:
     header = f"|{'Repository':<38}|{'#':>6}|{'Type':<5}|{'Description':<50}"
+    header += (
+        f"|{'Dependabot PRs':>16}|{'Dependabot ready':>18}"
+        f"|{'Other PRs':>12}|{'Other ready':>12}"
+    )
     if labels:
         header += f"|{'Labels':<24}"
     return header + "|"
 
 
 def _table_separator(labels: bool) -> str:
-    separator = "|" + "|".join("-" * width for width in (38, 6, 5, 50))
+    separator = "|" + "|".join("-" * width for width in (38, 6, 5, 50, 16, 18, 12, 12))
     if labels:
         separator += "|" + "-" * 24
     return separator + "|"
 
 
-def _table_row(repository: str, item: dict, labels: bool) -> str:
+def _table_row(result: RepoResult, item: dict, labels: bool) -> str:
+    metrics = _pull_request_metrics(result)
     row = (
-        f"|{repository:<38}|{item['number']:>6}|{item['type']:<5}"
+        f"|{f'{result.owner}/{result.repo}':<38}|{item['number']:>6}|{item['type']:<5}"
         f"|{_truncate(item['title'], 50):<50}"
+        f"|{_display(metrics['dependabot_open_pull_requests']):>16}"
+        f"|{_display(metrics['dependabot_merge_ready_pull_requests']):>18}"
+        f"|{_display(metrics['other_open_pull_requests']):>12}"
+        f"|{_display(metrics['other_merge_ready_pull_requests']):>12}"
     )
     if labels:
         row += f"|{', '.join(item.get('labels') or []):<24}"

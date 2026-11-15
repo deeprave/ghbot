@@ -71,6 +71,8 @@ class RepoProcessor(Protocol):
 class GitHubClient(Protocol):
     """GitHub API surface used by repository processors."""
 
+    async def graphql(self, query: str, **variables: Any) -> Any: ...
+
     async def getitem(
         self, url: str, *, url_vars: dict[str, Any] | None = None
     ) -> dict[str, Any]: ...

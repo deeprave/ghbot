@@ -16,6 +16,18 @@ from ghbot.errors import (
 from ghbot.github.client import github_api_call
 
 
+def _graphql_query_error(
+    message: str,
+    *,
+    error_type: str | None = None,
+    additional_errors: tuple[dict[str, str], ...] = (),
+) -> gidgethub.QueryError:
+    error = {"message": message}
+    if error_type is not None:
+        error["type"] = error_type
+    return gidgethub.QueryError({"errors": [error, *additional_errors]})
+
+
 @pytest.mark.anyio
 async def test_404_raises_not_found_error():
     gh = AsyncMock()
@@ -30,6 +42,74 @@ async def test_other_http_error_raises_github_api_error():
     with pytest.raises(GitHubApiError):
         async with github_api_call(gh):
             raise gidgethub.BadRequest(http.HTTPStatus.UNPROCESSABLE_ENTITY)
+
+
+@pytest.mark.anyio
+async def test_graphql_query_error_raises_github_api_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubApiError, match="invalid query"):
+        async with github_api_call(gh):
+            raise _graphql_query_error("invalid query")
+
+
+@pytest.mark.anyio
+async def test_graphql_rate_limit_error_raises_primary_rate_limit_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubPrimaryRateLimitError, match="rate limit"):
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "API rate limit exceeded", error_type="RATE_LIMITED"
+            )
+
+
+@pytest.mark.anyio
+async def test_graphql_secondary_rate_limit_error_raises_secondary_rate_limit_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubSecondaryRateLimitError, match="secondary rate limit"):
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "You have exceeded a secondary rate limit.",
+                error_type="SECONDARY_RATE_LIMITED",
+            )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("error_type", "exception_type"),
+    [
+        ("RATE_LIMITED", GitHubPrimaryRateLimitError),
+        ("SECONDARY_RATE_LIMITED", GitHubSecondaryRateLimitError),
+    ],
+)
+async def test_graphql_later_rate_limit_error_uses_rate_limit_policy(
+    error_type, exception_type
+):
+    gh = AsyncMock()
+    with pytest.raises(exception_type):
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "ordinary query failure",
+                additional_errors=(
+                    {"message": "rate limit exceeded", "type": error_type},
+                ),
+            )
+
+
+@pytest.mark.anyio
+async def test_graphql_documented_secondary_limit_message_raises_secondary_limit():
+    gh = AsyncMock()
+    with pytest.raises(GitHubSecondaryRateLimitError):
+        async with github_api_call(gh):
+            raise _graphql_query_error("You have exceeded a secondary rate limit.")
+
+
+@pytest.mark.anyio
+async def test_graphql_error_with_rate_limit_words_but_no_rate_limit_type_is_api_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubApiError, match="secondary rate limit") as error:
+        async with github_api_call(gh):
+            raise _graphql_query_error("the query mentions a secondary rate limit")
+    assert type(error.value) is GitHubApiError
 
 
 @pytest.mark.anyio

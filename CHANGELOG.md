@@ -2,6 +2,13 @@
 
 All notable changes to ghbot are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Extended the `issues` command to report open Dependabot and other pull requests separately,
+  including counts GitHub considers merge-ready.
+
 ## [0.30.0] - 2026-11-15
 
 ### Added

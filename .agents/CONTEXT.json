@@ -1,19 +1,19 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-14-explicit-repo-selection",
-    "path": ".agents/specs/2026-11-14-explicit-repo-selection",
-    "status": "verified",
+    "name": "2026-11-14-issues-ci-report",
+    "path": ".agents/specs/2026-11-14-issues-ci-report",
+    "status": "complete",
     "progress": {
-      "tasks_completed": 4,
-      "tasks_total": 4
+      "tasks_completed": 5,
+      "tasks_total": 5
     },
     "present_task": null,
     "verification": {
       "status": "pass",
-      "last_run": "2026-11-15",
+      "last_run": "2026-11-16",
       "gates": {
-        "pytest": "pass (332 tests)",
+        "pytest": "pass (361 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -21,13 +21,21 @@
       }
     },
     "review": {
-      "status": "not-run",
-      "last_run": null,
+      "status": "pass",
+      "last_run": "2026-11-16",
       "findings": 0
     },
-    "revision_note": "Verified: accepted PR #45 input-boundary findings are implemented and all quality gates pass."
+    "revision_note": "Complete: review approved the accepted PR #46 fixes and included workflow guidance updates."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-14-explicit-repo-selection",
+      "path": ".agents/specs/2026-11-14-explicit-repo-selection",
+      "status": "complete",
+      "committed": true,
+      "commit": "c2b67cc",
+      "note": "Explicit repository selection delivered through PR #45 and synchronized."
+    },
     {
       "name": "2026-11-15-pr-44-review-fixes",
       "path": ".agents/specs/2026-11-15-pr-44-review-fixes",
@@ -75,16 +83,10 @@
       "next": "tasks"
     },
     {
-      "name": "2026-11-14-issues-ci-report",
-      "path": ".agents/specs/2026-11-14-issues-ci-report",
-      "status": "defined",
-      "next": "tasks"
-    },
-    {
       "name": "2026-11-15-dynamic-mode-discovery",
       "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
       "status": "defined",
-      "next": "estimate",
+      "next": "design",
       "depends_on": ["report-style-handlers", "mode-cli-ownership"]
     }
   ],
@@ -109,9 +111,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Explicit repository selection through global --repo and --repos options.",
-    "behaviour": "Expand bare repositories across configured owners, process repeatable inline inputs before one optional file, case-fold deduplicate candidates, and use the runner's shared discovery path instead of owner listing.",
-    "constraints": "Keep mode modules selection-agnostic; preserve DiscoveredRepository metadata, archive filtering, retry policy, and rate-limit propagation."
+    "feature": "Issues-report pull-request categories and merge-ready counts.",
+    "behaviour": "Paginate open pull requests with GraphQL, categorise Dependabot and other PRs, and count only mergeStateStatus CLEAN as merge-ready.",
+    "constraints": "Avoid per-PR REST lookups; preserve API error/rate-limit policy and plain, table, and JSON unavailable-value semantics."
   },
   "skills": {
     "location": ".agents/skills",

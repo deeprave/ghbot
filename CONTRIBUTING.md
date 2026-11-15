@@ -23,7 +23,8 @@ feature branches and proposed through pull requests.
 - `RepoResult` carries the repository identity, processing status, errors, and mode-owned result
   data.
 - `Monitor` accepts `FeedbackEvent` instances for progress and errors.
-- `GitHubClient` is the narrow GitHub API protocol used by processors.
+- `GitHubClient` is the narrow GitHub API protocol used by processors, providing REST item/list
+  calls and `graphql()` for bulk GraphQL queries.
 - `InfoRepoProcessor` is the only built-in non-reporting processor.
 
 Each reportable capability is a self-contained mode module under `src/ghbot/modes/`:
@@ -51,10 +52,11 @@ owner_type=None)`. Validate `owner` and `repo`; retain `owner_type` even when it
 Discovery supplies `owner_type` as `"User"`, `"Organization"`, or `None` so a processor can later
 select owner-specific endpoints without changing its construction contract.
 
-Use `github_api_call` with `url_vars` for GitHub requests. Treat unavailable 403/404 data as a
-mode-appropriate unavailable value, record non-fatal `GitHubApiError` failures as partial results,
-and re-raise rate-limit and other `FatalError` failures for `TaskPool` to handle. Send progress or
-fetch feedback through the injected `Monitor`.
+Use `github_api_call` with `url_vars` for REST GitHub requests, or with `gh.graphql()` for a
+GraphQL query. Prefer a paginated GraphQL connection when one query can replace per-resource REST
+lookups. Treat unavailable 403/404 data as a mode-appropriate unavailable value, record non-fatal
+`GitHubApiError` failures as partial results, and re-raise rate-limit and other `FatalError`
+failures for `TaskPool` to handle. Send progress or fetch feedback through the injected `Monitor`.
 
 Put processor tests beside their owner, for example `tests/unit/test_tags_processor.py`. Exercise
 the processor with a mocked `GitHubClient` and assert its result data, status, error policy, and

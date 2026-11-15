@@ -1,4 +1,4 @@
-# Complexity estimate: issues CI report
+# Complexity estimate: issues merge-ready report
 
 ## T-shirt size
 
@@ -6,41 +6,34 @@
 
 ## Breakdown
 
-- **New files:** none expected; the change extends the issues processor and its report mode.
-- **Modified files:** approximately 4–5: issues processor, report-mode/rendering code, processor
-  tests, report tests, and command tests where result handoff changes.
-- **Estimated tasks:** 7–9 test-first tasks.
+- **New files:** none expected.
+- **Modified files:** approximately 3–4: `src/ghbot/modes/issues.py`, GraphQL client support only if the existing client cannot issue the required query, and focused issues processor/report tests.
+- **Estimated tasks:** 5–7 test-first implementation tasks.
 
 ## Key risks
 
-- The repository already has combined-status and check-run helpers in the security processor, but
-  its “ready” decision also rejects drafts and known merge conflicts. This feature must reuse only
-  the CI-success criteria, not those non-CI conditions.
-- Each open pull request may require two API lookups. The implementation must preserve partial
-  result policy by excluding only a failed pull request from CI-passing counts while retaining the
-  category totals and propagating rate limits.
-- Four new metrics must preserve the issues report's `N/A`/`null` semantics across plain, table,
-  and JSON output. The active report-style-handler refactor may relocate the relevant mode code.
+- The completed report-style and mode-ownership refactors place both the issues processor and its collection/report in `src/ghbot/modes/issues.py`; implementation should extend that unit rather than revive a central reporting path.
+- The bulk GraphQL query needs pagination for all open pull requests without falling back to individual pull-request REST requests.
+- The design must preserve the project’s existing GitHub API error and rate-limit policy when adapting or introducing the GraphQL client call.
+- `mergeStateStatus` must use GitHub’s exact `CLEAN` value: all other states, including `HAS_HOOKS`, do not count as merge-ready.
+- The four metrics must preserve established `N/A`/`null` semantics in plain, table, and JSON
+  reports.
 
 ## Confidence
 
-**High.** The endpoint templates, wrapper, error policy, and check-run criteria already exist in
-the security processor. The main work is extracting the correct CI-only predicate and extending
-the established issues-report contract.
+**Medium-high.** GitHub’s GraphQL schema exposes the required pull-request author and merge-state fields in a paginated connection. The remaining uncertainty is contained to the repository’s existing GraphQL-client surface and its error translation.
 
 ## Dependencies
 
-- `report-style-handlers` — determines the issues mode-module and report-style integration point.
+- `report-style-handlers` — complete; its mode-local layout is now the implementation target.
+- `mode-cli-ownership` — complete; the issues command already delegates through `run_mode()`.
 
 ## Recommendation
 
-Run `design` after `report-style-handlers` is verified. It should define the shared CI-only helper
-and issues result keys in the refactored mode-module layout; splitting the implementation is not
-otherwise necessary.
+Run `design` next. It should specify the GraphQL query and pagination contract, `CLEAN`-only classification, result keys, bulk-query failure behaviour, and the output schema before tasks are written.
 
 ## Similar past work
 
-- `2026-05-06-enhance-security-info` introduced combined-status and check-run evaluation for
-  Dependabot PRs, including failure, pending, unavailable, and rate-limit coverage.
-- `2026-07-29-scan-issues` established the issues processor's record shape and plain/table/JSON
-  rendering contract.
+- `2026-05-06-enhance-security-info` established GitHub API error and rate-limit handling for pull-request reporting.
+- `2026-07-29-scan-issues` established the issues processor's item record shape and
+  plain/table/JSON reporting contract.

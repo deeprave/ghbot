@@ -1,26 +1,26 @@
-# Issues report: PR categories and CI counts
+# Issues report: PR categories and merge-ready counts
 
 ## Problem
 
-The `issues` report combines all open pull requests and does not show which Dependabot or other PRs have passing CI.
+The `issues` report combines all open pull requests and does not show the category or merge-ready state of Dependabot and other PRs.
 
 ## Goal
 
 Report four metrics per repository and in the summary:
 
 1. Dependabot PR total
-2. Dependabot PRs with passing CI
+2. Dependabot merge-ready PRs
 3. Other PR total
-4. Other PRs with passing CI
+4. Other merge-ready PRs
 
-## Design
+## Design constraints
 
-`IssuesRepoProcessor` classifies open PRs by author login and evaluates each head commit through the existing combined-status and check-run success criteria. The CI result is intentionally independent of drafts, mergeability, approval, and review state: a counted PR needs only non-CI requirements before it can merge.
+Retrieve open pull requests through a paginated GraphQL query containing each PR author and `mergeStateStatus`. Reject malformed pagination, including an empty or repeated continuation cursor. Classify `dependabot[bot]` separately; count a PR as merge-ready only when its merge state is `CLEAN`. Do not issue individual pull-request, combined-status, or check-run REST requests.
 
-On an individual status/check lookup failure, retain the total category count, exclude that PR from the CI-passing count, and mark the repository partial. Rate limits propagate unchanged.
+Keep existing open-issue reporting unchanged and exclude pull requests from the issue count. On a non-rate-limit bulk-query failure, mark the repository partial, record the error, and make all four PR metrics unavailable. Propagate primary and secondary rate limits through their existing distinct policies, gathering structured codes from every GraphQL error entry and narrowly recognising the documented secondary-limit signal only as fallback.
 
-Extend plain, table, and JSON issues reports with the four metrics while retaining existing issue counts and unavailable-data semantics.
+Render the four metrics in plain, table, and JSON output while preserving `N/A`/`null` behaviour and existing CLI/output-file behaviour. If any repository metric is unavailable, show aggregate metrics as unavailable and notify human readers; JSON reports `pull_request_metrics_complete`.
 
 ## Verification
 
-Test category classification, checks-only CI semantics, partial-result handling, and all three report formats. Run the Python quality gates through `uv run`.
+Test pagination, author classification, `CLEAN` versus non-`CLEAN`, API-error and rate-limit behaviour, unavailable metrics, and all supported report formats. Run project gates through `uv run`.

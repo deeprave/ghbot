@@ -75,6 +75,8 @@ Counts that are unavailable (no access / feature off) show as `N/A` in text and 
 ### `issues` — open issues and pull requests
 
 Lists open **issues and pull requests** per repository, each tagged by `type` (`issue` or `pr`).
+It also separately reports open Dependabot and other pull requests, with the number GitHub
+considers merge-ready (`CLEAN`).
 
 ```bash
 uvx ghbot --owner acme issues [--plain | --table | --json] [--labels] [--output FILE]
@@ -82,14 +84,16 @@ uvx ghbot --owner acme issues [--plain | --table | --json] [--labels] [--output 
 
 | Option | Meaning |
 |---|---|
-| `--plain` (default) | Per-repo header + `#<n> [<type>] <title>` lines |
-| `--table` | One row per item: `Repository │ # │ Type │ Description` |
-| `--json` | `repositories[]` with `open_item_count` and an `items[]` array |
+| `--plain` (default) | Summary and per-repo PR metrics + `#<n> [<type>] <title>` lines |
+| `--table` | One row per item, including Dependabot/other and merge-ready metric columns |
+| `--json` | `repositories[]` with `open_item_count`, four PR metrics, and an `items[]` array |
 | `--labels` | Include GitHub labels (`+label` in plain, a `Labels` column in table, a `labels[]` array in JSON) |
 | `--output FILE` | Write the report to a file |
 
-The summary splits `Open issues` and `Open PRs`. Plain/table omit repos with nothing open; JSON
-includes every scanned repo.
+The summary splits `Open issues` and `Open PRs` and includes four PR metrics: Dependabot total and
+merge-ready, plus other total and merge-ready. Plain/table omit repos with nothing open; JSON
+includes every scanned repo. If the PR metrics cannot be fetched for any repository, the aggregate
+is `N/A` in text or `null` in JSON; JSON also sets `pull_request_metrics_complete` to `false`.
 
 ### `drift` — commits since the latest stable release
 
