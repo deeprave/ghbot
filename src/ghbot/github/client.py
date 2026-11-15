@@ -15,6 +15,7 @@ from ghbot.log import get_logger
 
 _RETRY_DELAY = 1.0
 _RETRYABLE = (gidgethub.GitHubBroken, httpx.TransportError)
+_SECONDARY_RATE_LIMIT_MESSAGE = "You have exceeded a secondary rate limit."
 
 
 @asynccontextmanager
@@ -52,13 +53,16 @@ def _graphql_error_codes(error: gidgethub.GraphQLException) -> set[str]:
     if not isinstance(response, dict):
         return set()
     errors = response.get("errors")
-    if not isinstance(errors, list) or not errors or not isinstance(errors[0], dict):
+    if not isinstance(errors, list):
         return set()
-    details = errors[0]
-    extensions = details.get("extensions")
-    values = [details.get("type")]
-    if isinstance(extensions, dict):
-        values.extend((extensions.get("code"), extensions.get("type")))
+    values: list[object] = []
+    for details in errors:
+        if not isinstance(details, dict):
+            continue
+        extensions = details.get("extensions")
+        values.append(details.get("type"))
+        if isinstance(extensions, dict):
+            values.extend((extensions.get("code"), extensions.get("type")))
     return {value.upper() for value in values if isinstance(value, str)}
 
 
@@ -66,7 +70,7 @@ def _is_secondary_graphql_rate_limit(error: gidgethub.GraphQLException) -> bool:
     codes = _graphql_error_codes(error)
     if any("SECONDARY" in code and "RATE" in code for code in codes):
         return True
-    return "secondary rate limit" in str(error).lower()
+    return str(error) == _SECONDARY_RATE_LIMIT_MESSAGE
 
 
 def _is_primary_graphql_rate_limit(gh, error: gidgethub.GraphQLException) -> bool:

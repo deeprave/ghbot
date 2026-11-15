@@ -51,7 +51,7 @@ query OpenPullRequests($owner: String!, $repo: String!, $after: String) {
 
 For each repository, `_fetch_open_pull_request_metrics()` starts with `after=None`, invokes `await gh.graphql(query, owner=..., repo=..., after=...)` inside `github_api_call()`, processes each page, and continues with `pageInfo.endCursor` only while `hasNextPage` is true. It performs one request per GraphQL page, never one request per PR.
 
-An absent or non-mapping `repository`, `pullRequests`, `pageInfo`, or `nodes` payload is a recoverable malformed API response. The processor records it as an API failure rather than treating it as an empty result. A continuation page must provide a non-empty cursor; otherwise processing stops as a recoverable failure rather than looping.
+An absent or non-mapping `repository`, `pullRequests`, `pageInfo`, or `nodes` payload is a recoverable malformed API response. The processor records it as an API failure rather than treating it as an empty result. A continuation page must provide a non-empty cursor that has not been used for an earlier continuation; otherwise processing stops as a recoverable failure rather than looping.
 
 Classification uses the exact author login `dependabot[bot]`; a missing or different author is an other PR. A PR contributes to its category total regardless of merge state. It contributes to that category’s merge-ready total only when `mergeStateStatus == "CLEAN"`; `HAS_HOOKS` and every other value do not count.
 
@@ -72,7 +72,7 @@ On unavailable pull-request metrics, all four result keys are `None`. If any sca
 | Any other `FatalError` | Re-raise to the synchronous command boundary. |
 | Recoverable GraphQL/API failure or malformed payload | Send `FeedbackEvent("fetch", "error", ...)`, append a result error, set all four metrics to `None`; `run()` returns `partial`. |
 
-`github_api_call()` is extended to translate GidgetHub GraphQL exceptions into the existing error hierarchy. Structured GraphQL error codes and the client's rate-limit state identify primary limits; structured secondary-limit codes, HTTP 429, and GitHub's explicit secondary-limit signal identify secondary limits. Other GraphQL failures become `GitHubApiError`. This keeps GraphQL traffic subject to the same processor policy as REST traffic without promoting arbitrary query-error text to a rate-limit failure.
+`github_api_call()` is extended to translate GidgetHub GraphQL exceptions into the existing error hierarchy. It gathers structured codes from every valid GraphQL error entry: those codes and the client's rate-limit state identify primary limits, while structured secondary-limit codes identify secondary limits. When a response has no structured secondary code, a narrowly recognised GitHub secondary-limit signal is the fallback; arbitrary query-error text must not be promoted to a rate-limit failure. HTTP 429 also identifies a secondary limit. Other GraphQL failures become `GitHubApiError`. This keeps GraphQL traffic subject to the same processor policy as REST traffic without promoting arbitrary query-error text to a rate-limit failure.
 
 ## Report rendering
 
@@ -95,13 +95,13 @@ JSON exposes the four documented result keys and `pull_request_metrics_complete`
 
 Add focused unit coverage in the existing issues-mode test modules for:
 
-- GraphQL query variables and multi-page cursor traversal, with no status/check-run or per-PR REST calls.
+- GraphQL query variables and multi-page cursor traversal, including a repeated-cursor malformed response, with no status/check-run or per-PR REST calls.
 - Dependabot and other classification, including missing authors.
 - `CLEAN` counting and non-counting of `HAS_HOOKS`, `BLOCKED`, `DIRTY`, `DRAFT`, `UNKNOWN`, and missing states.
 - Recoverable GraphQL error and malformed payload: four unavailable metrics, fetch-error event, result error, and `partial` status.
 - Primary and secondary rate-limit propagation for GraphQL failures.
 - Plain, table, and JSON rendering of all four metrics, including summary aggregation and `N/A`/`null` values.
-- Client-boundary translation for GraphQL exceptions, including structured primary and secondary rate-limit classification and non-rate errors whose messages merely contain rate-limit wording.
+- Client-boundary translation for GraphQL exceptions, including structured primary and secondary rate-limit classification from later error entries, the narrow secondary-limit fallback, and non-rate errors whose messages merely contain rate-limit wording.
 
 Run the required quality gates through `uv run`:
 

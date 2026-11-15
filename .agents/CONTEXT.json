@@ -5,15 +5,15 @@
     "path": ".agents/specs/2026-11-14-issues-ci-report",
     "status": "complete",
     "progress": {
-      "tasks_completed": 4,
-      "tasks_total": 4
+      "tasks_completed": 5,
+      "tasks_total": 5
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-16",
       "gates": {
-        "pytest": "pass (357 tests)",
+        "pytest": "pass (361 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -25,7 +25,7 @@
       "last_run": "2026-11-16",
       "findings": 0
     },
-    "revision_note": "Complete: review approved the verified GraphQL PR-category and merge-ready reporting implementation."
+    "revision_note": "Complete: review approved the accepted PR #46 fixes and included workflow guidance updates."
   },
   "recent_specs": [
     {
@@ -86,7 +86,7 @@
       "name": "2026-11-15-dynamic-mode-discovery",
       "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
       "status": "defined",
-      "next": "estimate",
+      "next": "design",
       "depends_on": ["report-style-handlers", "mode-cli-ownership"]
     }
   ],

@@ -23,3 +23,9 @@
 - [x] 4.1 Classify GraphQL primary and secondary rate limits without broad message matching, and add regression coverage for structured and non-rate errors. (Files: `src/ghbot/github/client.py`, `tests/unit/test_client.py`.)
 - [x] 4.2 Cover each malformed GraphQL response branch and assert table metric cells by position. (Files: `tests/unit/test_issues_processor.py`, `tests/unit/test_issues_report.py`.)
 - [x] 4.3 Mark aggregate PR metrics unavailable when any repository is incomplete, and notify human and JSON consumers. (Files: `src/ghbot/modes/issues.py`, `tests/unit/test_issues_report.py`.)
+
+## 5. Resolve accepted PR #46 review feedback
+
+- [x] 5.1 Detect repeated GraphQL continuation cursors as malformed pagination and add focused partial-result coverage. (Files: `src/ghbot/modes/issues.py`, `tests/unit/test_issues_processor.py`.)
+- [x] 5.2 Collect structured rate-limit codes from every GraphQL error entry, narrow the secondary-limit fallback, and add regression coverage. (Files: `src/ghbot/github/client.py`, `tests/unit/test_client.py`.)
+- [x] 5.3 Strengthen plain-summary and per-repository metric tests to assert exact displayed values. (Files: `tests/unit/test_issues_report.py`.)

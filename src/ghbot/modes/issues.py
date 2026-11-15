@@ -162,6 +162,7 @@ class IssuesRepoProcessor:
             "other_merge_ready_pull_requests": 0,
         }
         after = None
+        continuation_cursors: set[str] = set()
         try:
             while True:
                 async with github_api_call(self._gh):
@@ -192,6 +193,9 @@ class IssuesRepoProcessor:
                 after = page_info["endCursor"]
                 if not isinstance(after, str) or not after:
                     raise ValueError("missing cursor for next pull-request page")
+                if after in continuation_cursors:
+                    raise ValueError("repeated cursor for next pull-request page")
+                continuation_cursors.add(after)
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:

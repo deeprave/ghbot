@@ -94,13 +94,21 @@ class TestIssuesReportSummary:
         print_issues_report(results)
 
         lines = capsys.readouterr().out.splitlines()
-        assert "2" in next(line for line in lines if line.startswith("Dependabot PRs:"))
-        assert "1" in next(
-            line for line in lines if line.startswith("Dependabot merge-ready PRs:")
+        assert next(line for line in lines if line.startswith("Dependabot PRs:")) == (
+            f"{'Dependabot PRs:':<26}{2:>8}"
         )
-        assert "3" in next(line for line in lines if line.startswith("Other PRs:"))
-        assert "2" in next(
-            line for line in lines if line.startswith("Other merge-ready PRs:")
+        assert (
+            next(
+                line for line in lines if line.startswith("Dependabot merge-ready PRs:")
+            )
+            == f"{'Dependabot merge-ready PRs:':<26}{1:>8}"
+        )
+        assert next(line for line in lines if line.startswith("Other PRs:")) == (
+            f"{'Other PRs:':<26}{3:>8}"
+        )
+        assert (
+            next(line for line in lines if line.startswith("Other merge-ready PRs:"))
+            == f"{'Other merge-ready PRs:':<26}{2:>8}"
         )
 
     def test_summary_notifies_when_pull_request_metrics_are_incomplete(self, capsys):
@@ -184,10 +192,10 @@ class TestIssuesReportPlain:
         out = render_issues_report(results, format="plain")
 
         repository_block = out.split("acme/web", maxsplit=1)[1]
-        assert "Dependabot PRs:" in repository_block
-        assert "Dependabot merge-ready PRs:" in repository_block
-        assert "Other PRs:" in repository_block
-        assert "Other merge-ready PRs:" in repository_block
+        assert f"  {'Dependabot PRs:':<26}{2:>8}" in repository_block
+        assert f"  {'Dependabot merge-ready PRs:':<26}{1:>8}" in repository_block
+        assert f"  {'Other PRs:':<26}{3:>8}" in repository_block
+        assert f"  {'Other merge-ready PRs:':<26}{2:>8}" in repository_block
 
 
 class TestIssuesReportTable:

@@ -249,6 +249,35 @@ class TestIssuesRepoProcessorPullRequestMetrics:
 
 class TestIssuesRepoProcessorPullRequestMetricFailures:
     @pytest.mark.anyio
+    async def test_repeated_pagination_cursor_marks_metrics_unavailable(self):
+        gh = _make_gh(issues=[_issue(1)])
+        gh.graphql.side_effect = [
+            _graphql_page([], has_next_page=True, end_cursor="cursor-1"),
+            _graphql_page([], has_next_page=True, end_cursor="cursor-1"),
+            AssertionError("repeated cursor must not request another page"),
+        ]
+        processor, monitor = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.status == "partial"
+        assert gh.graphql.await_count == 2
+        assert all(
+            result.results[key] is None
+            for key in (
+                "dependabot_open_pull_requests",
+                "dependabot_merge_ready_pull_requests",
+                "other_open_pull_requests",
+                "other_merge_ready_pull_requests",
+            )
+        )
+        assert any(
+            event.type == "fetch" and event.severity == "error"
+            for event in monitor.events
+        )
+
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "graphql_result",
         [

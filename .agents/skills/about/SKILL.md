@@ -31,6 +31,7 @@ Produce a read-only inventory of `.agents/skills/`. Do not update specs, context
    | 5. Build | `build` |
    | 6. Verify | `verify` |
    | 7. Review | `review` |
+   | After triaged review feedback | `address-review` |
    | After delivery, when useful | `demo` |
    | Between lifecycle stages when requirements change | `revise`, then `refresh`, `design`, and `tasks` as needed |
    | After major progress or context compaction | `context` |
