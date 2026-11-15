@@ -11,7 +11,8 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.processor import FeedbackEvent, IssuesRepoProcessor, RepoProcessor
+from ghbot.modes.issues import IssuesRepoProcessor
+from ghbot.processor import FeedbackEvent, RepoProcessor
 
 
 class RecordingMonitor:
@@ -107,7 +108,7 @@ class TestIssuesRepoProcessorCollection:
     async def test_counts_open_items_including_pull_requests(self):
         gh = _make_gh(issues=[_issue(1), _pr_item(2), _issue(3), _pr_item(4)])
         processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["open_item_count"] == 4
         assert [i["number"] for i in result.results["open_items"]] == [1, 2, 3, 4]
@@ -116,7 +117,7 @@ class TestIssuesRepoProcessorCollection:
     async def test_tags_each_item_type(self):
         gh = _make_gh(issues=[_issue(1), _pr_item(2), _issue(3)])
         processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
             result = await processor.run()
         assert [(i["number"], i["type"]) for i in result.results["open_items"]] == [
             (1, "issue"),
@@ -134,7 +135,7 @@ class TestIssuesRepoProcessorCollection:
             ]
         )
         processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["open_items"] == [
             {
@@ -156,7 +157,7 @@ class TestIssuesRepoProcessorCollection:
     async def test_requests_open_issues_endpoint(self):
         gh = _make_gh(issues=[_issue(1)])
         processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
             await processor.run()
         urls = [call.args[0] for call in gh.getiter.call_args_list]
         assert any("/issues?state=open" in url for url in urls)
@@ -187,7 +188,7 @@ class TestIssuesRepoProcessorNotFound:
     @pytest.mark.anyio
     async def test_not_found_sets_none_without_error(self):
         processor, _ = _make_processor(self._make_gh_not_found())
-        with patch("ghbot.processor.github_api_call", _passthrough):
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["open_item_count"] is None
         assert result.results["open_items"] is None
@@ -220,7 +221,7 @@ class TestIssuesRepoProcessorApiError:
     @pytest.mark.anyio
     async def test_api_error_sets_none_and_partial(self):
         processor, _ = _make_processor(self._make_gh_api_error())
-        with patch("ghbot.processor.github_api_call", _passthrough):
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["open_item_count"] is None
         assert result.results["open_items"] is None
@@ -253,7 +254,7 @@ class TestIssuesRepoProcessorFatalErrors:
             self._make_gh_raising(GitHubPrimaryRateLimitError("rate limited"))
         )
         with (
-            patch("ghbot.processor.github_api_call", _passthrough),
+            patch("ghbot.modes.issues.github_api_call", _passthrough),
             pytest.raises(GitHubPrimaryRateLimitError),
         ):
             await processor.run()
@@ -264,7 +265,7 @@ class TestIssuesRepoProcessorFatalErrors:
             self._make_gh_raising(GitHubSecondaryRateLimitError("slow down"))
         )
         with (
-            patch("ghbot.processor.github_api_call", _passthrough),
+            patch("ghbot.modes.issues.github_api_call", _passthrough),
             pytest.raises(GitHubSecondaryRateLimitError),
         ):
             await processor.run()

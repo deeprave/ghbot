@@ -20,6 +20,11 @@ wheels/
 !.agents/specs/**
 !.agents/skills/
 !.agents/skills/**
+!.agents/steering/
+!.agents/steering/**
+!.agents/project/
+!.agents/project/**
+!.agents/AGENTS.md
 !.agents/CONTEXT.json
 !.agents/.current
 .idea

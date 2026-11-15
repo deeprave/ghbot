@@ -11,7 +11,8 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.processor import FeedbackEvent, RepoProcessor, SecurityRepoProcessor
+from ghbot.modes.security import SecurityRepoProcessor
+from ghbot.processor import FeedbackEvent, RepoProcessor
 
 
 class RecordingMonitor:

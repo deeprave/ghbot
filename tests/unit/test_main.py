@@ -6,7 +6,9 @@ import pytest
 from click.testing import CliRunner
 
 from ghbot.github.repos import DiscoveredRepository
-from ghbot.processor import DriftRepoProcessor, InfoRepoProcessor, SecurityRepoProcessor
+from ghbot.modes.drift import DriftRepoProcessor
+from ghbot.modes.security import SecurityRepoProcessor
+from ghbot.processor import InfoRepoProcessor
 
 
 async def _scan_stub(owners, gh):
@@ -221,9 +223,50 @@ async def test_main_passes_discovered_owner_type_as_keyword_only_argument():
     )
 
 
+@pytest.mark.anyio
+async def test_run_mode_constructs_mode_processor_and_collects_inside_pool_task():
+    from ghbot.__main__ import _run_mode
+    from ghbot.processor import RepoResult
+
+    class ImmediatePool:
+        def __init__(self):
+            self.stats = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn):
+            await fn()
+
+    async def scan(owners, gh):
+        yield DiscoveredRepository("acme", {"name": "api"}, "Organization")
+
+    result = RepoResult(owner="acme", repo="api")
+    processor = MagicMock()
+    processor.run = AsyncMock(return_value=result)
+    collection = MagicMock()
+    mode = MagicMock()
+    mode.new_collection.return_value = collection
+    mode.new_processor.return_value = processor
+
+    with (
+        patch("ghbot.__main__.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.__main__.gh_httpx.GitHubAPI"),
+        patch("ghbot.__main__.scan_repositories", side_effect=scan),
+        patch("ghbot.__main__.TaskPool", return_value=ImmediatePool()),
+    ):
+        await _run_mode({"owners": ["acme"], "concurrency": 1}, mode, {"x": 1})
+
+    mode.new_processor.assert_called_once()
+    collection.add.assert_called_once_with(result)
+
+
 def test_builtin_processors_default_owner_type_to_none():
     """Built-in processors remain directly constructible without owner type."""
-    from ghbot.processor import IssuesRepoProcessor
+    from ghbot.modes.issues import IssuesRepoProcessor
 
     gh = MagicMock()
     monitor = AsyncMock()
@@ -322,68 +365,29 @@ def test_env_flag_selects_environment_authentication():
     assert mock_main.call_args.args[0]["env"] is True
 
 
-def test_security_subcommand_calls_main_with_security_processor():
-    """ghbot security → _main called with SecurityRepoProcessor."""
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_security_report"),
-    ):
-        from ghbot.__main__ import cli
-
-        CliRunner().invoke(cli, ["security"])
-    mock_main.assert_called_once()
-    _, processor_cls = mock_main.call_args[0]
-    assert processor_cls is SecurityRepoProcessor
-
-
-def test_security_subcommand_calls_print_security_report():
-    """ghbot security → print_security_report called with pool.results."""
-    from ghbot.processor import RepoResult
-
-    fake_results = [RepoResult(owner="o", repo="r")]
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=fake_results)),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_security_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        CliRunner().invoke(cli, ["security"])
-    mock_report.assert_called_once_with(fake_results, format="plain", output=None)
-
-
-def test_security_subcommand_default_passes_plain_format_options():
-    """ghbot security defaults to plain output format."""
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_security_report"),
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(cli, ["security"])
-    assert result.exit_code == 0
-    assert mock_main.call_args.kwargs["options"] == {"format": "plain"}
-
-
 @pytest.mark.parametrize(
-    ("flag", "expected"),
-    [("--plain", "plain"), ("--table", "table"), ("--json", "json")],
+    ("command", "mode", "options"),
+    [
+        ("security", "SECURITY_MODE", {"format": "plain"}),
+        ("issues", "ISSUES_MODE", {"labels": False}),
+        ("drift", "DRIFT_MODE", {"format": "plain"}),
+    ],
 )
-def test_security_subcommand_format_flags_pass_options(flag, expected):
-    """Security format flags pass reusable output options."""
+def test_report_commands_resolve_mode_before_scanning(command, mode, options):
     with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
+        patch("ghbot.__main__._run_mode", new=AsyncMock()) as run_mode,
+        patch("ghbot.__main__.write_report"),
         patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_security_report") as mock_report,
     ):
-        from ghbot.__main__ import cli
+        from ghbot import __main__
 
-        result = CliRunner().invoke(cli, ["security", flag])
+        run_mode.return_value = MagicMock()
+        run_mode.return_value.render.return_value = "report\n"
+        result = CliRunner().invoke(__main__.cli, [command])
+
     assert result.exit_code == 0
-    assert mock_main.call_args.kwargs["options"] == {"format": expected}
-    assert mock_report.call_args.kwargs["format"] == expected
+    assert run_mode.call_args.args[1] is getattr(__main__, mode)
+    assert run_mode.call_args.args[2] == options
 
 
 def test_security_subcommand_rejects_multiple_format_flags():
@@ -414,125 +418,15 @@ def test_info_subcommand_rejects_security_format_flags(flag):
     mock_main.assert_not_called()
 
 
-def test_security_subcommand_passes_output_to_report(tmp_path):
-    """--output controls only the final security report destination."""
-    output = tmp_path / "security.json"
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_security_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(
-            cli, ["security", "--json", "--output", str(output)]
-        )
-    assert result.exit_code == 0
-    assert mock_report.call_args.kwargs["output"] == output
-
-
-def test_info_subcommand_does_not_call_print_security_report():
-    """ghbot info → print_security_report not called."""
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_security_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        CliRunner().invoke(cli, ["info"])
-    mock_report.assert_not_called()
-
-
-def test_issues_subcommand_calls_main_with_issues_processor():
-    """ghbot issues → _main called with IssuesRepoProcessor."""
-    from ghbot.processor import IssuesRepoProcessor
-
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_issues_report"),
-    ):
-        from ghbot.__main__ import cli
-
-        CliRunner().invoke(cli, ["issues"])
-    mock_main.assert_called_once()
-    _, processor_cls = mock_main.call_args[0]
-    assert processor_cls is IssuesRepoProcessor
-
-
-def test_issues_subcommand_calls_print_issues_report():
-    """ghbot issues → print_issues_report called with pool.results, plain, no labels."""
-    from ghbot.processor import RepoResult
-
-    fake_results = [RepoResult(owner="o", repo="r")]
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=fake_results)),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_issues_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        CliRunner().invoke(cli, ["issues"])
-    mock_report.assert_called_once_with(
-        fake_results, format="plain", labels=False, output=None
-    )
-
-
-@pytest.mark.parametrize(
-    ("flag", "expected"),
-    [("--plain", "plain"), ("--table", "table"), ("--json", "json")],
-)
-def test_issues_subcommand_format_flags_pass_format(flag, expected):
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_issues_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(cli, ["issues", flag])
-    assert result.exit_code == 0
-    assert mock_report.call_args.kwargs["format"] == expected
-
-
-def test_issues_subcommand_labels_flag_passes_labels_true():
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_issues_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(cli, ["issues", "--labels"])
-    assert result.exit_code == 0
-    assert mock_report.call_args.kwargs["labels"] is True
-
-
 def test_issues_subcommand_rejects_multiple_format_flags():
     with (
         patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
         patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_issues_report"),
     ):
         from ghbot.__main__ import cli
 
         result = CliRunner().invoke(cli, ["issues", "--json", "--table"])
     assert result.exit_code != 0
-
-
-def test_issues_subcommand_passes_output_to_report(tmp_path):
-    output = tmp_path / "issues.txt"
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])),
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_issues_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(cli, ["issues", "--output", str(output)])
-    assert result.exit_code == 0
-    assert mock_report.call_args.kwargs["output"] == output
 
 
 # ---------------------------------------------------------------------------
@@ -702,38 +596,3 @@ def test_requests_flag_true():
     mock_configure.assert_called_once()
     _, kwargs = mock_configure.call_args
     assert kwargs.get("requests") is True
-
-
-def test_drift_subcommand_uses_drift_processor_and_default_report():
-    from ghbot.processor import RepoResult
-
-    results = [RepoResult(owner="acme", repo="widgets")]
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=results)) as mock_main,
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_drift_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(cli, ["drift"])
-
-    assert result.exit_code == 0
-    assert mock_main.call_args.args[1] is DriftRepoProcessor
-    assert mock_main.call_args.kwargs["options"] == {"format": "plain"}
-    mock_report.assert_called_once_with(results, format="plain", output=None)
-
-
-def test_drift_subcommand_passes_json_format_and_output(tmp_path):
-    output = tmp_path / "drift.json"
-    with (
-        patch("ghbot.__main__._main", new=AsyncMock(return_value=[])) as mock_main,
-        patch("ghbot.__main__.configure"),
-        patch("ghbot.__main__.print_drift_report") as mock_report,
-    ):
-        from ghbot.__main__ import cli
-
-        result = CliRunner().invoke(cli, ["drift", "--json", "--output", str(output)])
-
-    assert result.exit_code == 0
-    assert mock_main.call_args.kwargs["options"] == {"format": "json"}
-    assert mock_report.call_args.kwargs == {"format": "json", "output": output}
