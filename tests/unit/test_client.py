@@ -111,7 +111,7 @@ async def test_secondary_rate_limit_403_raises_secondary_rate_limit_error():
 
 
 @pytest.mark.anyio
-async def test_github_api_call_logs_debug_on_entry():
+async def test_github_api_call_logs_debug_lifecycle_on_requests_logger():
     requests_logger = logging.getLogger("ghbot.requests")
     handler = logging.handlers.MemoryHandler(
         capacity=100, flushLevel=logging.CRITICAL + 1
@@ -123,51 +123,8 @@ async def test_github_api_call_logs_debug_on_entry():
         async with github_api_call(gh):
             pass
         debug_records = [r for r in handler.buffer if r.levelno == logging.DEBUG]
-        assert len(debug_records) >= 1, "Expected at least one DEBUG record on entry"
-    finally:
-        requests_logger.removeHandler(handler)
-        requests_logger.setLevel(logging.NOTSET)
-
-
-@pytest.mark.anyio
-async def test_github_api_call_logs_debug_on_exit():
-    requests_logger = logging.getLogger("ghbot.requests")
-    handler = logging.handlers.MemoryHandler(
-        capacity=100, flushLevel=logging.CRITICAL + 1
-    )
-    requests_logger.addHandler(handler)
-    requests_logger.setLevel(logging.DEBUG)
-    try:
-        gh = AsyncMock()
-        async with github_api_call(gh):
-            pass
-        debug_records = [r for r in handler.buffer if r.levelno == logging.DEBUG]
-        assert len(debug_records) >= 2, (
-            "Expected at least two DEBUG records (entry + exit)"
-        )
-    finally:
-        requests_logger.removeHandler(handler)
-        requests_logger.setLevel(logging.NOTSET)
-
-
-@pytest.mark.anyio
-async def test_github_api_call_logs_use_requests_logger():
-    requests_logger = logging.getLogger("ghbot.requests")
-    handler = logging.handlers.MemoryHandler(
-        capacity=100, flushLevel=logging.CRITICAL + 1
-    )
-    requests_logger.addHandler(handler)
-    requests_logger.setLevel(logging.DEBUG)
-    try:
-        gh = AsyncMock()
-        async with github_api_call(gh):
-            pass
-        debug_records = [r for r in handler.buffer if r.levelno == logging.DEBUG]
-        assert len(debug_records) >= 1, "Expected at least one DEBUG record"
-        for record in debug_records:
-            assert record.name == "ghbot.requests", (
-                f"Expected logger name 'ghbot.requests', got '{record.name}'"
-            )
+        assert len(debug_records) >= 2
+        assert {record.name for record in debug_records} == {"ghbot.requests"}
     finally:
         requests_logger.removeHandler(handler)
         requests_logger.setLevel(logging.NOTSET)

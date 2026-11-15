@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+import click
 
 from ghbot.errors import (
     FatalError,
@@ -13,13 +18,19 @@ from ghbot.errors import (
     GitHubSecondaryRateLimitError,
 )
 from ghbot.github.client import github_api_call
+from ghbot.log import get_logger
 from ghbot.processor import FeedbackEvent, GitHubClient, Monitor, RepoResult
 from ghbot.report_style import (
     JSONReportStyle,
     PlainReportStyle,
     ReportStyle,
     TableReportStyle,
+    output_format,
+    write_report,
 )
+from ghbot.runner import run_mode
+
+log = get_logger(__name__)
 
 
 class IssuesRepoProcessor:
@@ -198,6 +209,45 @@ class IssuesMode:
 
 
 MODE = IssuesMode()
+
+
+@click.command()
+@click.option("--plain", "format_plain", is_flag=True, default=False)
+@click.option("--table", "format_table", is_flag=True, default=False)
+@click.option("--json", "format_json", is_flag=True, default=False)
+@click.option(
+    "--labels",
+    "show_labels",
+    is_flag=True,
+    default=False,
+    help="Include issue labels in the report",
+)
+@click.option(
+    "--output",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write the final report to a file",
+)
+@click.pass_context
+def issues(
+    ctx: click.Context,
+    format_plain: bool,
+    format_table: bool,
+    format_json: bool,
+    show_labels: bool,
+    output: Path | None,
+) -> None:
+    """Scan repositories for open issues and pull requests."""
+    selected_format = output_format(
+        plain=format_plain, table=format_table, json_format=format_json
+    )
+    options = {"format": selected_format, "labels": show_labels}
+    try:
+        collection = asyncio.run(run_mode(ctx.obj["cfg"], MODE, options))
+    except FatalError as error:
+        log.error(error.message)
+        sys.exit(error.exit_code)
+    write_report(collection.render(selected_format), output)
 
 
 def _item_type(item: dict[str, Any]) -> str:

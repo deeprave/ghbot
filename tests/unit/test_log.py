@@ -40,27 +40,20 @@ def test_configure_no_suppress_when_requests_flag_set():
     assert not any(isinstance(f, _SuppressRequestsFilter) for f in handler.filters)
 
 
-def test_suppress_filter_blocks_requests_records():
-    """_SuppressRequestsFilter drops records from ghbot.requests and its children."""
-    f = _SuppressRequestsFilter()
-    for name in ("ghbot.requests", "httpx", "httpcore", "httpcore.connection"):
-        record = logging.LogRecord(
-            name=name,
-            level=logging.DEBUG,
-            pathname="",
-            lineno=0,
-            msg="test",
-            args=(),
-            exc_info=None,
-        )
-        assert f.filter(record) is False, f"Expected {name!r} to be suppressed"
-
-
-def test_suppress_filter_passes_other_records():
-    """_SuppressRequestsFilter passes records from other loggers."""
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("ghbot.requests", False),
+        ("httpx", False),
+        ("httpcore", False),
+        ("httpcore.connection", False),
+        ("ghbot.processor", True),
+    ],
+)
+def test_suppress_filter_handles_configured_request_loggers(name, expected):
     f = _SuppressRequestsFilter()
     record = logging.LogRecord(
-        name="ghbot.processor",
+        name=name,
         level=logging.DEBUG,
         pathname="",
         lineno=0,
@@ -68,7 +61,7 @@ def test_suppress_filter_passes_other_records():
         args=(),
         exc_info=None,
     )
-    assert f.filter(record) is True
+    assert f.filter(record) is expected
 
 
 def test_json_formatter_uses_utc_timestamp():

@@ -50,21 +50,13 @@ async def test_gh_not_found_chains_original_exception():
 
 
 @pytest.mark.anyio
-async def test_gh_non_zero_raises_auth_error():
+@pytest.mark.parametrize("returncode, stdout", [(1, b""), (0, b"\n")])
+async def test_invalid_gh_token_raises_auth_error(returncode, stdout):
     with (
-        patch("asyncio.create_subprocess_exec", return_value=_make_proc(1, b"")),
-        pytest.raises(AuthError) as exc_info,
-    ):
-        from ghbot.github.auth import get_auth_token
-
-        await get_auth_token()
-    assert "gh auth login" in exc_info.value.message
-
-
-@pytest.mark.anyio
-async def test_gh_empty_token_raises_auth_error():
-    with (
-        patch("asyncio.create_subprocess_exec", return_value=_make_proc(0, b"\n")),
+        patch(
+            "asyncio.create_subprocess_exec",
+            return_value=_make_proc(returncode, stdout),
+        ),
         pytest.raises(AuthError) as exc_info,
     ):
         from ghbot.github.auth import get_auth_token
@@ -138,39 +130,17 @@ async def test_environment_and_gh_tokens_have_isolated_caches(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_platform_hint_darwin():
+@pytest.mark.parametrize(
+    ("system", "hint"),
+    [("Darwin", "brew install gh"), ("Linux", "apt"), ("Windows", "winget")],
+)
+async def test_missing_gh_includes_platform_install_hint(system, hint):
     with (
-        patch("platform.system", return_value="Darwin"),
+        patch("platform.system", return_value=system),
         patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError),
         pytest.raises(AuthError) as exc_info,
     ):
         from ghbot.github.auth import get_auth_token
 
         await get_auth_token()
-    assert "brew install gh" in exc_info.value.message
-
-
-@pytest.mark.anyio
-async def test_platform_hint_linux():
-    with (
-        patch("platform.system", return_value="Linux"),
-        patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError),
-        pytest.raises(AuthError) as exc_info,
-    ):
-        from ghbot.github.auth import get_auth_token
-
-        await get_auth_token()
-    assert "apt" in exc_info.value.message
-
-
-@pytest.mark.anyio
-async def test_platform_hint_windows():
-    with (
-        patch("platform.system", return_value="Windows"),
-        patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError),
-        pytest.raises(AuthError) as exc_info,
-    ):
-        from ghbot.github.auth import get_auth_token
-
-        await get_auth_token()
-    assert "winget" in exc_info.value.message
+    assert hint in exc_info.value.message
