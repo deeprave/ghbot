@@ -7,6 +7,6 @@ def test_changelog_documents_drift_and_owner_type_api_change():
 
     assert "## [0.10.0]" in changelog
     assert "drift" in changelog.lower()
-    assert "## [Unreleased]" in changelog
+    assert "## [0.30.0] - 2026-11-15" in changelog
     assert "owner_type" in changelog
     assert "breaking" in changelog.lower()

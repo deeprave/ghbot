@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "ghbot"
-version = "0.20.0"
+version = "0.30.0"
 description = "Autofix for github"
 readme = "README.md"
 authors = [
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Version Control :: Git",
     "Topic :: Utilities",
 ]
