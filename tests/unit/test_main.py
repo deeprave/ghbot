@@ -198,6 +198,33 @@ def test_repo_option_uses_owners_from_config_file(tmp_path):
     )
 
 
+def test_repo_option_strips_whitespace_from_cli_owners():
+    result, captured = _capture_info_config(
+        ["--owner", "alice, bob", "--repo", "widgets"]
+    )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (
+        ("alice", "widgets"),
+        ("bob", "widgets"),
+    )
+
+
+def test_repo_option_strips_whitespace_from_config_owners(tmp_path):
+    config = tmp_path / "ghbot.toml"
+    config.write_text('owners = "alice, bob"\n')
+
+    result, captured = _capture_info_config(
+        ["--config", str(config), "--repo", "widgets"]
+    )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (
+        ("alice", "widgets"),
+        ("bob", "widgets"),
+    )
+
+
 def test_bare_repo_option_without_owners_is_a_usage_error():
     result, _ = _capture_info_config(["--repo", "widgets"])
 
@@ -250,6 +277,26 @@ def test_unreadable_repo_file_is_a_usage_error(tmp_path):
 
     assert result.exit_code != 0
     assert str(missing) in result.output
+
+
+def test_invalid_utf8_repo_file_is_a_usage_error(tmp_path):
+    repositories = tmp_path / "repositories.txt"
+    repositories.write_bytes(b"\xff")
+
+    result, _ = _capture_info_config(["--repos", str(repositories)])
+
+    assert result.exit_code != 0
+    assert str(repositories) in result.output
+
+
+def test_repo_file_strips_utf8_bom_from_first_entry(tmp_path):
+    repositories = tmp_path / "repositories.txt"
+    repositories.write_bytes(b"\xef\xbb\xbfacme/widgets\n")
+
+    result, captured = _capture_info_config(["--repos", str(repositories)])
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (("acme", "widgets"),)
 
 
 def test_repos_option_is_single_use(tmp_path):

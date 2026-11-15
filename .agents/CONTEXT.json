@@ -3,17 +3,17 @@
   "current_spec": {
     "name": "2026-11-14-explicit-repo-selection",
     "path": ".agents/specs/2026-11-14-explicit-repo-selection",
-    "status": "complete",
+    "status": "verified",
     "progress": {
-      "tasks_completed": 3,
-      "tasks_total": 3
+      "tasks_completed": 4,
+      "tasks_total": 4
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-15",
       "gates": {
-        "pytest": "pass (328 tests)",
+        "pytest": "pass (332 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -21,11 +21,11 @@
       }
     },
     "review": {
-      "status": "pass",
-      "last_run": "2026-11-15",
+      "status": "not-run",
+      "last_run": null,
       "findings": 0
     },
-    "revision_note": "Complete: review approved explicit repository selection after clean verification."
+    "revision_note": "Verified: accepted PR #45 input-boundary findings are implemented and all quality gates pass."
   },
   "recent_specs": [
     {

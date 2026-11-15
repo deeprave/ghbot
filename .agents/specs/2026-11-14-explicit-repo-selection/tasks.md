@@ -11,3 +11,7 @@
 - [x] 3. Carry selection through both runners (`src/ghbot/runner.py`, `tests/unit/test_runner.py`)
   - [x] 3.1 Add failing tests that `run_processor()` and `run_mode()` forward configured explicit candidates unchanged, while absent selection retains owner-based discovery arguments.
   - [x] 3.2 Forward `cfg["explicit_repositories"]` to the scanner from each runner without altering authentication, concurrency, processor construction, collection timing, or report output.
+
+- [x] 4. Harden accepted pull-request input boundaries (`src/ghbot/__main__.py`, `tests/unit/test_main.py`)
+  - [x] 4.1 Add failing shell tests for invalid UTF-8, UTF-8 BOM removal, and whitespace-normalized CLI and TOML owners.
+  - [x] 4.2 Decode repository files as BOM-aware UTF-8, convert decoding failures to usage errors, and normalize comma-separated owner segments.

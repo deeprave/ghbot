@@ -18,7 +18,12 @@ log = get_logger(__name__)
 def _split_owners(
     ctx: click.Context, param: click.Parameter, value: tuple[str, ...]
 ) -> tuple[str, ...]:
-    return tuple(o for v in value for o in v.split(",") if o)
+    return tuple(
+        owner
+        for item in value
+        for owner in (o.strip() for o in item.split(","))
+        if owner
+    )
 
 
 def _repository_entries(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -33,8 +38,8 @@ def _file_repository_entries(path: Path | None) -> tuple[str, ...]:
 
     entries: list[str] = []
     try:
-        lines = path.read_text().splitlines()
-    except OSError as e:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except (OSError, UnicodeDecodeError) as e:
         raise click.UsageError(f"unable to read repository file: {path}") from e
     for line in lines:
         if not line.strip() or line.lstrip().startswith("#"):
@@ -159,7 +164,9 @@ def cli(
     if owner:
         cfg["owners"] = list(owner)
     elif isinstance(cfg.get("owners"), str):
-        cfg["owners"] = [o for o in cfg["owners"].split(",") if o]
+        cfg["owners"] = [
+            owner for item in cfg["owners"].split(",") if (owner := item.strip())
+        ]
     if log_file:
         cfg["log-file"] = log_file
     if use_environment_token is not None:
