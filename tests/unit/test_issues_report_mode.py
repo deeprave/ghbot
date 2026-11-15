@@ -23,6 +23,10 @@ def _result() -> RepoResult:
                     "labels": ["bug"],
                 }
             ],
+            "dependabot_open_pull_requests": 0,
+            "dependabot_merge_ready_pull_requests": 0,
+            "other_open_pull_requests": 0,
+            "other_merge_ready_pull_requests": 0,
         }
     )
     return result
@@ -44,6 +48,11 @@ def test_collection_aggregates_and_renders_labels_by_style():
         "repos_with_items": 1,
         "open_issues": 1,
         "open_prs": 0,
+        "dependabot_open_pull_requests": 0,
+        "dependabot_merge_ready_pull_requests": 0,
+        "other_open_pull_requests": 0,
+        "other_merge_ready_pull_requests": 0,
+        "pull_request_metrics_complete": True,
     }
     assert "+bug" in collection.render("plain")
     assert "Labels" in collection.render("table")

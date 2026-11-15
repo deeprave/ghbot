@@ -6,6 +6,13 @@ from ghbot.modes.issues import IssuesCollectionReport
 from ghbot.processor import RepoResult
 from ghbot.report_style import write_report
 
+PULL_REQUEST_METRIC_KEYS = (
+    "dependabot_open_pull_requests",
+    "dependabot_merge_ready_pull_requests",
+    "other_open_pull_requests",
+    "other_merge_ready_pull_requests",
+)
+
 
 def render_issues_report(results, *, format="plain", labels=False):
     return IssuesCollectionReport(labels=labels, results=list(results)).render(format)
@@ -19,11 +26,23 @@ def _item(number, title, type="issue", labels=None):
     return {"number": number, "title": title, "type": type, "labels": labels or []}
 
 
-def _result(owner, repo, count=None, items=None, status="success"):
+def _result(owner, repo, count=None, items=None, status="success", metrics=None):
     r = RepoResult(owner=owner, repo=repo, status=status)
     r.results["open_item_count"] = count
     r.results["open_items"] = items
+    if metrics is not None:
+        r.results.update(metrics)
     return r
+
+
+def _metrics(dependabot_total, dependabot_ready, other_total, other_ready):
+    return dict(
+        zip(
+            PULL_REQUEST_METRIC_KEYS,
+            (dependabot_total, dependabot_ready, other_total, other_ready),
+            strict=True,
+        )
+    )
 
 
 class TestIssuesReportSummary:
@@ -59,6 +78,52 @@ class TestIssuesReportSummary:
         lines = capsys.readouterr().out.splitlines()
         assert "N/A" in next(line for line in lines if line.startswith("Open issues:"))
         assert "N/A" in next(line for line in lines if line.startswith("Open PRs:"))
+
+    def test_summary_includes_pull_request_category_metrics(self, capsys):
+        results = [
+            _result(
+                "o",
+                "a",
+                1,
+                [_item(1, "Bug")],
+                metrics=_metrics(2, 1, 3, 2),
+            ),
+            _result("o", "b", 0, [], metrics=_metrics(0, 0, 0, 0)),
+        ]
+
+        print_issues_report(results)
+
+        lines = capsys.readouterr().out.splitlines()
+        assert "2" in next(line for line in lines if line.startswith("Dependabot PRs:"))
+        assert "1" in next(
+            line for line in lines if line.startswith("Dependabot merge-ready PRs:")
+        )
+        assert "3" in next(line for line in lines if line.startswith("Other PRs:"))
+        assert "2" in next(
+            line for line in lines if line.startswith("Other merge-ready PRs:")
+        )
+
+    def test_summary_notifies_when_pull_request_metrics_are_incomplete(self, capsys):
+        print_issues_report(
+            [
+                _result(
+                    "o", "available", 1, [_item(1, "Bug")], metrics=_metrics(2, 1, 3, 2)
+                ),
+                _result(
+                    "o",
+                    "unavailable",
+                    1,
+                    [_item(2, "Bug")],
+                    metrics=_metrics(None, None, None, None),
+                ),
+            ]
+        )
+
+        output = capsys.readouterr().out
+        assert "Pull-request metrics unavailable: incomplete repository data" in output
+        assert "N/A" in next(
+            line for line in output.splitlines() if line.startswith("Dependabot PRs:")
+        )
 
 
 class TestIssuesReportPlain:
@@ -104,6 +169,25 @@ class TestIssuesReportPlain:
         assert "acme/web" in out
         assert "acme/empty" not in out
         assert "acme/denied" not in out
+
+    def test_includes_pull_request_metrics_for_each_displayed_repository(self):
+        results = [
+            _result(
+                "acme",
+                "web",
+                1,
+                [_item(1, "Bug")],
+                metrics=_metrics(2, 1, 3, 2),
+            )
+        ]
+
+        out = render_issues_report(results, format="plain")
+
+        repository_block = out.split("acme/web", maxsplit=1)[1]
+        assert "Dependabot PRs:" in repository_block
+        assert "Dependabot merge-ready PRs:" in repository_block
+        assert "Other PRs:" in repository_block
+        assert "Other merge-ready PRs:" in repository_block
 
 
 class TestIssuesReportTable:
@@ -160,6 +244,27 @@ class TestIssuesReportTable:
         out = render_issues_report(results, format="table")
         assert "acme/web" in out
         assert "acme/empty" not in out
+
+    def test_includes_pull_request_metric_columns_and_values(self):
+        results = [
+            _result(
+                "acme",
+                "web",
+                1,
+                [_item(1, "Bug")],
+                metrics=_metrics(2, 1, 3, 2),
+            )
+        ]
+
+        out = render_issues_report(results, format="table")
+
+        assert "Dependabot PRs" in out
+        assert "Dependabot ready" in out
+        assert "Other PRs" in out
+        assert "Other ready" in out
+        row = next(line for line in out.splitlines() if "acme/web" in line)
+        cells = [cell.strip() for cell in row.split("|")[1:-1]]
+        assert cells[4:] == ["2", "1", "3", "2"]
 
 
 class TestIssuesReportJson:
@@ -225,6 +330,39 @@ class TestIssuesReportJson:
 
         data = json.loads(render_issues_report(results, format="json", labels=True))
         assert data["repositories"][0]["items"][0]["labels"] == []
+
+    def test_includes_pull_request_metrics_and_nulls(self):
+        results = [
+            _result(
+                "acme",
+                "web",
+                1,
+                [_item(1, "Bug")],
+                metrics=_metrics(2, 1, 3, 2),
+            ),
+            _result(
+                "acme",
+                "unavailable",
+                None,
+                None,
+                metrics=_metrics(None, None, None, None),
+            ),
+        ]
+
+        data = json.loads(render_issues_report(results, format="json"))
+
+        assert {
+            key: data["summary"][key] for key in PULL_REQUEST_METRIC_KEYS
+        } == _metrics(None, None, None, None)
+        assert data["summary"]["pull_request_metrics_complete"] is False
+        unavailable = next(
+            repository
+            for repository in data["repositories"]
+            if repository["repo"] == "unavailable"
+        )
+        assert {key: unavailable[key] for key in PULL_REQUEST_METRIC_KEYS} == _metrics(
+            None, None, None, None
+        )
 
 
 class TestIssuesReportOutput:

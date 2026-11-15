@@ -16,6 +16,15 @@ from ghbot.errors import (
 from ghbot.github.client import github_api_call
 
 
+def _graphql_query_error(
+    message: str, *, error_type: str | None = None
+) -> gidgethub.QueryError:
+    error = {"message": message}
+    if error_type is not None:
+        error["type"] = error_type
+    return gidgethub.QueryError({"errors": [error]})
+
+
 @pytest.mark.anyio
 async def test_404_raises_not_found_error():
     gh = AsyncMock()
@@ -30,6 +39,43 @@ async def test_other_http_error_raises_github_api_error():
     with pytest.raises(GitHubApiError):
         async with github_api_call(gh):
             raise gidgethub.BadRequest(http.HTTPStatus.UNPROCESSABLE_ENTITY)
+
+
+@pytest.mark.anyio
+async def test_graphql_query_error_raises_github_api_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubApiError, match="invalid query"):
+        async with github_api_call(gh):
+            raise _graphql_query_error("invalid query")
+
+
+@pytest.mark.anyio
+async def test_graphql_rate_limit_error_raises_primary_rate_limit_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubPrimaryRateLimitError, match="rate limit"):
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "API rate limit exceeded", error_type="RATE_LIMITED"
+            )
+
+
+@pytest.mark.anyio
+async def test_graphql_secondary_rate_limit_error_raises_secondary_rate_limit_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubSecondaryRateLimitError, match="secondary rate limit"):
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "You have exceeded a secondary rate limit.",
+                error_type="SECONDARY_RATE_LIMITED",
+            )
+
+
+@pytest.mark.anyio
+async def test_graphql_error_with_rate_limit_words_but_no_rate_limit_type_is_api_error():
+    gh = AsyncMock()
+    with pytest.raises(GitHubApiError, match="rate limit appears in this message"):
+        async with github_api_call(gh):
+            raise _graphql_query_error("rate limit appears in this message")
 
 
 @pytest.mark.anyio

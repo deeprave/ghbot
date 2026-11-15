@@ -42,6 +42,27 @@ def _pr_item(number, title="A pull request", labels=None, **extra):
     return item
 
 
+def _graphql_pr(author="octocat", merge_state="CLEAN"):
+    return {
+        "author": None if author is None else {"login": author},
+        "mergeStateStatus": merge_state,
+    }
+
+
+def _graphql_page(nodes, *, has_next_page=False, end_cursor=None):
+    return {
+        "repository": {
+            "pullRequests": {
+                "nodes": nodes,
+                "pageInfo": {
+                    "hasNextPage": has_next_page,
+                    "endCursor": end_cursor,
+                },
+            }
+        }
+    }
+
+
 @asynccontextmanager
 async def _passthrough(gh):
     yield
@@ -59,6 +80,7 @@ def _make_gh(issues=None):
 
     gh.getiter = MagicMock(side_effect=_getiter)
     gh.getitem = AsyncMock(side_effect=lambda url, *, url_vars=None: {})
+    gh.graphql = AsyncMock(return_value=_graphql_page([]))
     return gh
 
 
@@ -163,6 +185,140 @@ class TestIssuesRepoProcessorCollection:
         assert any("/issues?state=open" in url for url in urls)
 
 
+class TestIssuesRepoProcessorPullRequestMetrics:
+    @pytest.mark.anyio
+    async def test_paginates_graphql_pull_requests_and_counts_categories(self):
+        gh = _make_gh(issues=[_issue(1)])
+        gh.graphql.side_effect = [
+            _graphql_page(
+                [
+                    _graphql_pr("dependabot[bot]", "CLEAN"),
+                    _graphql_pr("octocat", "BLOCKED"),
+                ],
+                has_next_page=True,
+                end_cursor="cursor-1",
+            ),
+            _graphql_page(
+                [
+                    _graphql_pr("dependabot[bot]", "HAS_HOOKS"),
+                    _graphql_pr(None, "CLEAN"),
+                ]
+            ),
+        ]
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.results["dependabot_open_pull_requests"] == 2
+        assert result.results["dependabot_merge_ready_pull_requests"] == 1
+        assert result.results["other_open_pull_requests"] == 2
+        assert result.results["other_merge_ready_pull_requests"] == 1
+        assert gh.graphql.await_count == 2
+        assert gh.graphql.await_args_list[0].kwargs == {
+            "owner": "acme",
+            "repo": "widgets",
+            "after": None,
+        }
+        assert gh.graphql.await_args_list[1].kwargs == {
+            "owner": "acme",
+            "repo": "widgets",
+            "after": "cursor-1",
+        }
+        assert "pullRequests" in gh.graphql.await_args_list[0].args[0]
+        assert gh.getitem.await_count == 0
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "merge_state",
+        ["HAS_HOOKS", "BLOCKED", "DIRTY", "DRAFT", "UNKNOWN", None],
+    )
+    async def test_only_clean_pull_requests_are_merge_ready(self, merge_state):
+        gh = _make_gh()
+        gh.graphql.return_value = _graphql_page(
+            [_graphql_pr("dependabot[bot]", merge_state)]
+        )
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.results["dependabot_open_pull_requests"] == 1
+        assert result.results["dependabot_merge_ready_pull_requests"] == 0
+
+
+class TestIssuesRepoProcessorPullRequestMetricFailures:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "graphql_result",
+        [
+            GitHubApiError("query failed"),
+            {"repository": {}},
+            _graphql_page("not a list"),
+            _graphql_page([None]),
+            _graphql_page([], has_next_page="yes"),
+            _graphql_page([], has_next_page=True),
+            _graphql_page([], has_next_page=True, end_cursor=""),
+        ],
+        ids=[
+            "api-error",
+            "missing-pull-requests",
+            "nodes-not-list",
+            "nodes-not-objects",
+            "has-next-not-bool",
+            "next-page-missing-cursor",
+            "next-page-empty-cursor",
+        ],
+    )
+    async def test_recoverable_failure_marks_metrics_unavailable(self, graphql_result):
+        gh = _make_gh(issues=[_issue(1)])
+        if isinstance(graphql_result, Exception):
+            gh.graphql.side_effect = graphql_result
+        else:
+            gh.graphql.return_value = graphql_result
+        processor, monitor = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.status == "partial"
+        assert result.errors
+        assert {
+            key: result.results[key]
+            for key in (
+                "dependabot_open_pull_requests",
+                "dependabot_merge_ready_pull_requests",
+                "other_open_pull_requests",
+                "other_merge_ready_pull_requests",
+            )
+        } == {
+            "dependabot_open_pull_requests": None,
+            "dependabot_merge_ready_pull_requests": None,
+            "other_open_pull_requests": None,
+            "other_merge_ready_pull_requests": None,
+        }
+        assert any(
+            event.type == "fetch" and event.severity == "error"
+            for event in monitor.events
+        )
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "error_type",
+        [GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError],
+    )
+    async def test_rate_limits_from_graphql_propagate(self, error_type):
+        gh = _make_gh()
+        gh.graphql.side_effect = error_type("rate limited")
+        processor, _ = _make_processor(gh)
+
+        with (
+            patch("ghbot.modes.issues.github_api_call", _passthrough),
+            pytest.raises(error_type),
+        ):
+            await processor.run()
+
+
 # ---------------------------------------------------------------------------
 # GitHubNotFoundError — unavailable (403/404)
 # ---------------------------------------------------------------------------
@@ -183,6 +339,7 @@ class TestIssuesRepoProcessorNotFound:
             return _aiter()
 
         gh.getiter = MagicMock(side_effect=_getiter)
+        gh.graphql = AsyncMock(return_value=_graphql_page([]))
         return gh
 
     @pytest.mark.anyio
@@ -216,6 +373,7 @@ class TestIssuesRepoProcessorApiError:
             return _aiter()
 
         gh.getiter = MagicMock(side_effect=_getiter)
+        gh.graphql = AsyncMock(return_value=_graphql_page([]))
         return gh
 
     @pytest.mark.anyio
