@@ -32,6 +32,22 @@ class ReportStyle:
                 raise ValueError(f"unsupported report format: {format_name}")
 
 
+def output_format(*, plain: bool, table: bool, json_format: bool) -> str:
+    """Resolve mode-owned output flags to a report-style name."""
+    selected = [
+        name
+        for flag, name in (
+            (plain, "plain"),
+            (table, "table"),
+            (json_format, "json"),
+        )
+        if flag
+    ]
+    if len(selected) > 1:
+        raise click.UsageError("choose only one of --plain, --table, or --json")
+    return selected[0] if selected else "plain"
+
+
 class PlainReportStyle(ReportStyle):
     def render_lines(self, lines: list[str]) -> str:
         return "\n".join(lines) + "\n"

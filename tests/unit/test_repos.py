@@ -26,21 +26,20 @@ def _make_gh(pages: list[list[dict]], owner_type: str = "User"):
 
 
 @pytest.mark.anyio
-async def test_list_repos_single_page():
-    repos = [{"name": "repo1"}, {"name": "repo2"}]
-    gh = _make_gh([repos])
+@pytest.mark.parametrize(
+    "pages",
+    [
+        [[{"name": "repo1"}, {"name": "repo2"}]],
+        [[{"name": "repo1"}, {"name": "repo2"}], [{"name": "repo3"}]],
+    ],
+)
+async def test_list_repos_yields_repositories_from_each_page(pages):
+    gh = _make_gh(pages)
     result = [r async for r in list_repos("owner1", gh)]
-    assert [discovered.metadata for discovered in result] == repos
+    assert [discovered.metadata for discovered in result] == [
+        repo for page in pages for repo in page
+    ]
     assert all(discovered.owner_type == "User" for discovered in result)
-
-
-@pytest.mark.anyio
-async def test_list_repos_multi_page():
-    page1 = [{"name": "repo1"}, {"name": "repo2"}]
-    page2 = [{"name": "repo3"}]
-    gh = _make_gh([page1, page2])
-    result = [r async for r in list_repos("owner1", gh)]
-    assert [discovered.metadata for discovered in result] == page1 + page2
 
 
 @pytest.mark.anyio

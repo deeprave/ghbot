@@ -3,23 +3,29 @@
   "current_spec": {
     "name": "2026-11-15-mode-cli-ownership",
     "path": ".agents/specs/2026-11-15-mode-cli-ownership",
-    "status": "defined",
+    "status": "complete",
     "progress": {
-      "tasks_completed": 0,
-      "tasks_total": 0
+      "tasks_completed": 5,
+      "tasks_total": 5
     },
     "present_task": null,
     "verification": {
-      "status": "not-run",
-      "last_run": null,
-      "gates": {}
+      "status": "pass",
+      "last_run": "2026-11-15",
+      "gates": {
+        "pytest": "pass (305 tests)",
+        "ruff_check": "pass",
+        "ty": "pass",
+        "ruff_format_check": "pass",
+        "diff_check": "pass"
+      }
     },
     "review": {
-      "status": "not-run",
-      "last_run": null,
+      "status": "pass",
+      "last_run": "2026-11-15",
       "findings": 0
     },
-    "revision_note": "Mode-specific Click commands and options are defined; design is the next step."
+    "revision_note": "Complete: independent review approved the verified mode-owned CLI refactor and focused test suite."
   },
   "recent_specs": [
     {
@@ -93,9 +99,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Collection-level report mode handlers and reusable report styles.",
-    "behaviour": "Security, issues, and drift handlers aggregate results and render through plain, table, or JSON styles without changing existing output contracts.",
-    "constraints": "Preserve CLI behaviour and output schemas; do not alter processor execution or API calls; enable future combo composition."
+    "feature": "Mode-owned Click commands and static built-in command registration.",
+    "behaviour": "Security, issues, and drift own their command flags and report invocation while the shell retains only global configuration and info.",
+    "constraints": "Preserve command and output contracts, scan semantics, and static mode boundaries; do not add dynamic discovery, plugins, combo, dependencies, or API calls."
   },
   "skills": {
     "location": ".agents/skills",

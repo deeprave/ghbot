@@ -1,5 +1,11 @@
 """Tests for the cohesive issues mode unit and collection report."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from click.testing import CliRunner
+
+from ghbot.errors import AuthError
 from ghbot.modes.issues import MODE, IssuesCollectionReport, IssuesRepoProcessor
 from ghbot.processor import RepoProcessor, RepoResult
 
@@ -42,3 +48,90 @@ def test_collection_aggregates_and_renders_labels_by_style():
     assert "+bug" in collection.render("plain")
     assert "Labels" in collection.render("table")
     assert '"labels": [' in collection.render("json")
+
+
+def test_issues_command_help_is_owned_by_the_mode():
+    from ghbot.modes.issues import issues
+
+    result = CliRunner().invoke(issues, ["--help"])
+
+    assert result.exit_code == 0
+    assert "--labels" in result.output
+    assert "--output" in result.output
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_options"),
+    [
+        ([], {"format": "plain", "labels": False}),
+        (["--plain", "--labels"], {"format": "plain", "labels": True}),
+        (["--table", "--labels"], {"format": "table", "labels": True}),
+        (["--json", "--labels"], {"format": "json", "labels": True}),
+    ],
+)
+def test_issues_command_routes_format_and_labels_to_its_runner(
+    arguments, expected_options
+):
+    from ghbot.modes.issues import issues
+
+    collection = MagicMock()
+    collection.render.return_value = "report\n"
+    with (
+        patch(
+            "ghbot.modes.issues.run_mode", new=AsyncMock(return_value=collection)
+        ) as run_mode,
+        patch("ghbot.modes.issues.write_report") as write_report,
+    ):
+        result = CliRunner().invoke(issues, arguments, obj={"cfg": {}})
+
+    assert result.exit_code == 0
+    assert run_mode.await_args.args[2] == expected_options
+    write_report.assert_called_once_with("report\n", None)
+
+
+def test_issues_command_forwards_output(tmp_path):
+    from ghbot.modes.issues import issues
+
+    collection = MagicMock()
+    collection.render.return_value = "report\n"
+    destination = tmp_path / "issues.txt"
+    with (
+        patch(
+            "ghbot.modes.issues.run_mode", new=AsyncMock(return_value=collection)
+        ) as run_mode,
+        patch("ghbot.modes.issues.write_report") as write_report,
+    ):
+        result = CliRunner().invoke(
+            issues,
+            ["--output", str(destination)],
+            obj={"cfg": {}},
+        )
+
+    assert result.exit_code == 0
+    assert run_mode.await_args.args[2] == {"format": "plain", "labels": False}
+    write_report.assert_called_once_with("report\n", destination)
+
+
+def test_issues_command_rejects_multiple_output_formats():
+    from ghbot.modes.issues import issues
+
+    result = CliRunner().invoke(issues, ["--plain", "--table"], obj={"cfg": {}})
+
+    assert result.exit_code != 0
+    assert "choose only one" in result.output
+
+
+def test_issues_command_exits_for_fatal_errors():
+    from ghbot.modes.issues import issues
+
+    with (
+        patch(
+            "ghbot.modes.issues.run_mode",
+            new=AsyncMock(side_effect=AuthError("bad token")),
+        ),
+        patch("ghbot.modes.issues.log.error") as log_error,
+    ):
+        result = CliRunner().invoke(issues, [], obj={"cfg": {}})
+
+    assert result.exit_code == 1
+    log_error.assert_called_once_with("bad token")
