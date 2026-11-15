@@ -14,21 +14,21 @@ files already in `.agents/specs/`.
 
 1. Read `.agents/CONTEXT.json` and `.agents/.current` to locate the active spec.
 2. Read `requirements.md` (or `spec.md`) and `spec-lite.md` from that folder.
-3. Read `.agents/steering/*.md` — especially `tech.md` and `api-standards.md` — so the design
-   follows repo patterns (async-first, `github_api_call`, `url_vars`, protocols over ABCs).
+3. Read `.agents/steering/*.md` and the project documents relevant to the change so the design
+   follows the repository's architecture, API, security, and testing conventions.
 4. Write `design.md` in the spec folder with:
    - **Overview** — what changes, at a glance.
    - **Architecture** — component/call flow (a text diagram is fine).
-   - **API / data** — GitHub endpoints, result keys, record shapes.
-   - **Error handling** — map each failure to its policy (403/404 → `None`; `GitHubApiError` →
-     partial; fatal rate limits re-raised).
-   - **Report/output rendering** — if the feature has output, show plain/table/JSON shapes.
-   - **Test strategy** — the unit/property tests to write, plus the four `uv run` gates.
-5. Update `.agents/CONTEXT.json` to note design is present.
+   - **API / data** — applicable endpoints, result keys, and record shapes.
+   - **Error handling** — map each failure to its documented policy.
+   - **Report/output rendering** — if the feature has output, show relevant output shapes.
+   - **Test strategy** — the behavioural tests and project quality gates to run.
+5. Update `.agents/CONTEXT.json` according to `context.md` and `lifecycle.md`: record that design
+   is present and set the active spec status to `designed`.
 
-Keep the design faithful to every requirement — `/verify` later checks design coverage.
+Keep the design faithful to every requirement — `verify` later checks design coverage.
 
 ## Next
 
-- `/tasks` — generate the implementation tasks from this design.
-- `/verify` — confirm the design covers all requirements before building.
+- `tasks` — generate the implementation tasks from this design.
+- `verify` — confirm the design covers all requirements before building.

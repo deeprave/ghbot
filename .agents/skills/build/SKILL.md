@@ -12,22 +12,23 @@ in sync.
 
 ## Workflow
 
-1. Read `.agents/CONTEXT.json` (current spec + progress) and `.agents/.current` (spec folder path).
+1. Read `.agents/CONTEXT.json` (current spec + progress), `.agents/.current` (spec folder path),
+   `.agents/steering/lifecycle.md`, and the relevant project guidance.
 2. Read `tasks.md`; find the first uncompleted task (`- [ ]`).
 3. For each task, in order:
    a. Write the test(s) first (TDD).
    b. Implement the minimum code to pass — no speculative code.
-   c. Run `uv run pytest -v -Werror -Walways` (plus `uv run ruff check`, `uv run ty check src/`,
-      `uv run ruff format` as appropriate).
+   c. Run the focused test and any project checks needed to keep the change safe.
    d. Mark the task complete: change `- [ ]` to `- [x]` in `tasks.md`.
-   e. Update `.agents/CONTEXT.json` with the new progress.
+   e. Update `.agents/CONTEXT.json` with the new progress and the `building` transition. Invalidate
+      prior verification and review evidence as `stale` when this task changes implementation.
 ## Critical
 
 - Always update `tasks.md` and `.agents/CONTEXT.json` after each task.
-- Run all commands through `uv run`; use non-interactive flags.
+- Use the project's documented command runner and non-interactive flags.
 - Never delete the `.agents/` folder or its contents.
 
 ## Next
 
-- When all tasks are complete: `/verify` to confirm the implementation against the spec.
-- `/review` for a quality pass on the diff.
+- When all tasks are complete: use `verify` to confirm the implementation against the spec.
+- Use `review` for a quality pass on the diff.

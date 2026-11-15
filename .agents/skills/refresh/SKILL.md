@@ -25,5 +25,5 @@ retention after compression.
 
 ## Next
 
-- `/tasks` or `/build` — continue the workflow.
-- `/context` — refresh `.agents/CONTEXT.json` if progress also changed.
+- `tasks` or `build` — continue the workflow.
+- `context` — refresh `.agents/CONTEXT.json` if progress also changed.

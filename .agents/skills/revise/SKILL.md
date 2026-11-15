@@ -19,7 +19,7 @@ Update the current spec for changed requirements and keep tasks consistent.
    - Mark affected completed tasks for **re-verification**.
    - Add new tasks for new requirements.
    - Note removed requirements (and any now-obsolete tasks).
-6. Regenerate `spec-lite.md` (`/refresh`) and update `.agents/CONTEXT.json` (`/context`).
+6. Use `refresh` to regenerate `spec-lite.md` and `context` to update `.agents/CONTEXT.json`.
 
 ## Important
 
@@ -27,5 +27,5 @@ Show a **diff summary** of what changed and confirm before writing.
 
 ## Next
 
-- `/verify` — re-check the revised spec's acceptance criteria.
-- `/tasks` — regenerate tasks if the change was large.
+- `verify` — re-check the revised spec's acceptance criteria.
+- `tasks` — regenerate tasks if the change was large.

@@ -12,7 +12,8 @@ Resolve a defect with a lightweight, reproduce-first flow — no full spec cycle
 ## Workflow
 
 1. Read `.agents/CONTEXT.json` for current state.
-2. Understand the bug from the description; read the codebase to find the relevant area.
+2. Read the relevant project guidance, then understand the bug from the description and inspect the
+   codebase to find the relevant area.
 3. Create a spec folder `.agents/specs/YYYY-MM-DD-{slug}/` with a short `spec.md`:
    - Bug description, steps to reproduce (if inferable), expected vs actual, root-cause analysis,
      fix approach.
@@ -25,8 +26,8 @@ Resolve a defect with a lightweight, reproduce-first flow — no full spec cycle
 ## Critical
 
 - Write the failing test **first**, then fix. A bug fix without a regression test is incomplete.
-- Run the gates via `uv run` (`pytest -Werror -Walways`, `ruff check`, `ty check src/`, `ruff format`).
+- Run the regression test and the project's documented quality gates.
 
 ## Next
 
-- `/verify` — confirm the fix and that nothing regressed.
+- `verify` — confirm the fix and that nothing regressed.

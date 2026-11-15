@@ -18,14 +18,14 @@ matching the existing `tasks.md` files in `.agents/specs/`.
 3. Write `tasks.md` in the spec folder:
    - Checkbox format: `- [ ] N. <task>` with nested `- [ ] N.M` subtasks.
    - **TDD**: each implementation slice is "add tests" then "implement", never implementation first.
-   - Logical ordering (data/records → processor → report/output → CLI wiring → verification).
+   - Logical ordering (data/records → processor → report/output → CLI wiring).
    - Note the files each task touches.
-   - A final task group for verification: update `spec-lite.md`, then run the four `uv run` gates.
-4. Update `.agents/CONTEXT.json` with the task count (`0/N`).
+4. Update `.agents/CONTEXT.json` with the top-level task count (`0/N`) and set the active spec
+   status to `planned` according to `context.md` and `lifecycle.md`.
 
 Tasks must be atomic and independently verifiable — one behavior per cycle.
 
 ## Next
 
-- `/build` — start executing the tasks with TDD.
-- `/verify` — confirm the tasks cover every acceptance criterion.
+- `build` — start executing the tasks with TDD.
+- `verify` — confirm the tasks cover every acceptance criterion.

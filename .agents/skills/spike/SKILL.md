@@ -26,5 +26,5 @@ Research only — no production code changes.
 
 ## Next
 
-- `/spec` — turn the recommendation into a real feature spec.
+- `spec` — turn the recommendation into a real feature spec.
 - Archive the learnings and move on.

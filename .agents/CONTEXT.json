@@ -1,29 +1,35 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-14-pre-commit-gates",
-    "path": ".agents/specs/2026-11-14-pre-commit-gates",
-    "status": "implemented-not-committed",
+    "name": "2026-11-15-mode-cli-ownership",
+    "path": ".agents/specs/2026-11-15-mode-cli-ownership",
+    "status": "defined",
     "progress": {
-      "tasks_completed": 3,
-      "tasks_total": 3
+      "tasks_completed": 0,
+      "tasks_total": 0
     },
     "present_task": null,
     "verification": {
-      "status": "passed",
-      "last_run": "2026-11-14",
-      "gates": {
-        "pre_commit": "passed with no-commit-to-branch intentionally skipped on main",
-        "branch_guard": "rejected on main as expected",
-        "tests": "passed (312 tests)",
-        "lint": "passed",
-        "type_check": "passed",
-        "format": "passed"
-      }
+      "status": "not-run",
+      "last_run": null,
+      "gates": {}
     },
-    "revision_note": "Activated pre-commit quality gates: standard hygiene hooks plus the repository's Ruff, ty, and pytest gates."
+    "review": {
+      "status": "not-run",
+      "last_run": null,
+      "findings": 0
+    },
+    "revision_note": "Mode-specific Click commands and options are defined; design is the next step."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-14-pre-commit-gates",
+      "path": ".agents/specs/2026-11-14-pre-commit-gates",
+      "status": "complete",
+      "committed": true,
+      "commit": "d2b6aae",
+      "note": "Pre-commit hygiene and Python quality gates verified, then merged through PR #41."
+    },
     {
       "name": "2026-05-06-enhance-security-info",
       "path": ".agents/specs/2026-05-06-enhance-security-info",
@@ -31,6 +37,39 @@
       "committed": true,
       "commit": "95bf4d5",
       "note": "SecurityRepoProcessor reports dependabot_open_pull_requests and dependabot_ready_pull_requests across plain/table/JSON reports. Verified (229 tests) and committed."
+    },
+    {
+      "name": "2026-11-14-report-style-handlers",
+      "path": ".agents/specs/2026-11-14-report-style-handlers",
+      "status": "complete",
+      "note": "Verified and approved. Mode-specific CLI option coverage is intentionally deferred to mode-cli-ownership, where command ownership will move to the modes."
+    }
+  ],
+  "queued_specs": [
+    {
+      "name": "2026-11-14-combo-reports",
+      "path": ".agents/specs/2026-11-14-combo-reports",
+      "status": "defined",
+      "next": "tasks"
+    },
+    {
+      "name": "2026-11-14-explicit-repo-selection",
+      "path": ".agents/specs/2026-11-14-explicit-repo-selection",
+      "status": "defined",
+      "next": "tasks"
+    },
+    {
+      "name": "2026-11-14-issues-ci-report",
+      "path": ".agents/specs/2026-11-14-issues-ci-report",
+      "status": "defined",
+      "next": "tasks"
+    },
+    {
+      "name": "2026-11-15-dynamic-mode-discovery",
+      "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
+      "status": "defined",
+      "next": "estimate",
+      "depends_on": ["report-style-handlers", "mode-cli-ownership"]
     }
   ],
   "python_checks": {
@@ -49,18 +88,18 @@
     ]
   },
   "commit_policy": {
-    "feature_branch_required": false,
-    "pull_request_required": false,
-    "direct_commit_to_main": "Acceptable when all tests pass and the Python quality checks have been completed."
+    "feature_branch_required": true,
+    "pull_request_required": true,
+    "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Repository-managed pre-commit quality gates.",
-    "behaviour": "Standard hygiene hooks and project-wide Ruff, ty, and pytest gates run before commits.",
-    "constraints": "Use uv; keep the configuration declarative and do not change runtime behaviour."
+    "feature": "Collection-level report mode handlers and reusable report styles.",
+    "behaviour": "Security, issues, and drift handlers aggregate results and render through plain, table, or JSON styles without changing existing output contracts.",
+    "constraints": "Preserve CLI behaviour and output schemas; do not alter processor execution or API calls; enable future combo composition."
   },
   "skills": {
     "location": ".agents/skills",
-    "invoke": "/<name>",
-    "note": "Per-task skills (verify, design, tasks, build, review, ...). Read the matching skill before doing that kind of task. Workflow lifecycle is documented in AGENTS.md."
+    "invoke": "Use the named skill directly.",
+    "note": "Per-task skills (verify, design, tasks, build, review, ...). Read the matching skill before doing that kind of task. Context schema and lifecycle are documented in .agents/steering/."
   }
 }

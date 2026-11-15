@@ -13,7 +13,8 @@ existing specs in `.agents/specs/`.
 
 ## Workflow
 
-1. Read `.agents/steering/*.md` for project context and standards.
+1. Read `.agents/steering/*.md`, especially `context.md` and `lifecycle.md`, then read the
+   `.agents/project/*.md` documents relevant to the requested change.
 2. Ask (or infer) the feature intent. If it is underspecified, ask 2–4 targeted clarifying
    questions before writing — propose sensible defaults so the user can confirm quickly.
 3. Create the spec folder: `.agents/specs/YYYY-MM-DD-{feature-slug}/` (today's date, a 2–4 word
@@ -22,18 +23,18 @@ existing specs in `.agents/specs/`.
    - **Introduction** — problem/context.
    - **Glossary** — key terms.
    - **Requirements** — numbered, each with a user story and EARS-style **Acceptance Criteria**
-     (`THE … SHALL …`, `IF … THEN … SHALL …`). These are the conformance checklist `/verify` uses.
-   - **Non-Functional Requirements** — dependencies, API-access rules, `uv run`, unchanged behavior.
+     (`THE … SHALL …`, `IF … THEN … SHALL …`). These are the conformance checklist `verify` uses.
+   - **Non-Functional Requirements** — dependencies, applicable project rules, and unchanged behaviour.
 5. Write `spec-lite.md` (concise, well under 500 words) — the condensed intent for context
    retention after compression: problem, goal, key result keys, output, design sketch, verification.
 6. Set the active spec: write the folder path to `.agents/.current` (format
-   `.agents/specs/YYYY-MM-DD-slug`) and update `.agents/CONTEXT.json` (current spec name, path,
-   status `defined`, progress).
+   `.agents/specs/YYYY-MM-DD-slug`) and initialize its `CONTEXT.json` record according to
+   `context.md` and `lifecycle.md` (status `defined`; verification and review `not-run`).
 
 Do not advance `.current` past an unfinished spec unless the user intends it.
 
 ## Next
 
-- `/design` — add a technical design (recommended for L/XL work).
-- `/tasks` — generate the implementation task list.
-- `/verify` — sanity-check the spec's acceptance criteria before building.
+- `design` — add a technical design (recommended for L/XL work).
+- `tasks` — generate the implementation task list.
+- `verify` — sanity-check the spec's acceptance criteria before building.

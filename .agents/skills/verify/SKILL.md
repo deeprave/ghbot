@@ -4,20 +4,20 @@ description: >-
   Verify a spec implementation against its specification. Use when asked to "verify",
   "check against the spec", "confirm the implementation is complete", or before
   committing/closing a spec. Reads the current spec (.agents), checks every acceptance
-  criterion (and any contract checks) against code and tests, runs the Python quality gates
-  (pytest, ruff, ty), and reports PASS/FAIL with a gap list.
+  criterion (and any contract checks) against code and tests, runs the documented project quality
+  gates, and reports PASS/FAIL with a gap list.
 ---
 
 # Verify implementation against spec
 
 Verify that the current spec implementation actually satisfies its specification — matching
-every acceptance criterion, closing gaps, adhering to the steering standards, and passing the
-Python quality gates.
+every acceptance criterion, closing gaps, adhering to the recorded guidance, and passing the
+project quality gates.
 
 Do **not** trust recorded status (checked `[x]` tasks, a spec-lite that says "passing"). Re-verify
 against the working tree every time.
 
-Run **every** command through `uv run` — never bare `pytest`/`ruff`/`ty`.
+Use the project's documented command runner for every command.
 
 ## Step 1 — Establish what to verify
 
@@ -29,23 +29,15 @@ Run **every** command through `uv run` — never bare `pytest`/`ruff`/`ty`.
    - `tasks.md` — the task list and completion marks.
    - `spec-lite.md` — the condensed intent.
 3. Read the relevant steering docs so you can check adherence:
-   `.agents/steering/{tech,api-standards,security,testing}.md`.
+   `.agents/steering/{context,lifecycle,testing}.md` and all applicable project guidance.
 
 If the user names a different spec, verify that one instead of `.current`.
 
-## Step 2 — Run the Python quality gates
+## Step 2 — Run the project quality gates
 
-Run all four and capture pass/fail plus any failing output:
-
-```bash
-uv run pytest -v -Werror -Walways     # tests; -Werror makes warnings (e.g. unawaited coroutines) hard failures
-uv run ruff check                      # lint
-uv run ty check src/                   # type check (NOT mypy)
-uv run ruff format --check             # formatting (check-only; do not reformat during verify)
-```
-
-A failure in any gate means the implementation does **not** pass verification, regardless of the
-acceptance-criteria review.
+Read the project's documented verification commands and run every required gate, recording
+pass/fail and relevant failure output. A failure in any required gate means the implementation does
+not pass verification, regardless of the acceptance-criteria review.
 
 ## Step 3 — Verify task completeness
 
@@ -75,12 +67,8 @@ and re-raising fatal rate-limit errors.
 - **Coverage gaps** — any spec requirement with no implementation and/or no test.
 - **Scope creep** — implementation behavior that is *not* in the spec (flag it; it may need a spec
   update or removal).
-- **Steering adherence** — confirm the implementation follows the repo standards:
-  - All GitHub API calls go through `github_api_call`; no raw HTTP (`api-standards.md`, `security.md`).
-  - URL parameters use `url_vars`, never f-strings/interpolation.
-  - No new dependencies unless the spec's non-functional section allows them.
-  - Async tests use `@pytest.mark.anyio` and `AsyncMock`; patched at the import site (`testing.md`).
-  - Tokens/secrets never logged or put in error messages (`security.md`).
+- **Guidance adherence** — confirm the implementation follows the portable steering policy and all
+  applicable project standards, including dependency, API, testing, and secret-handling rules.
 
 ## Step 6 — Report
 
@@ -88,12 +76,16 @@ Produce a clear verification report:
 
 - **Overall: PASS / FAIL** (FAIL if any gate fails, any acceptance criterion is FAIL, or any task is
   incomplete).
-- **Quality gates** — one line each: pytest, ruff check, ty check, ruff format.
+- **Quality gates** — one line for each documented project gate.
 - **Tasks** — `X/Y` complete; list incomplete ones.
 - **Acceptance criteria** — a table of criterion → PASS/PARTIAL/FAIL → evidence (`file:line` / test).
 - **Gaps & adherence** — bulleted list of coverage gaps, scope creep, and any steering violations.
-- **Next step** — if PASS, the spec is ready to commit; if FAIL, list the specific fixes needed
-  before re-verifying (`/build` to fix, then re-run `/verify`).
+- **Next step** — if PASS, use `review`; if FAIL, list the specific fixes needed before
+  re-verifying (use `build` to fix, then re-run `verify`).
+
+After reporting, update `CONTEXT.json` according to `lifecycle.md`: a PASS records verification
+as `pass`, resets a stale review to `not-run`, and sets status `verified`; a FAIL records
+verification as `fail` and sets status `building`. Verification alone never marks a spec complete.
 
 Keep evidence concrete (cite files, lines, and test names). Do not report PASS on a criterion whose
 only support is a checked task box or a claim in `spec-lite.md`.

@@ -12,14 +12,12 @@ Review the working-tree diff (or specified files) against the repo's standards.
 
 ## Workflow
 
-1. Read `.agents/CONTEXT.json` for the current spec context.
+1. Read `.agents/CONTEXT.json`, `.agents/steering/{context,lifecycle,testing}.md`, and the
+   relevant project guidance. Review an active spec only after it is `verified` for the current
+   implementation.
 2. Get the changes: `git diff` (and `git diff --staged`), or the files the user names.
-3. Check compliance with `.agents/steering/*.md`:
-   - `tech.md` — async-first, protocols over ABCs, single `cfg` source of truth.
-   - `api-standards.md` — all GitHub calls via `github_api_call`, `url_vars` not f-strings,
-     per-step error handling (403/404 → `None`; `GitHubApiError` → partial; fatal rate limits re-raised).
-   - `security.md` — no secrets in logs/errors, no raw HTTP.
-   - `testing.md` — `@pytest.mark.anyio`, `AsyncMock`, patch at the import site, `-Werror`.
+3. Check compliance with the portable steering policy and applicable project architecture, API,
+   security, and test guidance.
 4. Evaluate: correctness, readability, test coverage, security, performance.
 
 ## Output
@@ -27,7 +25,11 @@ Review the working-tree diff (or specified files) against the repo's standards.
 `APPROVE` or `REQUEST_CHANGES`, with specific, actionable findings (cite `file:line`). Keep
 findings concrete; separate must-fix from nice-to-have.
 
+After reporting, record the review outcome in `CONTEXT.json` as required by `lifecycle.md`:
+`APPROVE` changes a verified spec to `complete`; `REQUEST_CHANGES` records the finding count and
+changes it to `review-findings`.
+
 ## Next
 
-- `/build` — fix the issues raised.
-- `/verify` — confirm the implementation against the spec once changes settle.
+- `build` — fix the issues raised.
+- `verify` — confirm the implementation against the spec once changes settle.

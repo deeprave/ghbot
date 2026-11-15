@@ -25,5 +25,5 @@ Produce a human-facing walkthrough of what was built — for stakeholder review,
 
 ## Next
 
-- `/revise` — fold in stakeholder feedback.
+- `revise` — fold in stakeholder feedback.
 - The work is ready to complete once feedback is addressed.

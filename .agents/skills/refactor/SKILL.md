@@ -29,5 +29,5 @@ Improve structure while keeping behavior identical, with tests as the guardrail.
 
 ## Next
 
-- `/verify` — confirm behavior is unchanged and gates pass.
-- `/review` — quality pass on the restructure.
+- `verify` — confirm behavior is unchanged and gates pass.
+- `review` — quality pass on the restructure.
