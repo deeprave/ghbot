@@ -12,11 +12,11 @@ from ghbot.processor import InfoRepoProcessor, RepoResult
 from ghbot.runner import run_mode, run_processor
 
 
-async def _scan_one(owners, gh):
+async def _scan_one(owners, gh, *, explicit_repositories=None):
     yield DiscoveredRepository("owner1", {"name": "repo1"}, "User")
 
 
-async def _scan_none(owners, gh):
+async def _scan_none(owners, gh, *, explicit_repositories=None):
     return
     yield
 
@@ -65,7 +65,7 @@ async def test_run_processor_discovers_repositories_and_constructs_processors():
     ):
         await run_processor({"owners": ["owner1"], "concurrency": 16}, processor_cls)
 
-    scan.assert_called_once_with(["owner1"], github)
+    scan.assert_called_once_with(["owner1"], github, explicit_repositories=None)
     processor_cls.assert_called_once_with(
         "owner1", "repo1", github, monitor, options=None, owner_type="User"
     )
@@ -79,7 +79,7 @@ async def test_run_processor_propagates_options_and_owner_type():
     processor = MagicMock(run=AsyncMock())
     processor_cls = MagicMock(return_value=processor)
 
-    async def organisation(owners, gh):
+    async def organisation(owners, gh, *, explicit_repositories=None):
         yield DiscoveredRepository("acme", {"name": "private"}, "Organization")
 
     with (
@@ -96,6 +96,32 @@ async def test_run_processor_propagates_options_and_owner_type():
         "options": {"format": "json"},
         "owner_type": "Organization",
     }
+
+
+@pytest.mark.anyio
+async def test_run_processor_forwards_explicit_repositories_to_scanner():
+    github = MagicMock(spec=gh_httpx.GitHubAPI)
+    pool = _pool()
+    explicit_repositories = (("acme", "widgets"),)
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.gh_httpx.GitHubAPI", return_value=github),
+        patch("ghbot.runner.scan_repositories", side_effect=_scan_none) as scan,
+        patch("ghbot.runner.TaskPool", return_value=pool),
+    ):
+        await run_processor(
+            {
+                "owners": ["ignored"],
+                "concurrency": 1,
+                "explicit_repositories": explicit_repositories,
+            },
+            InfoRepoProcessor,
+        )
+
+    scan.assert_called_once_with(
+        ["ignored"], github, explicit_repositories=explicit_repositories
+    )
 
 
 @pytest.mark.anyio
@@ -151,7 +177,10 @@ async def test_run_mode_collects_results_inside_pool_tasks():
     mode.new_collection.return_value = collection
     mode.new_processor.return_value = processor
 
-    async def scan(owners, gh):
+    captured: list[object] = []
+
+    async def scan(owners, gh, *, explicit_repositories=None):
+        captured.append(explicit_repositories)
         yield DiscoveredRepository("acme", {"name": "api"}, "Organization")
 
     with (
@@ -159,8 +188,54 @@ async def test_run_mode_collects_results_inside_pool_tasks():
         patch("ghbot.runner.scan_repositories", side_effect=scan),
         patch("ghbot.runner.TaskPool", return_value=ImmediatePool()),
     ):
-        await run_mode({"owners": ["acme"], "concurrency": 1}, mode, {"labels": True})
+        await run_mode(
+            {"owners": ["acme"], "concurrency": 1, "explicit_repositories": None},
+            mode,
+            {"labels": True},
+        )
 
     mode.new_processor.assert_called_once()
     assert mode.new_processor.call_args.kwargs["owner_type"] == "Organization"
     collection.add.assert_called_once_with(result)
+    assert captured == [None]
+
+
+@pytest.mark.anyio
+async def test_run_mode_forwards_explicit_repositories_to_scanner():
+    class EmptyPool:
+        def __init__(self):
+            self.stats = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn):
+            await fn()
+
+    explicit_repositories = (("acme", "widgets"),)
+    mode = MagicMock()
+    captured: list[object] = []
+
+    async def scan(owners, gh, *, explicit_repositories=None):
+        captured.append(explicit_repositories)
+        return
+        yield
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=scan),
+        patch("ghbot.runner.TaskPool", return_value=EmptyPool()),
+    ):
+        await run_mode(
+            {
+                "owners": ["ignored"],
+                "concurrency": 1,
+                "explicit_repositories": explicit_repositories,
+            },
+            mode,
+        )
+
+    assert captured == [explicit_repositories]

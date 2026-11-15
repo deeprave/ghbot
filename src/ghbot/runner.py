@@ -23,7 +23,11 @@ async def run_processor(
     async with httpx.AsyncClient() as client:
         gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
         async with TaskPool(limit=cfg["concurrency"]) as pool:
-            async for discovered in scan_repositories(cfg["owners"], gh):
+            async for discovered in scan_repositories(
+                cfg["owners"],
+                gh,
+                explicit_repositories=cfg.get("explicit_repositories"),
+            ):
                 monitor = LoggingMonitor(discovered.owner, discovered.name)
                 processor = processor_cls(
                     discovered.owner,
@@ -46,7 +50,11 @@ async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> Any:
     async with httpx.AsyncClient() as client:
         gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
         async with TaskPool(limit=cfg["concurrency"]) as pool:
-            async for discovered in scan_repositories(cfg["owners"], gh):
+            async for discovered in scan_repositories(
+                cfg["owners"],
+                gh,
+                explicit_repositories=cfg.get("explicit_repositories"),
+            ):
                 processor = mode.new_processor(
                     discovered.owner,
                     discovered.name,

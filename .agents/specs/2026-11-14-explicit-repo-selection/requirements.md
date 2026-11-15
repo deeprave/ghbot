@@ -2,19 +2,19 @@
 
 ## Introduction
 
-ghbot currently discovers repositories by listing every repository for configured owners. Operators also need to scan an explicit, additive set of repositories without owner-based searches. Explicit repository entries may be qualified (`owner/repo`) or bare (`repo`), and bare entries inherit the most recently supplied `--owner` context.
+ghbot currently discovers repositories by listing every repository for configured owners. Both `run_processor()` and `run_mode()` use the shared discovery path in `runner.py`. Operators also need to scan an explicit, additive set of repositories without owner-based searches. Explicit repository entries may be qualified (`owner/repo`) or bare (`repo`); bare entries are tried for every configured owner.
 
 ## Glossary
 
 - **qualified repository**: An `owner/repo` entry that specifies its owner directly.
-- **bare repository**: A `repo` entry that inherits the active owner context.
-- **active owner context**: The most recently encountered `--owner` value in CLI argument order.
+- **bare repository**: A `repo` entry expanded into an `owner/repo` candidate for every configured owner.
 - **explicit selection mode**: Repository discovery mode activated by at least one `--repo` or `--repos` option.
 - **repository file**: A file supplied through `--repos` containing explicit repository entries.
+- **selection representation**: The ordered, deduplicated `owner/repo` candidate list passed from global CLI configuration to the shared discovery path.
 
 ## Requirements
 
-### Requirement 1: Accept ordered inline repository selections
+### Requirement 1: Accept inline repository selections
 
 **User Story:** As an operator, I want to provide repositories directly on the command line, so that I can scan a targeted set without listing all repositories for an owner.
 
@@ -22,10 +22,9 @@ ghbot currently discovers repositories by listing every repository for configure
 
 1. THE CLI SHALL provide a global repeatable `--repo` option.
 2. EACH `--repo` occurrence SHALL accept a comma-separated list of repository entries.
-3. THE CLI SHALL preserve the relative order of `--owner` and `--repo` occurrences when resolving bare repository entries.
-4. IF a bare entry follows `--owner xyz`, THEN THE application SHALL resolve it as `xyz/<entry>` until a later `--owner` establishes a new active owner context.
-5. IF a qualified entry appears, THEN THE application SHALL use its specified owner and SHALL NOT change the active owner context.
-6. IF a bare entry occurs before any `--owner` context, THEN THE CLI SHALL reject the invocation with an actionable usage error.
+3. FOR EACH bare entry, THE CLI SHALL create an `owner/<entry>` candidate for every configured owner, preserving the configured owner order.
+4. IF a qualified entry appears, THEN THE application SHALL create only its specified `owner/repo` candidate.
+5. IF a bare entry is supplied without any configured owners, THEN THE CLI SHALL reject the invocation with an actionable usage error.
 
 ### Requirement 2: Accept repository-file selections
 
@@ -33,11 +32,11 @@ ghbot currently discovers repositories by listing every repository for configure
 
 #### Acceptance Criteria
 
-1. THE CLI SHALL provide a global repeatable `--repos FILE` option.
+1. THE CLI SHALL provide a single-use global `--repos FILE` option.
 2. EACH repository file SHALL accept repository entries separated by lines or commas.
 3. THE parser SHALL ignore empty entries and lines whose first non-whitespace character is `#`.
 4. Repository-file entries SHALL support the same qualified and bare forms as `--repo`.
-5. A bare repository-file entry SHALL inherit the active owner context at the corresponding `--repos` option's position in CLI argument order.
+5. A bare repository-file entry SHALL expand using every configured owner, as for `--repo` entries.
 6. IF a repository file cannot be read, THEN THE CLI SHALL raise an actionable usage error naming the file.
 
 ### Requirement 3: Combine selection sources predictably
@@ -46,11 +45,13 @@ ghbot currently discovers repositories by listing every repository for configure
 
 #### Acceptance Criteria
 
-1. THE application SHALL treat every `--repo` and `--repos` occurrence as additive.
-2. IF either explicit-selection option is used, THEN THE application SHALL scan only the resolved explicit repository entries and SHALL NOT perform owner-based repository listing.
-3. IF explicit-selection options are absent, THEN THE application SHALL retain the existing owner-based discovery behaviour.
+1. THE application SHALL treat every `--repo` occurrence and the optional `--repos` file as additive.
+2. IF either explicit-selection option is used, THEN the shared discovery path used by both `run_processor()` and `run_mode()` SHALL scan only the resolved explicit repository entries and SHALL NOT perform owner-based repository listing.
+3. IF explicit-selection options are absent, THEN the shared discovery path SHALL retain the existing owner-based discovery behaviour.
 4. `--owner` SHALL be optional when every explicit repository entry is qualified.
 5. `--owner` values that do not resolve a bare explicit repository SHALL NOT independently trigger owner-based discovery in explicit selection mode.
+6. THE application SHALL resolve all `--repo` entries before processing the optional `--repos` file; within each source, it SHALL preserve entry order.
+7. THE application SHALL deduplicate candidates using a case-folded `owner/repo` key before validation, preserving the first original candidate spelling, logging each duplicate, and skipping it.
 
 ### Requirement 4: Validate explicit repositories through the shared scanner
 
@@ -58,7 +59,7 @@ ghbot currently discovers repositories by listing every repository for configure
 
 #### Acceptance Criteria
 
-1. FOR EACH resolved explicit repository, THE scanner SHALL validate it through GitHub's repository endpoint using the configured API token.
+1. FOR EACH resolved explicit repository, THE shared discovery path SHALL validate it through GitHub's repository endpoint using the configured API token.
 2. THE validation path SHALL use `github_api_call()` and parameterized `url_vars`.
 3. IF validation finds an accessible repository, THEN THE scanner SHALL yield a `DiscoveredRepository` with its repository metadata and owner type.
 4. IF validation returns not-found or access-denied, THEN THE scanner SHALL warn and skip that repository.
@@ -68,8 +69,9 @@ ghbot currently discovers repositories by listing every repository for configure
 
 ## Non-Functional Requirements
 
-- `--repo`, `--repos`, and `--owner` remain global options and work with every command.
+- `--repo`, `--repos`, and `--owner` remain global options owned by the application shell and work with every command.
+- The merged configuration SHALL carry the selection representation to the shared runner; mode modules SHALL NOT parse or select repositories themselves.
 - Preserve the shared `DiscoveredRepository` path so processors receive the same owner type and metadata in both selection modes.
 - Do not add dependencies or change token authentication behaviour.
 - Parse repository specifications without interpreting shell, file, or repository contents as executable code.
-- Add focused tests for ordered owner context, file parsing, explicit-mode suppression of owner listing, validation/error handling, and archive filtering; run them through `uv run`.
+- Add focused tests for owner expansion, file parsing, duplicate logging and skipping, explicit-mode suppression of owner listing, validation/error handling, and archive filtering; run them through `uv run`.

@@ -8,6 +8,24 @@ from click.testing import CliRunner
 from ghbot.processor import InfoRepoProcessor
 
 
+def _capture_info_config(args: list[str]) -> tuple[object, dict]:
+    captured: dict = {}
+
+    async def run_processor(cfg, processor_cls):
+        captured.update(cfg)
+        return []
+
+    with (
+        patch("ghbot.__main__.run_processor", side_effect=run_processor),
+        patch("ghbot.__main__.configure"),
+    ):
+        from ghbot.__main__ import cli
+
+        result = CliRunner().invoke(cli, [*args, "info"])
+
+    return result, captured
+
+
 def test_no_subcommand_exits_nonzero():
     from ghbot.__main__ import cli
 
@@ -140,3 +158,118 @@ def test_no_env_overrides_configured_environment_token(tmp_path):
 
     assert result.exit_code == 0
     assert captured["env"] is False
+
+
+def test_repo_options_expand_bare_entries_and_preserve_qualified_entries():
+    result, captured = _capture_info_config(
+        ["--owner", "alice,bob", "--repo", "widget,acme/tools", "--repo", "api"]
+    )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (
+        ("alice", "widget"),
+        ("bob", "widget"),
+        ("acme", "tools"),
+        ("alice", "api"),
+        ("bob", "api"),
+    )
+
+
+def test_qualified_repo_option_needs_no_owner():
+    result, captured = _capture_info_config(["--repo", "acme/widgets"])
+
+    assert result.exit_code == 0
+    assert captured["owners"] == []
+    assert captured["explicit_repositories"] == (("acme", "widgets"),)
+
+
+def test_repo_option_uses_owners_from_config_file(tmp_path):
+    config = tmp_path / "ghbot.toml"
+    config.write_text('owners = "alice,bob"\n')
+
+    result, captured = _capture_info_config(
+        ["--config", str(config), "--repo", "widgets"]
+    )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (
+        ("alice", "widgets"),
+        ("bob", "widgets"),
+    )
+
+
+def test_bare_repo_option_without_owners_is_a_usage_error():
+    result, _ = _capture_info_config(["--repo", "widgets"])
+
+    assert result.exit_code != 0
+    assert "owner" in result.output.lower()
+    assert "widgets" in result.output
+
+
+def test_repo_files_follow_inline_entries_and_parse_comments_and_commas(tmp_path):
+    repositories = tmp_path / "repositories.txt"
+    repositories.write_text("\n  # ignored\nfile-one, acme/file-two\nfile-three\n")
+
+    result, captured = _capture_info_config(
+        ["--owner", "owner", "--repo", "inline", "--repos", str(repositories)]
+    )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (
+        ("owner", "inline"),
+        ("owner", "file-one"),
+        ("acme", "file-two"),
+        ("owner", "file-three"),
+    )
+
+
+def test_comment_only_repo_file_enables_empty_explicit_selection(tmp_path):
+    repositories = tmp_path / "repositories.txt"
+    repositories.write_text("\n  # no repositories\n\n")
+
+    result, captured = _capture_info_config(
+        ["--owner", "owner", "--repos", str(repositories)]
+    )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == ()
+
+
+@pytest.mark.parametrize("entry", ["owner/", "/repository", "one/two/three"])
+def test_malformed_repo_option_is_a_usage_error(entry):
+    result, _ = _capture_info_config(["--repo", entry])
+
+    assert result.exit_code != 0
+    assert entry in result.output
+
+
+def test_unreadable_repo_file_is_a_usage_error(tmp_path):
+    missing = tmp_path / "missing-repositories.txt"
+
+    result, _ = _capture_info_config(["--repos", str(missing)])
+
+    assert result.exit_code != 0
+    assert str(missing) in result.output
+
+
+def test_repos_option_is_single_use(tmp_path):
+    first = tmp_path / "first.txt"
+    first.write_text("acme/one\n")
+    second = tmp_path / "second.txt"
+    second.write_text("acme/two\n")
+
+    result, _ = _capture_info_config(["--repos", str(first), "--repos", str(second)])
+
+    assert result.exit_code != 0
+    assert "multiple" in result.output.lower()
+
+
+def test_repo_candidates_are_case_insensitively_deduplicated(caplog):
+    with caplog.at_level("WARNING"):
+        result, captured = _capture_info_config(
+            ["--owner", "Acme", "--repo", "widgets,acme/WIDGETS"]
+        )
+
+    assert result.exit_code == 0
+    assert captured["explicit_repositories"] == (("Acme", "widgets"),)
+    assert any("duplicate" in record.message.lower() for record in caplog.records)
