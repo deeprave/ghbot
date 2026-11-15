@@ -24,6 +24,14 @@ def test_package_owned_commands_are_registered():
         assert command in result.output
 
 
+def test_package_mode_imports_remain_modules():
+    from ghbot.modes import drift, issues, security
+
+    assert drift.MODE.name == "drift"
+    assert issues.MODE.name == "issues"
+    assert security.MODE.name == "security"
+
+
 def test_info_subcommand_runs_the_info_processor():
     with (
         patch(
@@ -40,11 +48,15 @@ def test_info_subcommand_runs_the_info_processor():
 
 
 def test_mode_specific_options_are_not_global():
-    from ghbot.__main__ import cli
+    with patch("ghbot.__main__.run_processor", new=AsyncMock()) as run_processor:
+        from ghbot.__main__ import cli
 
-    result = CliRunner().invoke(cli, ["--json", "info"])
+        result = CliRunner().invoke(cli, ["--json", "info"])
 
     assert result.exit_code != 0
+    assert "No such option" in result.output
+    assert "--json" in result.output
+    run_processor.assert_not_awaited()
 
 
 def test_owner_global_option_applies_before_security_mode():

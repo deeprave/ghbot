@@ -1,19 +1,19 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-15-mode-cli-ownership",
-    "path": ".agents/specs/2026-11-15-mode-cli-ownership",
-    "status": "complete",
+    "name": "2026-11-15-pr-44-review-fixes",
+    "path": ".agents/specs/2026-11-15-pr-44-review-fixes",
+    "status": "verified",
     "progress": {
-      "tasks_completed": 5,
-      "tasks_total": 5
+      "tasks_completed": 3,
+      "tasks_total": 3
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-15",
       "gates": {
-        "pytest": "pass (305 tests)",
+        "pytest": "pass (306 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -25,9 +25,17 @@
       "last_run": "2026-11-15",
       "findings": 0
     },
-    "revision_note": "Complete: independent review approved the verified mode-owned CLI refactor and focused test suite."
+    "revision_note": "Complete: review approved the verified PR #44 review fixes."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-15-mode-cli-ownership",
+      "path": ".agents/specs/2026-11-15-mode-cli-ownership",
+      "status": "complete",
+      "committed": true,
+      "commit": "fe974db",
+      "note": "Mode-owned Click commands and shared runner delivered through PR #44."
+    },
     {
       "name": "2026-11-14-pre-commit-gates",
       "path": ".agents/specs/2026-11-14-pre-commit-gates",
