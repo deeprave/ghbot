@@ -2,8 +2,17 @@
 
 import json
 
+from ghbot.modes.issues import IssuesCollectionReport
 from ghbot.processor import RepoResult
-from ghbot.report import print_issues_report, render_issues_report
+from ghbot.report_style import write_report
+
+
+def render_issues_report(results, *, format="plain", labels=False):
+    return IssuesCollectionReport(labels=labels, results=list(results)).render(format)
+
+
+def print_issues_report(results, *, format="plain", labels=False, output=None):
+    write_report(render_issues_report(results, format=format, labels=labels), output)
 
 
 def _item(number, title, type="issue", labels=None):

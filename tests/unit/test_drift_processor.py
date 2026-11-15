@@ -11,7 +11,8 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.processor import DriftRepoProcessor, FeedbackEvent, RepoProcessor
+from ghbot.modes.drift import DriftRepoProcessor
+from ghbot.processor import FeedbackEvent, RepoProcessor
 
 
 class RecordingMonitor:
@@ -81,7 +82,7 @@ def _make_gh(
 @pytest.mark.anyio
 async def test_records_commits_since_latest_release_on_default_branch():
     processor = DriftRepoProcessor("acme", "widgets", _make_gh(), RecordingMonitor())
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
 
     assert result.status == "success"
@@ -100,7 +101,7 @@ async def test_no_latest_release_is_a_successful_non_reportable_result():
     gh.getitem = AsyncMock(side_effect=GitHubNotFoundError("no release"))
     monitor = RecordingMonitor()
     processor = DriftRepoProcessor("acme", "widgets", gh, monitor)
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
 
     assert result.status == "success"
@@ -113,7 +114,7 @@ async def test_zero_commits_is_not_reportable():
     processor = DriftRepoProcessor(
         "acme", "widgets", _make_gh(ahead_by=0), RecordingMonitor()
     )
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
 
     assert result.status == "success"
@@ -129,7 +130,7 @@ async def test_detects_pypi_workflow_configuration():
         _make_gh(workflows=["name: Publish to PyPI\n"]),
         RecordingMonitor(),
     )
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
 
     assert result.results["pypi_publishing_configured"] is True
@@ -143,7 +144,7 @@ async def test_detects_explicit_pypi_workflow_signals(signal):
     processor = DriftRepoProcessor(
         "acme", "widgets", _make_gh(workflows=[signal]), RecordingMonitor()
     )
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
     assert result.results["pypi_publishing_configured"] is True
 
@@ -161,7 +162,7 @@ async def test_workflow_failure_keeps_reportable_result_as_partial():
     gh.getitem = AsyncMock(side_effect=getitem)
     monitor = RecordingMonitor()
     processor = DriftRepoProcessor("acme", "widgets", gh, monitor)
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
 
     assert result.status == "partial"
@@ -174,7 +175,7 @@ async def test_truncated_workflow_tree_is_an_unknown_partial_result():
     processor = DriftRepoProcessor(
         "acme", "widgets", _make_gh(truncated=True), RecordingMonitor()
     )
-    with patch("ghbot.processor.github_api_call", _passthrough_github_api_call):
+    with patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call):
         result = await processor.run()
 
     assert result.status == "partial"
@@ -211,7 +212,7 @@ async def test_rate_limit_propagates():
     gh.getitem = AsyncMock(side_effect=GitHubPrimaryRateLimitError("limited"))
     processor = DriftRepoProcessor("acme", "widgets", gh, RecordingMonitor())
     with (
-        patch("ghbot.processor.github_api_call", _passthrough_github_api_call),
+        patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call),
         pytest.raises(GitHubPrimaryRateLimitError),
     ):
         await processor.run()
@@ -227,7 +228,7 @@ async def test_fatal_errors_propagate(error):
     gh.getitem = AsyncMock(side_effect=error)
     processor = DriftRepoProcessor("acme", "widgets", gh, RecordingMonitor())
     with (
-        patch("ghbot.processor.github_api_call", _passthrough_github_api_call),
+        patch("ghbot.modes.drift.github_api_call", _passthrough_github_api_call),
         pytest.raises(type(error)),
     ):
         await processor.run()

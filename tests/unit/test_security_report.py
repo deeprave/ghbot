@@ -2,8 +2,17 @@
 
 import json
 
+from ghbot.modes.security import SecurityCollectionReport
 from ghbot.processor import RepoResult
-from ghbot.report import print_security_report, render_security_report
+from ghbot.report_style import write_report
+
+
+def render_security_report(results, *, format="plain"):
+    return SecurityCollectionReport(results=list(results)).render(format)
+
+
+def print_security_report(results, *, format="plain", output=None):
+    write_report(render_security_report(results, format=format), output)
 
 
 def _result(

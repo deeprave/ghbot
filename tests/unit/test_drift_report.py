@@ -1,7 +1,11 @@
 import json
 
+from ghbot.modes.drift import DriftCollectionReport
 from ghbot.processor import RepoResult
-from ghbot.report import render_drift_report
+
+
+def render_drift_report(results, *, format="plain"):
+    return DriftCollectionReport(results=list(results)).render(format)
 
 
 def _result(

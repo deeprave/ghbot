@@ -2,6 +2,7 @@ import asyncio
 import sys
 from importlib.metadata import version
 from pathlib import Path
+from typing import Any
 
 import click
 import gidgethub.httpx as gh_httpx
@@ -13,15 +14,15 @@ from ghbot.executor import TaskPool
 from ghbot.github.auth import get_auth_token
 from ghbot.github.repos import scan_repositories
 from ghbot.log import configure, get_logger
+from ghbot.modes.drift import MODE as DRIFT_MODE
+from ghbot.modes.issues import MODE as ISSUES_MODE
+from ghbot.modes.security import MODE as SECURITY_MODE
 from ghbot.processor import (
-    DriftRepoProcessor,
     InfoRepoProcessor,
-    IssuesRepoProcessor,
     LoggingMonitor,
     RepoResult,
-    SecurityRepoProcessor,
 )
-from ghbot.report import print_drift_report, print_issues_report, print_security_report
+from ghbot.report_style import write_report
 
 log = get_logger(__name__)
 
@@ -53,6 +54,32 @@ async def _main(
                 await pool.submit(processor.run)
     log.info("stats: %s", pool.stats)
     return pool.results
+
+
+async def _run_mode(cfg: dict, mode: Any, options: dict | None = None) -> Any:
+    """Construct mode processors and collect each successful result in the pool task."""
+    options = dict(options or {})
+    collection = mode.new_collection(options)
+    token = await get_auth_token(use_environment=cfg.get("env", False))
+    async with httpx.AsyncClient() as client:
+        gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
+        async with TaskPool(limit=cfg["concurrency"]) as pool:
+            async for discovered in scan_repositories(cfg["owners"], gh):
+                processor = mode.new_processor(
+                    discovered.owner,
+                    discovered.name,
+                    gh,
+                    LoggingMonitor(discovered.owner, discovered.name),
+                    options,
+                    owner_type=discovered.owner_type,
+                )
+
+                async def collect(processor=processor):
+                    collection.add(await processor.run())
+
+                await pool.submit(collect)
+    log.info("stats: %s", pool.stats)
+    return collection
 
 
 @click.group()
@@ -193,11 +220,11 @@ def security(
     )
     options = {"format": output_format}
     try:
-        results = asyncio.run(_main(cfg, SecurityRepoProcessor, options=options))
+        collection = asyncio.run(_run_mode(cfg, SECURITY_MODE, options))
     except FatalError as e:
         log.error(e.message)
         sys.exit(e.exit_code)
-    print_security_report(results, format=output_format, output=output)
+    write_report(collection.render(output_format), output)
 
 
 @cli.command()
@@ -224,13 +251,11 @@ def drift(
         plain=format_plain, table=format_table, json_format=format_json
     )
     try:
-        results = asyncio.run(
-            _main(cfg, DriftRepoProcessor, options={"format": output_format})
-        )
+        collection = asyncio.run(_run_mode(cfg, DRIFT_MODE, {"format": output_format}))
     except FatalError as e:
         log.error(e.message)
         sys.exit(e.exit_code)
-    print_drift_report(results, format=output_format, output=output)
+    write_report(collection.render(output_format), output)
 
 
 @cli.command()
@@ -265,13 +290,11 @@ def issues(
         plain=format_plain, table=format_table, json_format=format_json
     )
     try:
-        results = asyncio.run(_main(cfg, IssuesRepoProcessor))
+        collection = asyncio.run(_run_mode(cfg, ISSUES_MODE, {"labels": show_labels}))
     except FatalError as e:
         log.error(e.message)
         sys.exit(e.exit_code)
-    print_issues_report(
-        results, format=output_format, labels=show_labels, output=output
-    )
+    write_report(collection.render(output_format), output)
 
 
 if __name__ == "__main__":
