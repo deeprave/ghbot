@@ -17,6 +17,7 @@ log = get_logger(__name__)
 
 
 OwnerType = Literal["User", "Organization"] | None
+type RepositoryReference = tuple[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +33,14 @@ class DiscoveredRepository:
         return self.metadata["name"]
 
 
+def _owner_type(metadata: dict, owner: str) -> OwnerType:
+    account_type = metadata.get("type")
+    if account_type in {"User", "Organization"}:
+        return account_type
+    log.warning("Unknown owner type for %s", owner)
+    return None
+
+
 async def list_repos(
     owner: str, gh: gh_httpx.GitHubAPI
 ) -> AsyncGenerator[DiscoveredRepository]:
@@ -39,12 +48,7 @@ async def list_repos(
         try:
             async with github_api_call(gh):
                 account = await gh.getitem("/users/{owner}", url_vars={"owner": owner})
-            account_type = account.get("type")
-            if account_type in {"User", "Organization"}:
-                owner_type: OwnerType = account_type
-            else:
-                owner_type = None
-                log.warning("Unknown owner type for %s; using user endpoint", owner)
+            owner_type = _owner_type(account, owner)
             list_path = (
                 "/orgs/{owner}/repos"
                 if owner_type == "Organization"
@@ -71,9 +75,51 @@ async def list_repos(
                 return
 
 
+async def _explicit_repository(
+    owner: str, repo: str, gh: gh_httpx.GitHubAPI
+) -> DiscoveredRepository | None:
+    for attempt in range(2):
+        try:
+            async with github_api_call(gh):
+                metadata = await gh.getitem(
+                    "/repos/{owner}/{repo}", url_vars={"owner": owner, "repo": repo}
+                )
+            owner_metadata = metadata.get("owner")
+            owner_type = _owner_type(
+                owner_metadata if isinstance(owner_metadata, dict) else {}, owner
+            )
+            return DiscoveredRepository(owner, metadata, owner_type)
+        except GitHubNotFoundError:
+            log.warning(
+                "Repository not found or inaccessible, skipping: %s/%s", owner, repo
+            )
+            return None
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as e:
+            if attempt == 1:
+                log.error("GitHub API error for %s/%s, skipping: %s", owner, repo, e)
+                return None
+    return None
+
+
 async def scan_repositories(
-    owners: Sequence[str], gh: gh_httpx.GitHubAPI
+    owners: Sequence[str],
+    gh: gh_httpx.GitHubAPI,
+    *,
+    explicit_repositories: Sequence[RepositoryReference] | None = None,
 ) -> AsyncGenerator[DiscoveredRepository]:
+    if explicit_repositories is not None:
+        for owner, repo in explicit_repositories:
+            discovered = await _explicit_repository(owner, repo, gh)
+            if discovered is None:
+                continue
+            if discovered.metadata.get("archived", False):
+                log.debug("Archived repository, skipping: %s/%s", owner, repo)
+                continue
+            yield discovered
+        return
+
     if not owners:
         log.warning("No owners specified")
         return

@@ -216,6 +216,146 @@ async def test_scan_repositories_empty_owners_warns(caplog):
 
 
 @pytest.mark.anyio
+async def test_scan_repositories_validates_explicit_repository_without_owner_listing():
+    gh = AsyncMock()
+    gh.getitem = AsyncMock(
+        return_value={
+            "name": "widgets",
+            "private": True,
+            "owner": {"type": "Organization"},
+        }
+    )
+
+    with patch("ghbot.github.repos.list_repos") as list_repos:
+        result = [
+            item
+            async for item in scan_repositories(
+                [], gh, explicit_repositories=(("acme", "widgets"),)
+            )
+        ]
+
+    gh.getitem.assert_awaited_once_with(
+        "/repos/{owner}/{repo}", url_vars={"owner": "acme", "repo": "widgets"}
+    )
+    list_repos.assert_not_called()
+    assert result[0].owner == "acme"
+    assert result[0].owner_type == "Organization"
+    assert result[0].metadata["private"] is True
+
+
+@pytest.mark.anyio
+async def test_explicit_repository_not_found_is_skipped(caplog):
+    gh = AsyncMock()
+    gh.getitem = AsyncMock(side_effect=GitHubNotFoundError("not found"))
+
+    with caplog.at_level("WARNING"):
+        result = [
+            item
+            async for item in scan_repositories(
+                [], gh, explicit_repositories=(("acme", "missing"),)
+            )
+        ]
+
+    assert result == []
+    assert any("acme/missing" in record.message for record in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_explicit_repository_retries_once_on_api_error():
+    calls = 0
+
+    async def getitem(url, url_vars=None):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise GitHubApiError("temporary failure")
+        return {"name": "widgets", "owner": {"type": "User"}}
+
+    gh = AsyncMock()
+    gh.getitem = getitem
+
+    result = [
+        item
+        async for item in scan_repositories(
+            [], gh, explicit_repositories=(("acme", "widgets"),)
+        )
+    ]
+
+    assert calls == 2
+    assert [item.name for item in result] == ["widgets"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error_type", [GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError]
+)
+async def test_explicit_repository_propagates_rate_limits(error_type):
+    gh = AsyncMock()
+    gh.getitem = AsyncMock(side_effect=error_type("rate limited"))
+
+    with pytest.raises(error_type):
+        _ = [
+            item
+            async for item in scan_repositories(
+                [], gh, explicit_repositories=(("acme", "widgets"),)
+            )
+        ]
+
+
+@pytest.mark.anyio
+async def test_explicit_repository_uses_none_for_unknown_owner_type(caplog):
+    gh = AsyncMock()
+    gh.getitem = AsyncMock(return_value={"name": "widgets", "owner": {"type": "Bot"}})
+
+    with caplog.at_level("WARNING"):
+        result = [
+            item
+            async for item in scan_repositories(
+                [], gh, explicit_repositories=(("acme", "widgets"),)
+            )
+        ]
+
+    assert result[0].owner_type is None
+    assert any("Unknown owner type" in record.message for record in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_explicit_archived_repository_is_skipped():
+    gh = AsyncMock()
+    gh.getitem = AsyncMock(
+        return_value={
+            "name": "old-widgets",
+            "archived": True,
+            "owner": {"type": "Organization"},
+        }
+    )
+
+    result = [
+        item
+        async for item in scan_repositories(
+            [], gh, explicit_repositories=(("acme", "old-widgets"),)
+        )
+    ]
+
+    assert result == []
+
+
+@pytest.mark.anyio
+async def test_empty_explicit_selection_never_lists_owners():
+    gh = AsyncMock()
+
+    with patch("ghbot.github.repos.list_repos") as list_repos:
+        result = [
+            item
+            async for item in scan_repositories(["acme"], gh, explicit_repositories=())
+        ]
+
+    assert result == []
+    list_repos.assert_not_called()
+    gh.getitem.assert_not_called()
+
+
+@pytest.mark.anyio
 async def test_list_repos_retries_once_on_api_error():
     from ghbot.errors import GitHubApiError
 
