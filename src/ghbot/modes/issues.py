@@ -280,6 +280,11 @@ class IssuesCollectionReport:
 class IssuesMode:
     name: str = "issues"
     processor_type: type = IssuesRepoProcessor
+    combinable: bool = True
+
+    @property
+    def command(self) -> click.Command:
+        return issues
 
     def new_collection(self, options: dict) -> IssuesCollectionReport:
         return IssuesCollectionReport(labels=bool(options.get("labels", False)))

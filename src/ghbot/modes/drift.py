@@ -301,6 +301,11 @@ class DriftCollectionReport:
 class DriftMode:
     name: str = "drift"
     processor_type: type = DriftRepoProcessor
+    combinable: bool = True
+
+    @property
+    def command(self) -> click.Command:
+        return drift
 
     def new_collection(self, options: dict) -> DriftCollectionReport:
         return DriftCollectionReport()

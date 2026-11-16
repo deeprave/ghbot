@@ -1,0 +1,108 @@
+"""Tests for trusted built-in mode discovery and validation."""
+
+from types import SimpleNamespace
+
+import click
+import pytest
+
+
+def test_discover_modes_returns_all_builtins_in_canonical_order():
+    from ghbot.modes import discover_modes
+
+    modes = discover_modes()
+
+    assert [mode.name for mode in modes] == ["drift", "info", "issues", "security"]
+    assert [mode.command.name for mode in modes] == [
+        "drift",
+        "info",
+        "issues",
+        "security",
+    ]
+
+
+def test_combinable_modes_excludes_info_in_canonical_order():
+    from ghbot.modes import combinable_modes
+
+    assert [mode.name for mode in combinable_modes()] == ["drift", "issues", "security"]
+
+
+@pytest.mark.parametrize(
+    ("mode", "message"),
+    [
+        (SimpleNamespace(), "MODE"),
+        (
+            SimpleNamespace(name="", command=click.Command("empty"), combinable=True),
+            "name",
+        ),
+        (
+            SimpleNamespace(
+                name="different", command=click.Command("command"), combinable=True
+            ),
+            "command",
+        ),
+    ],
+)
+def test_invalid_mode_definition_is_actionable(mode, message):
+    from ghbot.modes._discovery import ModeDiscoveryError, validate_mode
+
+    with pytest.raises(ModeDiscoveryError, match=message):
+        validate_mode("ghbot.modes.invalid", mode)
+
+
+def test_discovery_rejects_duplicate_names(monkeypatch):
+    from ghbot.modes import _discovery
+    from ghbot.modes._discovery import ModeDiscoveryError
+
+    @click.command(name="duplicate")
+    def command() -> None: ...
+
+    first = SimpleNamespace(
+        MODE=SimpleNamespace(
+            name="duplicate",
+            command=command,
+            combinable=True,
+            new_processor=lambda *_args, **_kwargs: None,
+        )
+    )
+    second = SimpleNamespace(
+        MODE=SimpleNamespace(
+            name="duplicate",
+            command=command,
+            combinable=True,
+            new_processor=lambda *_args, **_kwargs: None,
+        )
+    )
+    modules = iter(
+        [
+            SimpleNamespace(name="first", ispkg=False),
+            SimpleNamespace(name="second", ispkg=False),
+        ]
+    )
+
+    monkeypatch.setattr(_discovery.pkgutil, "iter_modules", lambda *_: modules)
+    monkeypatch.setattr(
+        _discovery.importlib,
+        "import_module",
+        lambda name: first if name.endswith("first") else second,
+    )
+
+    with pytest.raises(ModeDiscoveryError, match="duplicate"):
+        _discovery.discover_modes()
+
+
+def test_discovery_wraps_builtin_import_error(monkeypatch):
+    from ghbot.modes import _discovery
+    from ghbot.modes._discovery import ModeDiscoveryError
+
+    modules = iter([SimpleNamespace(name="broken", ispkg=False)])
+    monkeypatch.setattr(_discovery.pkgutil, "iter_modules", lambda *_: modules)
+
+    def fail_import(name):
+        if name == "ghbot.modes":
+            return _discovery.modes_package
+        raise ImportError("missing dependency")
+
+    monkeypatch.setattr(_discovery.importlib, "import_module", fail_import)
+
+    with pytest.raises(ModeDiscoveryError, match="broken"):
+        _discovery.discover_modes()
