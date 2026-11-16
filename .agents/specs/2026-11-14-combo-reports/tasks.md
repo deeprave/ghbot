@@ -1,0 +1,29 @@
+# Implementation Tasks: combo reports
+
+- [x] 1. Add shared one-pass combo orchestration in `runner.py`.
+  - [x] 1.1 Add focused async runner tests proving one discovery pass, one repository task,
+    discovered-mode iteration, per-mode collection grouping, shared context/owner type, and fatal
+    error propagation.
+  - [x] 1.2 Implement `run_combo()` using `ReportableModeDefinition`, mode-keyed options, the
+    existing auth/client/discovery/TaskPool path, and `CombinedCollectionReport`.
+- [x] 2. Add the combo coordinator command and application registration.
+  - [x] 2.1 Add command tests for format routing, `--labels` isolation, output forwarding,
+    format-conflict rejection, fatal exits, and top-level CLI availability without scanner
+    discovery of combo itself.
+  - [x] 2.2 Implement `ghbot.combo` as the Click/FatalError boundary and register its command in
+    `__main__.py` without adding a static scanner-mode registry.
+- [x] 3. Confirm composition and discovery-derived output contracts.
+  - [x] 3.1 Extend collection-composition tests for canonical section/key ordering and unchanged
+    nested collection documents.
+  - [x] 3.2 Reconcile any narrow report-composition or discovery integration needed to preserve
+    the current drift/issues/security schemas and exclude info.
+- [x] 4. Update user and contributor documentation.
+  - [x] 4.1 Add the `combo` command, formats, labels behaviour, and one-pass scope to README.
+  - [x] 4.2 Explain the coordinator-versus-discoverable-mode boundary in CONTRIBUTING.
+- [x] 5. Close verification coverage gaps for combo behaviour.
+  - [x] 5.1 Add runner coverage for fatal processor propagation and retaining other mode results
+    when one result is partial.
+  - [x] 5.2 Add plain combined-output coverage for labelled canonical-order sections.
+- [x] 6. Prevent duplicate collection entries when a repository task retries.
+  - [x] 6.1 Add a regression test using the real `TaskPool` secondary-rate-limit retry path.
+  - [x] 6.2 Stage a repository's mode results and add them only after every mode completes.

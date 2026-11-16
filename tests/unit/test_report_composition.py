@@ -16,25 +16,43 @@ class FakeCollection:
         return f"{format} {self.name}\n"
 
 
-def test_composition_keeps_security_issues_and_drift_in_declared_order():
+def test_composition_keeps_discovered_canonical_order():
     report = CombinedCollectionReport(
         (
-            ReportSection("security", FakeCollection("security")),
-            ReportSection("issues", FakeCollection("issues")),
             ReportSection("drift", FakeCollection("drift")),
+            ReportSection("issues", FakeCollection("issues")),
+            ReportSection("security", FakeCollection("security")),
         )
     )
 
     text = report.render("table")
-    assert text.index("Security") < text.index("Issues") < text.index("Drift")
+    assert text.index("Drift") < text.index("Issues") < text.index("Security")
     assert "Info" not in text
+
+
+def test_composition_plain_output_keeps_labelled_canonical_sections():
+    report = CombinedCollectionReport(
+        (
+            ReportSection("drift", FakeCollection("drift")),
+            ReportSection("issues", FakeCollection("issues")),
+            ReportSection("security", FakeCollection("security")),
+        )
+    )
+
+    assert report.render("plain") == (
+        "Drift\nplain drift\n\nIssues\nplain issues\n\nSecurity\nplain security\n"
+    )
 
 
 def test_composition_json_nests_each_collection_document_directly():
     report = CombinedCollectionReport(
-        (ReportSection("security", FakeCollection("security")),)
+        (
+            ReportSection("drift", FakeCollection("drift")),
+            ReportSection("security", FakeCollection("security")),
+        )
     )
 
     assert json.loads(report.render("json")) == {
-        "security": {"summary": {"name": "security"}}
+        "drift": {"summary": {"name": "drift"}},
+        "security": {"summary": {"name": "security"}},
     }

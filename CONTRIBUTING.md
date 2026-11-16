@@ -88,3 +88,11 @@ tests together under
 `tests/unit/test_<name>_processor.py`, `tests/unit/test_<name>_report.py`, and
 `tests/unit/test_<name>_report_mode.py`. Test output contracts against explicit expectations;
 reserve mode-unit tests for construction, option forwarding, and collection integration.
+
+## Coordinator commands
+
+A command that coordinates multiple modes, such as `combo`, is not itself a scanner mode. Keep it
+outside the public `ghbot.modes` package and register it explicitly in `__main__.py`; it must use
+`combinable_modes()` rather than importing or maintaining a list of individual modes. This keeps
+future reportable modes automatically available to the coordinator while preventing the coordinator
+from being discovered as a scanner.

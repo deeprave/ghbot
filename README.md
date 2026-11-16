@@ -113,6 +113,26 @@ uvx ghbot --owner acme drift [--plain | --table | --json] [--output FILE]
 | `--json` | Structured summary and reportable repositories; unknown PyPI configuration is `null` |
 | `--output FILE` | Write the report to a file instead of stdout |
 
+### `combo` — combined repository posture
+
+Runs every reportable built-in mode in one repository-discovery pass. Today this combines
+`drift`, `issues`, and `security`; `info` is intentionally excluded because it does not produce a
+collection report. Plain and table output contain labelled sections for each mode. JSON nests each
+standalone report schema under its mode name, for example `{"drift": {...}, "issues": {...},
+"security": {...}}`.
+
+```bash
+uvx ghbot --owner acme combo [--plain | --table | --json] [--labels] [--output FILE]
+```
+
+| Option | Meaning |
+|---|---|
+| `--plain` (default) | Labelled summaries and repository details for each combined mode |
+| `--table` | Labelled Markdown-table sections using each mode's established columns |
+| `--json` | One object keyed by mode name, preserving each mode's JSON schema |
+| `--labels` | Include labels in the nested/rendered issues report only |
+| `--output FILE` | Write the complete combined report to a file instead of stdout |
+
 ### `info` — repository summary statistics
 
 Gathers per-repository facts (description, languages, contributors, latest release, file count, open

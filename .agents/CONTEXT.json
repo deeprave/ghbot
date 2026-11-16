@@ -1,8 +1,8 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-15-dynamic-mode-discovery",
-    "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
+    "name": "2026-11-14-combo-reports",
+    "path": ".agents/specs/2026-11-14-combo-reports",
     "status": "complete",
     "progress": {
       "tasks_completed": 6,
@@ -11,9 +11,9 @@
     "present_task": null,
     "verification": {
       "status": "pass",
-      "last_run": "2026-11-16",
+      "last_run": "2026-11-17",
       "gates": {
-        "pytest": "pass (369 tests)",
+        "pytest": "pass (382 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -22,12 +22,20 @@
     },
     "review": {
       "status": "pass",
-      "last_run": "2026-11-16",
+      "last_run": "2026-11-17",
       "findings": 0
     },
-    "revision_note": "Complete: review approved PR #52's reportable combinable contract, contributor guidance, and dynamic discovery boundary."
+    "revision_note": "Complete: review approved the combo coordinator, dynamic combinable-mode execution, and retry-safe result collection."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-15-dynamic-mode-discovery",
+      "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
+      "status": "complete",
+      "committed": true,
+      "commit": "992bce1",
+      "note": "Dynamic built-in mode discovery and reportable combinable contract delivered through PR #52."
+    },
     {
       "name": "2026-11-14-issues-ci-report",
       "path": ".agents/specs/2026-11-14-issues-ci-report",
@@ -83,15 +91,7 @@
       "note": "Verified and approved. Mode-specific CLI option coverage is intentionally deferred to mode-cli-ownership, where command ownership will move to the modes."
     }
   ],
-  "queued_specs": [
-    {
-      "name": "2026-11-14-combo-reports",
-      "path": ".agents/specs/2026-11-14-combo-reports",
-      "status": "defined",
-      "next": "tasks",
-      "depends_on": ["dynamic-mode-discovery"]
-    }
-  ],
+  "queued_specs": [],
   "python_checks": {
     "runner": "uv run",
     "commands": {
@@ -113,9 +113,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Dynamic discovery and registration of trusted built-in scanner modes.",
-    "behaviour": "Discover valid ghbot.modes definitions, register their commands dynamically, migrate info into a non-reporting mode, and expose deterministic combinable metadata.",
-    "constraints": "Preserve standalone scan behaviour, accept only installed built-in modules, and leave combo execution and output to the separate combo-reports spec."
+    "feature": "One-pass combined reports over discovered combinable modes.",
+    "behaviour": "Add combo to scan each repository once, collect every discovered reportable combinable mode, and render labelled plain, table, or nested JSON output.",
+    "constraints": "Use combinable_modes() rather than a static registry, exclude non-combinable info, preserve standalone contracts, and leave mode selection controls out of scope."
   },
   "skills": {
     "location": ".agents/skills",

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import click
 
+from ghbot.combo import combo
 from ghbot.config import DEFAULTS, load_config
 from ghbot.log import configure, get_logger
 from ghbot.modes import discover_modes
@@ -186,6 +187,7 @@ def cli(
 
 for mode in discover_modes():
     cli.add_command(mode.command)
+cli.add_command(combo)
 
 
 if __name__ == "__main__":

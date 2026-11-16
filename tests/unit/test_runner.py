@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import gidgethub.httpx as gh_httpx
 import pytest
 
-from ghbot.errors import AuthError
+from ghbot.errors import AuthError, GitHubSecondaryRateLimitError
 from ghbot.github.repos import DiscoveredRepository
 from ghbot.processor import InfoRepoProcessor, RepoResult
-from ghbot.runner import run_mode, run_processor
+from ghbot.runner import run_combo, run_mode, run_processor
 
 
 async def _scan_one(owners, gh, *, explicit_repositories=None):
@@ -239,3 +239,194 @@ async def test_run_mode_forwards_explicit_repositories_to_scanner():
         )
 
     assert captured == [explicit_repositories]
+
+
+@pytest.mark.anyio
+async def test_run_combo_scans_once_and_groups_every_discovered_mode_result():
+    class ImmediatePool:
+        def __init__(self):
+            self.stats = {}
+            self.submissions = 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn):
+            self.submissions += 1
+            await fn()
+
+    github = MagicMock(spec=gh_httpx.GitHubAPI)
+    pool = ImmediatePool()
+    monitor = MagicMock()
+    first_result = RepoResult(owner="acme", repo="api")
+    second_result = RepoResult(owner="acme", repo="api")
+    first_processor = MagicMock(run=AsyncMock(return_value=first_result))
+    second_processor = MagicMock(run=AsyncMock(return_value=second_result))
+    first_collection = MagicMock()
+    second_collection = MagicMock()
+    first_mode = MagicMock()
+    first_mode.name = "drift"
+    second_mode = MagicMock()
+    second_mode.name = "security"
+    first_mode.new_collection.return_value = first_collection
+    second_mode.new_collection.return_value = second_collection
+    first_mode.new_processor.return_value = first_processor
+    second_mode.new_processor.return_value = second_processor
+    options = {
+        "drift": {"format": "json"},
+        "security": {"format": "json"},
+    }
+
+    async def scan(owners, gh, *, explicit_repositories=None):
+        yield DiscoveredRepository("acme", {"name": "api"}, "Organization")
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.gh_httpx.GitHubAPI", return_value=github),
+        patch("ghbot.runner.scan_repositories", side_effect=scan) as scan_repositories,
+        patch("ghbot.runner.TaskPool", return_value=pool),
+        patch("ghbot.runner.LoggingMonitor", return_value=monitor),
+    ):
+        report = await run_combo(
+            {"owners": ["acme"], "concurrency": 1},
+            (first_mode, second_mode),
+            options,
+        )
+
+    scan_repositories.assert_called_once_with(
+        ["acme"], github, explicit_repositories=None
+    )
+    assert pool.submissions == 1
+    assert [section.name for section in report.sections] == ["drift", "security"]
+    for mode, mode_options in (
+        (first_mode, options["drift"]),
+        (second_mode, options["security"]),
+    ):
+        mode.new_processor.assert_called_once_with(
+            "acme", "api", github, monitor, mode_options, owner_type="Organization"
+        )
+    first_collection.add.assert_called_once_with(first_result)
+    second_collection.add.assert_called_once_with(second_result)
+
+
+@pytest.mark.anyio
+async def test_run_combo_retains_other_mode_result_when_one_is_partial():
+    class ImmediatePool:
+        def __init__(self):
+            self.stats = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn):
+            await fn()
+
+    partial = RepoResult(owner="acme", repo="api", status="partial")
+    complete = RepoResult(owner="acme", repo="api")
+    partial_collection = MagicMock()
+    complete_collection = MagicMock()
+    partial_mode = MagicMock()
+    partial_mode.name = "drift"
+    partial_mode.new_collection.return_value = partial_collection
+    partial_mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(return_value=partial)
+    )
+    complete_mode = MagicMock()
+    complete_mode.name = "security"
+    complete_mode.new_collection.return_value = complete_collection
+    complete_mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(return_value=complete)
+    )
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=_scan_one),
+        patch("ghbot.runner.TaskPool", return_value=ImmediatePool()),
+    ):
+        await run_combo(
+            {"owners": ["acme"], "concurrency": 1},
+            (partial_mode, complete_mode),
+        )
+
+    partial_collection.add.assert_called_once_with(partial)
+    complete_collection.add.assert_called_once_with(complete)
+
+
+@pytest.mark.anyio
+async def test_run_combo_propagates_fatal_processor_errors():
+    class ImmediatePool:
+        def __init__(self):
+            self.stats = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn):
+            await fn()
+
+    mode = MagicMock()
+    mode.name = "security"
+    mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(side_effect=AuthError("bad token"))
+    )
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=_scan_one),
+        patch("ghbot.runner.TaskPool", return_value=ImmediatePool()),
+        pytest.raises(AuthError, match="bad token"),
+    ):
+        await run_combo(
+            {"owners": ["owner1"], "concurrency": 1},
+            (mode,),
+        )
+
+
+@pytest.mark.anyio
+async def test_run_combo_does_not_duplicate_results_after_secondary_rate_limit_retry(
+    monkeypatch,
+):
+    async def no_sleep(_):
+        pass
+
+    monkeypatch.setattr("ghbot.executor.asyncio.sleep", no_sleep)
+
+    drift_result = RepoResult(owner="acme", repo="api")
+    issues_result = RepoResult(owner="acme", repo="api")
+    drift_collection = MagicMock()
+    issues_collection = MagicMock()
+    drift_mode = MagicMock()
+    drift_mode.name = "drift"
+    drift_mode.new_collection.return_value = drift_collection
+    drift_mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(side_effect=[drift_result, drift_result])
+    )
+    issues_mode = MagicMock()
+    issues_mode.name = "issues"
+    issues_mode.new_collection.return_value = issues_collection
+    issues_mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(side_effect=[GitHubSecondaryRateLimitError("429"), issues_result])
+    )
+
+    async def scan(owners, gh, *, explicit_repositories=None):
+        yield DiscoveredRepository("acme", {"name": "api"}, "Organization")
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=scan),
+    ):
+        await run_combo(
+            {"owners": ["acme"], "concurrency": 1},
+            (drift_mode, issues_mode),
+        )
+
+    drift_collection.add.assert_called_once_with(drift_result)
+    issues_collection.add.assert_called_once_with(issues_result)
