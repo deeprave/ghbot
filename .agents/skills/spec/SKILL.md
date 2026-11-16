@@ -14,7 +14,7 @@ existing specs in `.agents/specs/`.
 ## Workflow
 
 1. Read `.agents/steering/*.md`, especially `context.md` and `lifecycle.md`, then read the
-   `.agents/project/*.md` documents relevant to the requested change.
+   authoritative `.agents/project/*.md` documents relevant to the requested change.
 2. Ask (or infer) the feature intent. If it is underspecified, ask 2–4 targeted clarifying
    questions before writing — propose sensible defaults so the user can confirm quickly.
 3. Create the spec folder: `.agents/specs/YYYY-MM-DD-{feature-slug}/` (today's date, a 2–4 word

@@ -13,9 +13,22 @@ in sync.
 ## Workflow
 
 1. Read `.agents/CONTEXT.json` (current spec + progress), `.agents/.current` (spec folder path),
-   `.agents/steering/lifecycle.md`, and the relevant project guidance.
-2. Read `tasks.md`; find the first uncompleted task (`- [ ]`).
-3. For each task, in order:
+   `.agents/steering/lifecycle.md`, and the relevant authoritative `.agents/project/` documents.
+   Confirm the two current-spec
+   paths agree before continuing.
+2. Run a lifecycle preflight before reading or changing `tasks.md`:
+   - `defined` — stop and advise `estimate`, or `design`/`tasks` only for small, understood work.
+   - `estimated` — stop and advise `design`.
+   - `designed` — stop and advise `tasks`.
+   - `planned`, `building`, or `review-findings` — continue only when `tasks.md` exists and has an
+     uncompleted task.
+   - `verified` — stop and advise `review`.
+   - `complete` — stop and report that no build work remains.
+   - Any missing, inconsistent, or unrecognised lifecycle state — stop and advise `context`.
+   If `review-findings` has no uncompleted task, advise `address-review` so the reviewed decisions
+   can be routed and recorded. If `planned` or `building` has no uncompleted task, advise `verify`.
+3. Read `tasks.md`; find the first uncompleted task (`- [ ]`).
+4. For each task, in order:
    a. Write the test(s) first (TDD).
    b. Implement the minimum code to pass — no speculative code.
    c. Run the focused test and any project checks needed to keep the change safe.
@@ -24,6 +37,8 @@ in sync.
       prior verification and review evidence as `stale` when this task changes implementation.
 ## Critical
 
+- Do not implement, create tasks, or change lifecycle state when the preflight says another skill
+  is required.
 - Always update `tasks.md` and `.agents/CONTEXT.json` after each task.
 - Use the project's documented command runner and non-interactive flags.
 - Never delete the `.agents/` folder or its contents.

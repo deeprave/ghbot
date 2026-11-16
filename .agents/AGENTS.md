@@ -6,7 +6,9 @@ This is the portable entrypoint for the repository's spec-driven workflow. A rep
 
 1. Read `.agents/steering/*.md`. These are reusable policy: context state, lifecycle, and testing principles.
 2. If `.agents/project/README.md` is absent, use the `onboard` skill before relying on project architecture, commands, security rules, API conventions, or tracker configuration.
-3. If the project overlay exists, read its README and only the documents relevant to the task.
+3. If the project overlay exists, treat `.agents/project/*.md` as the authoritative project-specific
+   facts. Read its README and only the documents relevant to the task; shared templates are not a
+   source of project truth.
 4. Read the matching skill in `.agents/skills/` before performing a workflow stage.
 5. For spec work, keep `.agents/.current` and `.agents/CONTEXT.json` aligned with the lifecycle and context schema.
 
@@ -15,6 +17,9 @@ This is the portable entrypoint for the repository's spec-driven workflow. A rep
 Use the local skills in the following order for feature work:
 
 `spec` → optional `estimate` → `design` → `tasks` → `build` → `verify` → `review`.
+
+Use `implement` when an existing spec should advance through its missing planning stages and build
+tasks in one request; it reuses completed artifacts and stops at unresolved decisions.
 
 A clean verification result is `verified`, not `complete`; only a subsequent passing review completes a spec. After triaged review feedback, use `address-review` to route accepted decisions; it uses `revise` for corrections to the current spec's requirements, design, or plan. Use `context` after major progress or context compaction, and `status` to inspect recorded lifecycle state.
 

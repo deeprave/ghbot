@@ -12,7 +12,7 @@ Resolve a defect with a lightweight, reproduce-first flow — no full spec cycle
 ## Workflow
 
 1. Read `.agents/CONTEXT.json` for current state.
-2. Read the relevant project guidance, then understand the bug from the description and inspect the
+2. Read the relevant authoritative `.agents/project/` documents, then understand the bug from the description and inspect the
    codebase to find the relevant area.
 3. Create a spec folder `.agents/specs/YYYY-MM-DD-{slug}/` with a short `spec.md`:
    - Bug description, steps to reproduce (if inferable), expected vs actual, root-cause analysis,

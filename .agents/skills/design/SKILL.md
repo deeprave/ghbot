@@ -14,7 +14,7 @@ files already in `.agents/specs/`.
 
 1. Read `.agents/CONTEXT.json` and `.agents/.current` to locate the active spec.
 2. Read `requirements.md` (or `spec.md`) and `spec-lite.md` from that folder.
-3. Read `.agents/steering/*.md` and the project documents relevant to the change so the design
+3. Read `.agents/steering/*.md` and the authoritative `.agents/project/` documents relevant to the change so the design
    follows the repository's architecture, API, security, and testing conventions.
 4. Write `design.md` in the spec folder with:
    - **Overview** — what changes, at a glance.

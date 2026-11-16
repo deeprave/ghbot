@@ -13,8 +13,8 @@ Assess the codebase against its recorded project guidance and propose concrete u
 
 1. Read `.agents/CONTEXT.json` for current state and spec summary.
 2. Analyse the codebase: structure, tech stack, patterns, conventions actually in use.
-3. Review `.agents/steering/*.md` and the relevant `.agents/project/*.md` files, then compare the
-   project guidance against reality.
+3. Review `.agents/steering/*.md` and the relevant authoritative `.agents/project/*.md` files,
+   then compare the project guidance against reality.
 4. Identify risks, tech debt, and improvement areas.
 
 ## Output

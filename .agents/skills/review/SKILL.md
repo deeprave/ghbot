@@ -13,7 +13,7 @@ Review the working-tree diff (or specified files) against the repo's standards.
 ## Workflow
 
 1. Read `.agents/CONTEXT.json`, `.agents/steering/{context,lifecycle,testing}.md`, and the
-   relevant project guidance. Review an active spec only after it is `verified` for the current
+   relevant authoritative `.agents/project/` documents. Review an active spec only after it is `verified` for the current
    implementation.
 2. Get the changes: `git diff` (and `git diff --staged`), or the files the user names.
 3. Check compliance with the portable steering policy and applicable project architecture, API,

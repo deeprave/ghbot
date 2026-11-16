@@ -15,7 +15,8 @@ context other agents read first.
 1. Read `.agents/.current` to get the current spec folder.
 2. Read that folder's contents (`requirements.md`/`spec.md`, `tasks.md`, `design.md`, `spec-lite.md`).
 3. Read `.agents/steering/*.md`, especially `context.md` and `lifecycle.md`. Read project guidance
-   only when it is needed to refresh recorded project facts.
+   only when it is needed to refresh recorded project facts. Treat `.agents/project/` documents as
+   authoritative when they apply.
 4. Regenerate `.agents/CONTEXT.json`, keeping the existing structure. Include at least:
    - `current_spec` — name, path, status, progress (`tasks_completed`/`tasks_total`).
    - `verification` and `review` — last known evidence in the schema defined by `context.md`.

@@ -12,7 +12,8 @@ Improve structure while keeping behavior identical, with tests as the guardrail.
 ## Workflow
 
 1. Read `.agents/CONTEXT.json` for current state.
-2. Read the codebase area being refactored.
+2. Read the relevant authoritative `.agents/project/` documents and the codebase area being
+   refactored.
 3. Create a spec folder `.agents/specs/YYYY-MM-DD-{slug}/` with `spec.md`:
    - Current state (what exists), target state (what it should look like), constraints
      (**behavior must not change**), refactor approach.

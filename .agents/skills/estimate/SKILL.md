@@ -14,7 +14,8 @@ anything.
 
 1. Read `.agents/CONTEXT.json` for current state.
 2. Read `requirements.md` (or `spec.md`) thoroughly.
-3. Read the codebase to understand the current state and blast radius.
+3. Read the relevant authoritative `.agents/project/` documents and the codebase to understand the
+   current state, project constraints, and blast radius.
 4. Skim relevant past-work memory (`.agents/specs/*/memory.md`, prior specs) for similar efforts.
 5. Read `.agents/steering/lifecycle.md` before recording state.
 

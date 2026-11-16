@@ -28,6 +28,7 @@ Produce a read-only inventory of `.agents/skills/`. Do not update specs, context
    | 2. Size (optional) | `estimate` |
    | 3. Design (normally M+) | `design` |
    | 4. Break down | `tasks` |
+   | Current spec through build | `implement` |
    | 5. Build | `build` |
    | 6. Verify | `verify` |
    | 7. Review | `review` |

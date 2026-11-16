@@ -29,7 +29,8 @@ Use the project's documented command runner for every command.
    - `tasks.md` — the task list and completion marks.
    - `spec-lite.md` — the condensed intent.
 3. Read the relevant steering docs so you can check adherence:
-   `.agents/steering/{context,lifecycle,testing}.md` and all applicable project guidance.
+   `.agents/steering/{context,lifecycle,testing}.md` and all applicable authoritative
+   `.agents/project/` documents.
 
 If the user names a different spec, verify that one instead of `.current`.
 

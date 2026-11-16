@@ -15,6 +15,8 @@ matching the existing `tasks.md` files in `.agents/specs/`.
 1. Read `.agents/CONTEXT.json` and `.agents/.current` to locate the active spec.
 2. Read `requirements.md` (or `spec.md`), `spec-lite.md`, and `design.md` if present (for
    architecture and dependency ordering).
+   Read applicable authoritative `.agents/project/` documents for project constraints that the
+   implementation tasks must preserve.
 3. Write `tasks.md` in the spec folder:
    - Checkbox format: `- [ ] N. <task>` with nested `- [ ] N.M` subtasks.
    - **TDD**: each implementation slice is "add tests" then "implement", never implementation first.

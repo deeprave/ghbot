@@ -1,9 +1,9 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-14-issues-ci-report",
-    "path": ".agents/specs/2026-11-14-issues-ci-report",
-    "status": "complete",
+    "name": "2026-11-15-dynamic-mode-discovery",
+    "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
+    "status": "verified",
     "progress": {
       "tasks_completed": 5,
       "tasks_total": 5
@@ -13,7 +13,7 @@
       "status": "pass",
       "last_run": "2026-11-16",
       "gates": {
-        "pytest": "pass (361 tests)",
+        "pytest": "pass (368 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -21,13 +21,19 @@
       }
     },
     "review": {
-      "status": "pass",
-      "last_run": "2026-11-16",
-      "findings": 0
+      "status": "not-run"
     },
-    "revision_note": "Complete: review approved the accepted PR #46 fixes and included workflow guidance updates."
+    "revision_note": "Verified dynamic discovery, command registration, the non-reporting info mode, and deterministic combinable metadata against all requirements."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-14-issues-ci-report",
+      "path": ".agents/specs/2026-11-14-issues-ci-report",
+      "status": "complete",
+      "committed": true,
+      "commit": "7dc88b1",
+      "note": "Issues PR categories and merge-ready reporting delivered through PR #46."
+    },
     {
       "name": "2026-11-14-explicit-repo-selection",
       "path": ".agents/specs/2026-11-14-explicit-repo-selection",
@@ -80,14 +86,8 @@
       "name": "2026-11-14-combo-reports",
       "path": ".agents/specs/2026-11-14-combo-reports",
       "status": "defined",
-      "next": "tasks"
-    },
-    {
-      "name": "2026-11-15-dynamic-mode-discovery",
-      "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
-      "status": "defined",
-      "next": "design",
-      "depends_on": ["report-style-handlers", "mode-cli-ownership"]
+      "next": "tasks",
+      "depends_on": ["dynamic-mode-discovery"]
     }
   ],
   "python_checks": {
@@ -111,9 +111,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Issues-report pull-request categories and merge-ready counts.",
-    "behaviour": "Paginate open pull requests with GraphQL, categorise Dependabot and other PRs, and count only mergeStateStatus CLEAN as merge-ready.",
-    "constraints": "Avoid per-PR REST lookups; preserve API error/rate-limit policy and plain, table, and JSON unavailable-value semantics."
+    "feature": "Dynamic discovery and registration of trusted built-in scanner modes.",
+    "behaviour": "Discover valid ghbot.modes definitions, register their commands dynamically, migrate info into a non-reporting mode, and expose deterministic combinable metadata.",
+    "constraints": "Preserve standalone scan behaviour, accept only installed built-in modules, and leave combo execution and output to the separate combo-reports spec."
   },
   "skills": {
     "location": ".agents/skills",

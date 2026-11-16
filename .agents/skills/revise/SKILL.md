@@ -22,7 +22,7 @@ use `fix` for that case.
    or split accepted review feedback into a separate change.
 2. Read the feedback and its accepted disposition, then read the target's full requirements
    (`requirements.md` or `spec.md`), `design.md`, `tasks.md`, and `spec-lite.md` when present.
-   Read the applicable lifecycle and project guidance before revising architecture or contracts.
+   Read the applicable lifecycle and authoritative `.agents/project/` documents before revising architecture or contracts.
 3. Classify each accepted finding:
    - **Requirements impact** — the user-facing behaviour, contract, acceptance criteria, or
      constraints are wrong or incomplete. Revise the requirements/spec.

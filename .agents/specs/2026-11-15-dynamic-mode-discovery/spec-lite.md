@@ -2,15 +2,16 @@
 
 ## Problem
 
-The shell runner currently imports and wires individual modes, scanners, and report functions.
-Adding a mode therefore requires editing central application code, and a future combo scan cannot
-derive its contents from the modes themselves.
+The shell still registers built-in mode commands through a static `BUILTIN_COMMANDS` tuple.
+Adding a new built-in mode therefore requires editing central application wiring despite the
+completed mode-owned command and report refactors.
 
 ## Goal
 
-Discover trusted built-in mode definitions from `ghbot.modes`. Each definition supplies its name,
-scanner construction, CLI metadata/options, and combinability. The runner uses those definitions
-for standalone operations and generic combined scans.
+Discover trusted built-in mode definitions from `ghbot.modes`. Each definition supplies its
+canonical name, Click command, scanner construction, and combinability. The shell registers
+standalone commands from those definitions, and a later combo feature can reuse the ordered
+combinable set.
 
 ## Behaviour
 
@@ -18,17 +19,17 @@ for standalone operations and generic combined scans.
   duplicate, or unimportable definitions fail clearly.
 - `security`, `issues`, `drift`, and non-reporting `info` remain available through discovery with
   their current CLI and output contracts.
-- Combo derives its default set from combinable modes, can select several or exclude defaults,
-  rejects unknown/non-combinable/empty selections, and never includes itself or `info`.
-- One combo repository discovery supplies the same API client, monitor, owner type, and
-  mode-specific options to each selected scanner. Mode collection documents compose directly.
+- Discovery exposes combinable reportable modes in canonical-name order and excludes `info`.
+- The existing standalone runner, repository discovery, API use, concurrency, and error policy
+  are preserved.
 
 ## Constraints
 
-This follows the completed `report-style-handlers` interfaces. It is not a third-party plugin
-system, does not add API calls, and preserves TaskPool/error behaviour.
+This is not a third-party plugin system and does not add API calls. It does not implement the
+`combo` command, its selection/exclusion flags, combined rendering, or shared multi-mode scans;
+those remain in the existing `combo-reports` specification.
 
 ## Verification
 
-Test discovery validation, dynamic command/option routing, combo selection and exclusion, shared
-scanning, partial-result isolation, composition ordering, and standalone regression behaviour.
+Test discovery validation, dynamic command registration, the migrated info command, deterministic
+combinable ordering, and standalone compatibility.
