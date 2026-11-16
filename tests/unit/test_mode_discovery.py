@@ -21,9 +21,12 @@ def test_discover_modes_returns_all_builtins_in_canonical_order():
 
 
 def test_combinable_modes_excludes_info_in_canonical_order():
-    from ghbot.modes import combinable_modes
+    from ghbot.modes import ReportableModeDefinition, combinable_modes
 
-    assert [mode.name for mode in combinable_modes()] == ["drift", "issues", "security"]
+    modes = combinable_modes()
+
+    assert [mode.name for mode in modes] == ["drift", "issues", "security"]
+    assert all(isinstance(mode, ReportableModeDefinition) for mode in modes)
 
 
 @pytest.mark.parametrize(
@@ -39,6 +42,15 @@ def test_combinable_modes_excludes_info_in_canonical_order():
                 name="different", command=click.Command("command"), combinable=True
             ),
             "command",
+        ),
+        (
+            SimpleNamespace(
+                name="report",
+                command=click.Command("report"),
+                combinable=True,
+                new_processor=lambda *_args, **_kwargs: None,
+            ),
+            "new_collection",
         ),
     ],
 )
@@ -62,6 +74,7 @@ def test_discovery_rejects_duplicate_names(monkeypatch):
             command=command,
             combinable=True,
             new_processor=lambda *_args, **_kwargs: None,
+            new_collection=lambda _options: None,
         )
     )
     second = SimpleNamespace(
@@ -70,6 +83,7 @@ def test_discovery_rejects_duplicate_names(monkeypatch):
             command=command,
             combinable=True,
             new_processor=lambda *_args, **_kwargs: None,
+            new_collection=lambda _options: None,
         )
     )
     modules = iter(

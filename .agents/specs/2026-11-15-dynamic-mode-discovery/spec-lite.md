@@ -19,7 +19,8 @@ combinable set.
   duplicate, or unimportable definitions fail clearly.
 - `security`, `issues`, `drift`, and non-reporting `info` remain available through discovery with
   their current CLI and output contracts.
-- Discovery exposes combinable reportable modes in canonical-name order and excludes `info`.
+- Discovery exposes reportable combinable modes, including their collection factories, in
+  canonical-name order and excludes `info`.
 - The existing standalone runner, repository discovery, API use, concurrency, and error policy
   are preserved.
 

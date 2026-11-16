@@ -5,15 +5,15 @@
     "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
     "status": "complete",
     "progress": {
-      "tasks_completed": 5,
-      "tasks_total": 5
+      "tasks_completed": 6,
+      "tasks_total": 6
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-16",
       "gates": {
-        "pytest": "pass (368 tests)",
+        "pytest": "pass (369 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -25,7 +25,7 @@
       "last_run": "2026-11-16",
       "findings": 0
     },
-    "revision_note": "Complete: independent local review found no actionable defects after full verification."
+    "revision_note": "Complete: review approved PR #52's reportable combinable contract, contributor guidance, and dynamic discovery boundary."
   },
   "recent_specs": [
     {

@@ -33,6 +33,13 @@ class ModeDefinition(Protocol):
     ) -> Any: ...
 
 
+@runtime_checkable
+class ReportableModeDefinition(ModeDefinition, Protocol):
+    """Discovery contract for modes with a collection-level report."""
+
+    def new_collection(self, options: dict) -> Any: ...
+
+
 def validate_mode(module_name: str, candidate: object) -> ModeDefinition:
     """Validate one module's exported mode definition."""
     name = getattr(candidate, "name", None)
@@ -56,6 +63,10 @@ def validate_mode(module_name: str, candidate: object) -> ModeDefinition:
     if not isinstance(candidate, ModeDefinition):
         raise ModeDiscoveryError(
             f"{module_name}: MODE does not satisfy the mode definition"
+        )
+    if candidate.combinable and not isinstance(candidate, ReportableModeDefinition):
+        raise ModeDiscoveryError(
+            f"{module_name}: combinable MODE must define new_collection"
         )
     return candidate
 
@@ -88,6 +99,12 @@ def discover_modes() -> tuple[ModeDefinition, ...]:
     return tuple(sorted(definitions, key=lambda mode: mode.name))
 
 
-def combinable_modes() -> tuple[ModeDefinition, ...]:
+def combinable_modes() -> tuple[ReportableModeDefinition, ...]:
     """Return discovered modes eligible for a future combined scan."""
-    return tuple(mode for mode in discover_modes() if mode.combinable)
+    modes: list[ReportableModeDefinition] = []
+    for mode in discover_modes():
+        if not mode.combinable:
+            continue
+        assert isinstance(mode, ReportableModeDefinition)
+        modes.append(mode)
+    return tuple(modes)

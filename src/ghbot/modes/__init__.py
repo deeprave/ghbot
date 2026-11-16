@@ -3,6 +3,7 @@
 from ghbot.modes._discovery import (
     ModeDefinition,
     ModeDiscoveryError,
+    ReportableModeDefinition,
     combinable_modes,
     discover_modes,
 )
@@ -10,6 +11,7 @@ from ghbot.modes._discovery import (
 __all__ = [
     "ModeDefinition",
     "ModeDiscoveryError",
+    "ReportableModeDefinition",
     "combinable_modes",
     "discover_modes",
 ]

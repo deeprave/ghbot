@@ -47,7 +47,10 @@ discovery boundary. A definition must expose:
 - `new_processor(...)` — the processor construction path consumed by the runner.
 
 Reportable definitions retain `new_collection(options)`, which `run_mode` already consumes. The
-protocol must not require a collection from the non-reporting `info` mode.
+shared protocol must not require a collection from the non-reporting `info` mode. A second,
+runtime-checkable `ReportableModeDefinition` protocol extends the shared boundary with
+`new_collection(options)`. `combinable_modes()` returns this narrower protocol, and discovery
+rejects a definition marked `combinable=True` when it lacks that factory.
 
 Existing `SecurityMode`, `IssuesMode`, and `DriftMode` remain small frozen definitions. Their
 modules attach their command to the definition after the decorated Click function has been
@@ -75,9 +78,9 @@ configuration value, arbitrary path, or entry-point plugin controls imports.
 initialisation. It will no longer import `InfoRepoProcessor`, `run_processor`, individual mode
 commands, or `BUILTIN_COMMANDS`.
 
-`combinable_modes()` will be a small discovery helper (or a documented filter over its result)
-that returns only definitions with `combinable=True`, retaining discovery's canonical-name order.
-It is an API for the later combo implementation; it registers nothing and causes no scans.
+`combinable_modes()` returns only validated `ReportableModeDefinition` instances with
+`combinable=True`, retaining discovery's canonical-name order. It is an API for the later combo
+implementation; it registers nothing and causes no scans.
 
 ## API and data
 
@@ -91,8 +94,13 @@ class ModeDefinition(Protocol):
     def new_processor(self, owner, repo, gh, monitor, options, *, owner_type): ...
 
 
+@runtime_checkable
+class ReportableModeDefinition(ModeDefinition, Protocol):
+    def new_collection(self, options: dict) -> Any: ...
+
+
 def discover_modes() -> tuple[ModeDefinition, ...]: ...
-def combinable_modes() -> tuple[ModeDefinition, ...]: ...
+def combinable_modes() -> tuple[ReportableModeDefinition, ...]: ...
 ```
 
 `ModeDiscoveryError` is an application programming/configuration error for a malformed trusted
@@ -112,6 +120,7 @@ and info remains non-reporting.
 | Candidate lacks `MODE` or fails the mode contract | Raise `ModeDiscoveryError` naming the module and invalid requirement. |
 | Empty, invalid, or duplicate canonical name | Raise `ModeDiscoveryError`; never register an ambiguous command. |
 | Click command name differs from mode name | Raise `ModeDiscoveryError`; the mode must own a consistent public identity. |
+| Combinable mode lacks `new_collection()` | Raise `ModeDiscoveryError`; a future combined scan must be able to construct its report collection. |
 | Regular standalone scan failure | Unchanged: processor/runner API policy and `FatalError` propagation remain as today. |
 
 Discovery does not catch or transform scanner failures, make GitHub calls, or alter TaskPool
@@ -137,7 +146,8 @@ report-style options.
 Use focused unit tests with patched package enumeration/imports where required:
 
 1. Discover the real built-in definitions, assert canonical ordering and the four command names.
-2. Assert `combinable_modes()` returns security, issues, and drift only, in canonical order.
+2. Assert `combinable_modes()` returns security, issues, and drift only, in canonical order, with
+   collection factories, and rejects a combinable definition that omits one.
 3. Exercise invalid candidates: import failure, missing `MODE`, invalid definition, duplicate name,
    empty name, and mismatched Click command name; each must fail with useful context.
 4. Invoke the top-level CLI to confirm dynamic registration retains each existing command and

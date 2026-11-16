@@ -73,7 +73,9 @@ eligible modes, so that the combined command need not duplicate the mode registr
 2. The exposed combinable set SHALL exclude the non-reporting `info` mode.
 3. The discovery API SHALL be reusable by the later `combo-reports` implementation without
    importing individual mode modules or maintaining another static mode list.
-4. This change SHALL NOT implement the `combo` command, mode selection/exclusion options,
+4. Every combinable mode definition SHALL expose `new_collection(options)` through the
+   reportable-mode contract, and discovery SHALL reject a combinable definition that omits it.
+5. This change SHALL NOT implement the `combo` command, mode selection/exclusion options,
    combined output, or multi-mode execution; those remain in `combo-reports`.
 
 ### Requirement 4: Run discovered modes through shared scanning
@@ -95,6 +97,6 @@ execution policy, so that making registration dynamic does not change scan behav
   third-party plugin mechanism.
 - Preserve async TaskPool concurrency and all existing API error policies.
 - Add focused unit tests for discovery, duplicate and invalid definitions, dynamic command
-  registration, the migrated `info` command, deterministic combinable metadata, and unchanged
-  standalone compatibility.
+  registration, the migrated `info` command, deterministic combinable metadata and collection
+  contract, and unchanged standalone compatibility.
 - Run verification through `uv run` and preserve public CLI documentation.
