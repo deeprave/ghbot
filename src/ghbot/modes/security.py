@@ -389,6 +389,11 @@ class SecurityCollectionReport:
 class SecurityMode:
     name: str = "security"
     processor_type: type = SecurityRepoProcessor
+    combinable: bool = True
+
+    @property
+    def command(self) -> click.Command:
+        return security
 
     def new_collection(self, options: dict) -> SecurityCollectionReport:
         return SecurityCollectionReport()

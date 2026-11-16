@@ -29,7 +29,7 @@ def test_main_catches_fatal_error_and_exits():
     from ghbot.__main__ import cli
 
     with patch(
-        "ghbot.__main__.run_processor",
+        "ghbot.modes.info.run_processor",
         new=AsyncMock(side_effect=FatalError("boom", exit_code=3)),
     ):
         result = CliRunner().invoke(cli, ["info"])

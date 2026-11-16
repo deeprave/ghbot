@@ -1,16 +1,11 @@
-import asyncio
-import sys
 from importlib.metadata import version
 from pathlib import Path
 
 import click
 
 from ghbot.config import DEFAULTS, load_config
-from ghbot.errors import FatalError
 from ghbot.log import configure, get_logger
-from ghbot.modes import BUILTIN_COMMANDS
-from ghbot.processor import InfoRepoProcessor
-from ghbot.runner import run_processor
+from ghbot.modes import discover_modes
 
 log = get_logger(__name__)
 
@@ -189,20 +184,8 @@ def cli(
     ctx.obj["cfg"] = cfg
 
 
-@cli.command()
-@click.pass_context
-def info(ctx: click.Context) -> None:
-    """Gather repository summary statistics."""
-    cfg = ctx.obj["cfg"]
-    try:
-        asyncio.run(run_processor(cfg, InfoRepoProcessor))
-    except FatalError as e:
-        log.error(e.message)
-        sys.exit(e.exit_code)
-
-
-for command in BUILTIN_COMMANDS:
-    cli.add_command(command)
+for mode in discover_modes():
+    cli.add_command(mode.command)
 
 
 if __name__ == "__main__":

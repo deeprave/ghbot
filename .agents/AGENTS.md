@@ -25,6 +25,8 @@ A clean verification result is `verified`, not `complete`; only a subsequent pas
 
 Alternative paths are `fix` for a bounded defect, `refactor` for behaviour-preserving work, and `spike` for an investigation that does not implement changes.
 
+When each step ends, suggest the next step and any alternatives, if they exist.
+
 ## Root bootstrap block
 
 When adding this framework to a repository without a project overlay, add the following temporary block to the root `AGENTS.md` immediately after its pointer to this file. The `onboard` skill removes the marked block only after it has created and validated the overlay; the durable pointer to this file remains.

@@ -34,6 +34,7 @@ modes/
   security.py   processor + collection report + mode unit
   issues.py     processor + collection report + mode unit
   drift.py      processor + collection report + mode unit
+  info.py       non-reporting processor + mode unit
 ```
 
 `src/ghbot/report_style.py` contains only reusable output mechanics: `ReportStyle`, plain, JSON,
@@ -68,16 +69,22 @@ Create `src/ghbot/modes/<name>.py`. Keep these elements together:
 
 - `<Name>RepoProcessor`, implementing `RepoProcessor`.
 - `<Name>CollectionReport`, with `add(result)`, `document()`, and `render(format)`.
-- A named `MODE` unit exposing the mode name, its processor type, `new_processor(...)`, and
-  `new_collection(options)`.
+- A named `MODE` unit exposing a non-empty canonical `name`, a `click.Command` whose name matches
+  it, a boolean `combinable` flag, and `new_processor(...)`.
+- A reportable/combinable `MODE` also exposes `new_collection(options)`. Non-reporting modes, such
+  as `info`, set `combinable = False` and do not need a collection factory.
+- The module's decorated Click command owns its mode-specific options and invokes the appropriate
+  shared runner.
 
 The collection receives completed `RepoResult` objects during the shared scan. It owns summary
 calculation, filtering, ordering, plain/table layout, and its JSON document. Resolve supported
 formats through `ReportStyle.from_format()`; use `PlainReportStyle`, `TableReportStyle`, and
 `JSONReportStyle` helpers rather than recreating shared formatting or file-output behavior.
 
-Wire the named mode unit into the CLI's reportable scan path in `src/ghbot/__main__.py`. Keep
-mode-specific processor, report, and report-contract tests together under
+Built-in public modules under `src/ghbot/modes/` are discovered and their commands registered
+automatically; do not add central CLI wiring. Keep private support modules prefixed with `_` so
+discovery does not treat them as modes. Keep mode-specific processor, report, and report-contract
+tests together under
 `tests/unit/test_<name>_processor.py`, `tests/unit/test_<name>_report.py`, and
 `tests/unit/test_<name>_report_mode.py`. Test output contracts against explicit expectations;
 reserve mode-unit tests for construction, option forwarding, and collection integration.

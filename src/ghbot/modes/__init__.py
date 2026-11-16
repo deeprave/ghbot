@@ -1,5 +1,17 @@
-"""Self-contained reportable mode units and their built-in CLI commands."""
+"""Self-contained built-in scanner modes and discovery interfaces."""
 
-from ghbot.modes import drift, issues, security
+from ghbot.modes._discovery import (
+    ModeDefinition,
+    ModeDiscoveryError,
+    ReportableModeDefinition,
+    combinable_modes,
+    discover_modes,
+)
 
-BUILTIN_COMMANDS = (security.security, issues.issues, drift.drift)
+__all__ = [
+    "ModeDefinition",
+    "ModeDiscoveryError",
+    "ReportableModeDefinition",
+    "combinable_modes",
+    "discover_modes",
+]

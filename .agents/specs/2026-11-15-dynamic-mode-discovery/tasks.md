@@ -14,3 +14,7 @@
   - [x] 4.2 Replace static command imports and registration in `src/ghbot/__main__.py` with discovery registration; remove obsolete static registry wiring.
 - [x] 5. Run focused regression coverage and reconcile spec tracking.
   - [x] 5.1 Run affected mode, runner, and CLI tests through `uv run`; resolve regressions without changing scan/report contracts.
+- [x] 6. Correct the reportable-mode discovery contract and contributor guidance.
+  - [x] 6.1 Add discovery tests that reject a combinable definition without `new_collection()` and expose the narrowed combinable type.
+  - [x] 6.2 Implement `ReportableModeDefinition`, conditional collection-factory validation, and the narrowed `combinable_modes()` return type in `src/ghbot/modes/_discovery.py`.
+  - [x] 6.3 Update `CONTRIBUTING.md` with the complete discovered-mode contract, the reportable collection requirement, and discovery-owned CLI registration.

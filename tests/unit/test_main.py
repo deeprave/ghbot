@@ -16,7 +16,7 @@ def _capture_info_config(args: list[str]) -> tuple[object, dict]:
         return []
 
     with (
-        patch("ghbot.__main__.run_processor", side_effect=run_processor),
+        patch("ghbot.modes.info.run_processor", side_effect=run_processor),
         patch("ghbot.__main__.configure"),
     ):
         from ghbot.__main__ import cli
@@ -38,7 +38,7 @@ def test_package_owned_commands_are_registered():
     result = CliRunner().invoke(cli, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("security", "issues", "drift"):
+    for command in ("info", "security", "issues", "drift"):
         assert command in result.output
 
 
@@ -53,7 +53,7 @@ def test_package_mode_imports_remain_modules():
 def test_info_subcommand_runs_the_info_processor():
     with (
         patch(
-            "ghbot.__main__.run_processor", new=AsyncMock(return_value=[])
+            "ghbot.modes.info.run_processor", new=AsyncMock(return_value=[])
         ) as run_processor,
         patch("ghbot.__main__.configure"),
     ):
@@ -66,7 +66,7 @@ def test_info_subcommand_runs_the_info_processor():
 
 
 def test_mode_specific_options_are_not_global():
-    with patch("ghbot.__main__.run_processor", new=AsyncMock()) as run_processor:
+    with patch("ghbot.modes.info.run_processor", new=AsyncMock()) as run_processor:
         from ghbot.__main__ import cli
 
         result = CliRunner().invoke(cli, ["--json", "info"])
@@ -128,7 +128,7 @@ def test_config_file_owners_apply_to_info(tmp_path):
         return []
 
     with (
-        patch("ghbot.__main__.run_processor", side_effect=run_processor),
+        patch("ghbot.modes.info.run_processor", side_effect=run_processor),
         patch("ghbot.__main__.configure"),
     ):
         from ghbot.__main__ import cli
@@ -149,7 +149,7 @@ def test_no_env_overrides_configured_environment_token(tmp_path):
         return []
 
     with (
-        patch("ghbot.__main__.run_processor", side_effect=run_processor),
+        patch("ghbot.modes.info.run_processor", side_effect=run_processor),
         patch("ghbot.__main__.configure"),
     ):
         from ghbot.__main__ import cli
