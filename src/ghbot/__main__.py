@@ -22,6 +22,17 @@ def _split_owners(
     )
 
 
+def _deduplicate_owners(owners: list[str]) -> list[str]:
+    unique: dict[str, str] = {}
+    for owner in owners:
+        key = owner.casefold()
+        if key in unique:
+            log.warning("Duplicate owner skipped: %s", owner)
+            continue
+        unique[key] = owner
+    return list(unique.values())
+
+
 def _repository_entries(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
         entry.strip() for value in values for entry in value.split(",") if entry.strip()
@@ -163,6 +174,7 @@ def cli(
         cfg["owners"] = [
             owner for item in cfg["owners"].split(",") if (owner := item.strip())
         ]
+    cfg["owners"] = _deduplicate_owners(cfg["owners"])
     if log_file:
         cfg["log-file"] = log_file
     if use_environment_token is not None:

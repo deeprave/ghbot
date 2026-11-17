@@ -39,6 +39,11 @@ against that repository, and render their reports together.
    processors' results for that repository.
 9. IF `TaskPool` retries a repository task after a secondary rate limit, THEN THE command SHALL
    add at most one result per selected mode for that repository to the combined collections.
+10. IF a selected processor raises a non-rate-limit `FatalError` on either its initial attempt or
+    a secondary-rate-limit retry, THEN THE command SHALL preserve that error's safe message and
+    exit code through the shared task-pool boundary to the CLI.
+11. THE command SHALL scan each owner at most once per invocation, treating owner names
+    case-insensitively while retaining the first supplied spelling and deterministic order.
 
 ### Requirement 2: Produce a combined JSON report
 
@@ -77,6 +82,8 @@ against that repository, and render their reports together.
 - Keep the existing standalone commands and their output schemas unchanged.
 - Do not add new API calls beyond the processor calls required by the selected combinable modes;
   repository discovery occurs once.
+- Do not change the distinct primary/secondary rate-limit classification or retry policy; that work
+  remains outside this change.
 - Add focused unit tests for one-scan orchestration, discovery-derived mode selection, info
   exclusion, result grouping, canonical output ordering, JSON nesting, format selection,
   issues-label forwarding, and file output. Run tests with `uv run`.

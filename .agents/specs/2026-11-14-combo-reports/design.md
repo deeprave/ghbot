@@ -37,6 +37,12 @@ repository scan, authentication, client, and TaskPool lifecycle. The Click comma
 new top-level `ghbot.combo` module because it owns its own CLI-only flags and synchronous
 `FatalError` boundary.
 
+Before any runner starts discovery, the application shell normalises configured owners through an
+insertion-ordered mapping keyed by `owner.casefold()`. The mapping retains the first spelling,
+logs subsequent case-insensitive duplicates as skipped, and supplies its values to both bare
+repository expansion and owner-based discovery. This ensures all commands, including `combo`,
+make at most one scan per owner without losing deterministic ordering.
+
 ## API and data
 
 `runner.run_combo` accepts the merged configuration, an ordered tuple of
@@ -74,6 +80,11 @@ methods, with the existing composition class adding only section labels and blan
 - A secondary rate limit is retried by `TaskPool` at repository-task scope. The task therefore
   stages results in a local mapping and adds them to mode collections only after every mode has
   completed; a retry cannot duplicate earlier successful mode results.
+- `TaskPool` retains a non-rate-limit `FatalError` object when a task raises it, including from a
+  secondary-rate-limit retry, and re-raises that same object from its exit boundary after in-flight
+  work completes. This preserves its safe message and exit code for `combo`'s existing CLI
+  handler. Primary/secondary rate-limit classification and retry behaviour are unchanged and
+  remain separate from this correction.
 - A processor's normal partial or failed `RepoResult` is added only to that mode's collection;
   successful results from other modes for the same repository remain available.
 - The command uses `output_format()` for the established mutually exclusive format validation and
@@ -109,3 +120,7 @@ satisfy the scanner `MODE` contract.
    keys and that mode collection documents are nested unchanged.
 5. Run the full project quality gates through `uv run`: pytest with warnings as errors, Ruff,
    ty, and format check.
+6. Add regression tests for preserving a non-rate-limit `FatalError` through the real `TaskPool`
+   and for case-insensitive duplicate CLI/config owners being scanned only once in first-seen
+   order.
+7. Cover a non-rate-limit `FatalError` raised on the retry following a secondary rate limit.

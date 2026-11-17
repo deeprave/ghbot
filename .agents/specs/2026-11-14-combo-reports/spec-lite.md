@@ -19,6 +19,11 @@ staged until every mode completes, so a `TaskPool` retry cannot duplicate earlie
 built-ins produce the canonical `drift`, `issues`, and `security` sections without a static
 registry.
 
+Configured owners are case-insensitively deduplicated in first-seen order before discovery and
+bare-repository expansion. The shared task pool also preserves non-rate-limit fatal processor
+errors through to the command boundary on both initial and secondary-limit retry attempts; GitHub
+rate-limit classification and retry policy remain unchanged.
+
 ## Output
 
 - JSON: one object keyed by each selected mode's canonical name; each nested document retains its
@@ -32,4 +37,5 @@ registry.
 
 Test one shared scan, discovery-derived execution, `info` exclusion, result grouping, canonical
 output sections, JSON nesting, format validation, issues-label forwarding, and file writing. Run
-all Python gates through `uv run`.
+all Python gates through `uv run`. Cover real-task-pool fatal propagation and duplicate owner
+normalisation, including a fatal error after a secondary-limit retry.

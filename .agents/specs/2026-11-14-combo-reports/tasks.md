@@ -27,3 +27,15 @@
 - [x] 6. Prevent duplicate collection entries when a repository task retries.
   - [x] 6.1 Add a regression test using the real `TaskPool` secondary-rate-limit retry path.
   - [x] 6.2 Stage a repository's mode results and add them only after every mode completes.
+- [x] 7. Preserve fatal processor errors through shared task execution.
+  - [x] 7.1 Add a real-`TaskPool` regression test for a non-rate-limit `FatalError` preserving its
+    message and exit code.
+  - [x] 7.2 Retain and re-raise that fatal error from `TaskPool` after in-flight work completes.
+- [x] 8. Deduplicate configured owner scans deterministically.
+  - [x] 8.1 Add CLI/config tests for case-insensitive duplicate owners, first-seen ordering, and
+    duplicate logging before bare repository expansion.
+  - [x] 8.2 Normalise owners once in the application shell before scanner invocation.
+- [x] 9. Preserve fatal errors raised during a secondary-limit retry.
+  - [x] 9.1 Add a regression test for a secondary-limit first attempt followed by a non-rate-limit
+    `FatalError`, asserting that the original error reaches the caller.
+  - [x] 9.2 Route retry-path fatal errors through the same preservation path as initial attempts.

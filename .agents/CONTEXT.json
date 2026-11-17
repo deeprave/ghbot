@@ -5,15 +5,15 @@
     "path": ".agents/specs/2026-11-14-combo-reports",
     "status": "complete",
     "progress": {
-      "tasks_completed": 6,
-      "tasks_total": 6
+      "tasks_completed": 9,
+      "tasks_total": 9
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-17",
       "gates": {
-        "pytest": "pass (382 tests)",
+        "pytest": "pass (386 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -25,7 +25,7 @@
       "last_run": "2026-11-17",
       "findings": 0
     },
-    "revision_note": "Complete: review approved the combo coordinator, dynamic combinable-mode execution, and retry-safe result collection."
+    "revision_note": "Complete: review approved fatal-error preservation on initial and retry attempts."
   },
   "recent_specs": [
     {
