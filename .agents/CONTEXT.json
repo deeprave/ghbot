@@ -1,33 +1,35 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-15-dynamic-mode-discovery",
-    "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
-    "status": "complete",
+    "name": "2026-11-17-issue-item-metadata",
+    "path": ".agents/specs/2026-11-17-issue-item-metadata",
+    "status": "defined",
     "progress": {
-      "tasks_completed": 6,
-      "tasks_total": 6
+      "tasks_completed": 0,
+      "tasks_total": 0
     },
     "present_task": null,
     "verification": {
-      "status": "pass",
-      "last_run": "2026-11-16",
-      "gates": {
-        "pytest": "pass (369 tests)",
-        "ruff_check": "pass",
-        "ty": "pass",
-        "ruff_format_check": "pass",
-        "diff_check": "pass"
-      }
+      "status": "not-run",
+      "last_run": null,
+      "gates": {}
     },
     "review": {
-      "status": "pass",
-      "last_run": "2026-11-16",
+      "status": "not-run",
+      "last_run": null,
       "findings": 0
     },
-    "revision_note": "Complete: review approved PR #52's reportable combinable contract, contributor guidance, and dynamic discovery boundary."
+    "revision_note": "Defined from GitHub issue #47; ready for design."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-15-dynamic-mode-discovery",
+      "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
+      "status": "complete",
+      "committed": true,
+      "commit": "992bce1",
+      "note": "Dynamic built-in mode discovery and reportable combinable contract delivered through PR #52."
+    },
     {
       "name": "2026-11-14-issues-ci-report",
       "path": ".agents/specs/2026-11-14-issues-ci-report",
@@ -90,6 +92,13 @@
       "status": "defined",
       "next": "tasks",
       "depends_on": ["dynamic-mode-discovery"]
+    },
+    {
+      "name": "2026-11-17-versioned-report-schemas",
+      "path": ".agents/specs/2026-11-17-versioned-report-schemas",
+      "status": "defined",
+      "next": "design",
+      "depends_on": ["issue-item-metadata"]
     }
   ],
   "python_checks": {
@@ -113,9 +122,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Dynamic discovery and registration of trusted built-in scanner modes.",
-    "behaviour": "Discover valid ghbot.modes definitions, register their commands dynamically, migrate info into a non-reporting mode, and expose deterministic combinable metadata.",
-    "constraints": "Preserve standalone scan behaviour, accept only installed built-in modules, and leave combo execution and output to the separate combo-reports spec."
+    "feature": "Enrich issues output with item metadata and pull-request age metrics.",
+    "behaviour": "Expose item dates, URLs, authors, and draft state in JSON; report oldest Dependabot and other pull-request timestamps; provide opt-in human-readable dates.",
+    "constraints": "Do not add REST calls or per-pull-request detail lists; preserve existing defaults, pagination, unavailable-data, and rate-limit behaviour."
   },
   "skills": {
     "location": ".agents/skills",
