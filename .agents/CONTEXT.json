@@ -3,23 +3,29 @@
   "current_spec": {
     "name": "2026-11-17-issue-item-metadata",
     "path": ".agents/specs/2026-11-17-issue-item-metadata",
-    "status": "defined",
+    "status": "complete",
     "progress": {
-      "tasks_completed": 0,
-      "tasks_total": 0
+      "tasks_completed": 5,
+      "tasks_total": 5
     },
     "present_task": null,
     "verification": {
-      "status": "not-run",
-      "last_run": null,
-      "gates": {}
+      "status": "pass",
+      "last_run": "2026-11-19",
+      "gates": {
+        "pytest": "pass (378 tests)",
+        "ruff_check": "pass",
+        "ty": "pass",
+        "ruff_format_check": "pass",
+        "diff_check": "pass"
+      }
     },
     "review": {
-      "status": "not-run",
-      "last_run": null,
+      "status": "pass",
+      "last_run": "2026-11-19",
       "findings": 0
     },
-    "revision_note": "Defined from GitHub issue #47; ready for design."
+    "revision_note": "Verified and reviewed: GitHub's UTC timestamp contract supports local-time rendering; ready for commit and pull-request delivery."
   },
   "recent_specs": [
     {
@@ -122,9 +128,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Enrich issues output with item metadata and pull-request age metrics.",
-    "behaviour": "Expose item dates, URLs, authors, and draft state in JSON; report oldest Dependabot and other pull-request timestamps; provide opt-in human-readable dates.",
-    "constraints": "Do not add REST calls or per-pull-request detail lists; preserve existing defaults, pagination, unavailable-data, and rate-limit behaviour."
+    "feature": "Enrich issues output with item metadata, Dependabot pull-request detail, and pull-request age metrics.",
+    "behaviour": "Expose item dates, URLs, authors, and draft state plus JSON Dependabot PR details and oldest category timestamps; provide opt-in local-time human-readable dates.",
+    "constraints": "Do not add REST calls or human-readable PR-detail lists; preserve existing defaults, pagination, unavailable-data, and rate-limit behaviour."
   },
   "skills": {
     "location": ".agents/skills",

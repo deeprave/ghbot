@@ -1,6 +1,8 @@
 """Tests for issues report rendering (issues + pull requests, tagged by type)."""
 
 import json
+import os
+import time
 
 from ghbot.modes.issues import IssuesCollectionReport
 from ghbot.processor import RepoResult
@@ -12,6 +14,10 @@ PULL_REQUEST_METRIC_KEYS = (
     "other_open_pull_requests",
     "other_merge_ready_pull_requests",
 )
+PULL_REQUEST_AGE_METRIC_KEYS = (
+    "oldest_dependabot_pull_request_created_at",
+    "oldest_other_pull_request_created_at",
+)
 
 
 def render_issues_report(results, *, format="plain", labels=False):
@@ -22,8 +28,18 @@ def print_issues_report(results, *, format="plain", labels=False, output=None):
     write_report(render_issues_report(results, format=format, labels=labels), output)
 
 
-def _item(number, title, type="issue", labels=None):
-    return {"number": number, "title": title, "type": type, "labels": labels or []}
+def _item(number, title, type="issue", labels=None, **metadata):
+    return {
+        "number": number,
+        "title": title,
+        "type": type,
+        "labels": labels or [],
+        "created_at": metadata.get("created_at"),
+        "updated_at": metadata.get("updated_at"),
+        "url": metadata.get("url"),
+        "author": metadata.get("author"),
+        "draft": metadata.get("draft") if type == "pr" else None,
+    }
 
 
 def _result(owner, repo, count=None, items=None, status="success", metrics=None):
@@ -40,6 +56,16 @@ def _metrics(dependabot_total, dependabot_ready, other_total, other_ready):
         zip(
             PULL_REQUEST_METRIC_KEYS,
             (dependabot_total, dependabot_ready, other_total, other_ready),
+            strict=True,
+        )
+    )
+
+
+def _age_metrics(dependabot_oldest, other_oldest):
+    return dict(
+        zip(
+            PULL_REQUEST_AGE_METRIC_KEYS,
+            (dependabot_oldest, other_oldest),
             strict=True,
         )
     )
@@ -197,6 +223,79 @@ class TestIssuesReportPlain:
         assert f"  {'Other PRs:':<26}{3:>8}" in repository_block
         assert f"  {'Other merge-ready PRs:':<26}{2:>8}" in repository_block
 
+    def test_dates_render_in_operator_local_timezone_and_compose_with_labels(
+        self, monkeypatch
+    ):
+        original_tz = os.environ.get("TZ")
+        original_timezone = time.tzname
+        monkeypatch.setenv("TZ", "Australia/Melbourne")
+        time.tzset()
+        try:
+            report = IssuesCollectionReport(
+                labels=True,
+                dates=True,
+                results=[
+                    _result(
+                        "acme",
+                        "web",
+                        1,
+                        [
+                            _item(
+                                12,
+                                "Fix login",
+                                labels=["bug"],
+                                created_at="2026-01-01T00:20:30Z",
+                            )
+                        ],
+                    )
+                ],
+            )
+            plain = report.render("plain")
+            table = report.render("table")
+        finally:
+            if original_tz is None:
+                monkeypatch.delenv("TZ", raising=False)
+            else:
+                monkeypatch.setenv("TZ", original_tz)
+            time.tzset()
+
+        assert "#12 [issue] 2026-01-01 11:20 AEDT Fix login +bug" in plain
+        assert "Created (local)" in table
+        assert "2026-01-01 11:20 AEDT" in table
+        assert original_timezone == time.tzname
+
+    def test_dates_render_aest_in_winter(self, monkeypatch):
+        original_tz = os.environ.get("TZ")
+        monkeypatch.setenv("TZ", "Australia/Melbourne")
+        time.tzset()
+        try:
+            report = IssuesCollectionReport(
+                dates=True,
+                results=[
+                    _result(
+                        "acme",
+                        "web",
+                        1,
+                        [
+                            _item(
+                                12,
+                                "Fix login",
+                                created_at="2026-06-01T00:20:30Z",
+                            )
+                        ],
+                    )
+                ],
+            )
+            plain = report.render("plain")
+        finally:
+            if original_tz is None:
+                monkeypatch.delenv("TZ", raising=False)
+            else:
+                monkeypatch.setenv("TZ", original_tz)
+            time.tzset()
+
+        assert "#12 [issue] 2026-06-01 10:20 AEST Fix login" in plain
+
 
 class TestIssuesReportTable:
     def test_one_row_per_item_with_type_column(self):
@@ -298,8 +397,26 @@ class TestIssuesReportJson:
         web = next(r for r in repos if r["repo"] == "web")
         assert web["repository"] == "acme/web"
         assert web["open_item_count"] == 2
-        assert web["items"][0] == {"number": 12, "title": "Fix login", "type": "issue"}
-        assert web["items"][1] == {"number": 15, "title": "Add retry", "type": "pr"}
+        assert web["items"][0] == {
+            "number": 12,
+            "title": "Fix login",
+            "type": "issue",
+            "created_at": None,
+            "updated_at": None,
+            "url": None,
+            "author": None,
+            "draft": None,
+        }
+        assert web["items"][1] == {
+            "number": 15,
+            "title": "Add retry",
+            "type": "pr",
+            "created_at": None,
+            "updated_at": None,
+            "url": None,
+            "author": None,
+            "draft": None,
+        }
         api = next(r for r in repos if r["repo"] == "api")
         assert api["open_item_count"] is None  # null preserved
         assert api["items"] == []
@@ -314,6 +431,11 @@ class TestIssuesReportJson:
             "number": 12,
             "title": "Fix login",
             "type": "pr",
+            "created_at": None,
+            "updated_at": None,
+            "url": None,
+            "author": None,
+            "draft": None,
             "labels": ["bug", "urgent"],
         }
 
@@ -371,6 +493,53 @@ class TestIssuesReportJson:
         assert {key: unavailable[key] for key in PULL_REQUEST_METRIC_KEYS} == _metrics(
             None, None, None, None
         )
+
+    def test_includes_metadata_dependabot_detail_and_oldest_timestamps(self):
+        result = _result(
+            "acme",
+            "web",
+            1,
+            [
+                _item(
+                    12,
+                    "Fix login",
+                    "pr",
+                    created_at="2026-11-01T10:20:30Z",
+                    updated_at="2026-11-02T10:20:30Z",
+                    url="https://github.com/acme/widgets/pull/12",
+                    author="dependabot[bot]",
+                    draft=False,
+                )
+            ],
+            metrics={
+                **_metrics(1, 1, 2, 1),
+                **_age_metrics("2026-11-01T10:20:30Z", "2026-11-02T10:20:30Z"),
+                "dependabot_pull_requests": [
+                    {
+                        "number": 12,
+                        "url": "https://github.com/acme/widgets/pull/12",
+                        "created_at": "2026-11-01T10:20:30Z",
+                        "draft": False,
+                        "merge_ready": True,
+                    }
+                ],
+            },
+        )
+
+        data = json.loads(render_issues_report([result], format="json"))
+
+        repository = data["repositories"][0]
+        assert repository["items"][0]["author"] == "dependabot[bot]"
+        assert (
+            repository["dependabot_pull_requests"]
+            == result.results["dependabot_pull_requests"]
+        )
+        assert {
+            key: repository[key] for key in PULL_REQUEST_AGE_METRIC_KEYS
+        } == _age_metrics("2026-11-01T10:20:30Z", "2026-11-02T10:20:30Z")
+        assert {
+            key: data["summary"][key] for key in PULL_REQUEST_AGE_METRIC_KEYS
+        } == _age_metrics("2026-11-01T10:20:30Z", "2026-11-02T10:20:30Z")
 
 
 class TestIssuesReportOutput:

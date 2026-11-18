@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,17 +38,26 @@ query OpenPullRequests($owner: String!, $repo: String!, $after: String) {
   repository(owner: $owner, name: $repo) {
     pullRequests(first: 100, states: OPEN, after: $after) {
       pageInfo { hasNextPage endCursor }
-      nodes { author { login } mergeStateStatus }
+      nodes { number author { login } mergeStateStatus createdAt url isDraft }
     }
   }
 }
 """
-_PULL_REQUEST_METRIC_KEYS = (
+_PULL_REQUEST_COUNT_METRIC_KEYS = (
     "dependabot_open_pull_requests",
     "dependabot_merge_ready_pull_requests",
     "other_open_pull_requests",
     "other_merge_ready_pull_requests",
 )
+_PULL_REQUEST_AGE_METRIC_KEYS = (
+    "oldest_dependabot_pull_request_created_at",
+    "oldest_other_pull_request_created_at",
+)
+_PULL_REQUEST_METRIC_KEYS = (
+    *_PULL_REQUEST_COUNT_METRIC_KEYS,
+    *_PULL_REQUEST_AGE_METRIC_KEYS,
+)
+_DEPENDABOT_PULL_REQUESTS_KEY = "dependabot_pull_requests"
 
 
 class IssuesRepoProcessor:
@@ -155,12 +165,11 @@ class IssuesRepoProcessor:
         await self._defer_event(
             FeedbackEvent("progress", "debug", "fetching open pull requests")
         )
-        metrics = {
-            "dependabot_open_pull_requests": 0,
-            "dependabot_merge_ready_pull_requests": 0,
-            "other_open_pull_requests": 0,
-            "other_merge_ready_pull_requests": 0,
+        count_metrics: dict[str, int] = {
+            key: 0 for key in _PULL_REQUEST_COUNT_METRIC_KEYS
         }
+        oldest: dict[str, tuple[datetime, str]] = {}
+        dependabot_pull_requests: list[dict[str, object]] = []
         after = None
         continuation_cursors: set[str] = set()
         try:
@@ -174,6 +183,9 @@ class IssuesRepoProcessor:
                     )
                 connection = _pull_request_connection(data)
                 for pull_request in connection["nodes"]:
+                    number, created_at, url, draft, created = _pull_request_data(
+                        pull_request
+                    )
                     author = pull_request.get("author")
                     if author is None:
                         author = {}
@@ -184,9 +196,24 @@ class IssuesRepoProcessor:
                         if author.get("login") == "dependabot[bot]"
                         else "other"
                     )
-                    metrics[f"{prefix}_open_pull_requests"] += 1
+                    count_metrics[f"{prefix}_open_pull_requests"] += 1
                     if pull_request.get("mergeStateStatus") == "CLEAN":
-                        metrics[f"{prefix}_merge_ready_pull_requests"] += 1
+                        count_metrics[f"{prefix}_merge_ready_pull_requests"] += 1
+                    if (previous := oldest.get(prefix)) is None or created < previous[
+                        0
+                    ]:
+                        oldest[prefix] = (created, created_at)
+                    if prefix == "dependabot":
+                        dependabot_pull_requests.append(
+                            {
+                                "number": number,
+                                "url": url,
+                                "created_at": created_at,
+                                "draft": draft,
+                                "merge_ready": pull_request.get("mergeStateStatus")
+                                == "CLEAN",
+                            }
+                        )
                 page_info = connection["pageInfo"]
                 if not page_info["hasNextPage"]:
                     break
@@ -205,7 +232,18 @@ class IssuesRepoProcessor:
                 result, GitHubApiError(f"malformed pull-request response: {error}")
             )
         else:
-            result.results.update(metrics)
+            result.results.update(count_metrics)
+            result.results.update(
+                {
+                    "oldest_dependabot_pull_request_created_at": (
+                        oldest["dependabot"][1] if "dependabot" in oldest else None
+                    ),
+                    "oldest_other_pull_request_created_at": (
+                        oldest["other"][1] if "other" in oldest else None
+                    ),
+                }
+            )
+            result.results[_DEPENDABOT_PULL_REQUESTS_KEY] = dependabot_pull_requests
 
     async def _record_pull_request_metric_error(
         self, result: RepoResult, error: GitHubApiError
@@ -217,12 +255,14 @@ class IssuesRepoProcessor:
         )
         for key in _PULL_REQUEST_METRIC_KEYS:
             result.results[key] = None
+        result.results[_DEPENDABOT_PULL_REQUESTS_KEY] = None
         result.errors.append(f"open pull requests: {error}")
 
 
 @dataclass(slots=True)
 class IssuesCollectionReport:
     labels: bool = False
+    dates: bool = False
     results: list[RepoResult] = field(default_factory=list)
 
     def add(self, result: RepoResult) -> None:
@@ -238,6 +278,9 @@ class IssuesCollectionReport:
                     "repository": f"{result.owner}/{result.repo}",
                     "open_item_count": result.results.get("open_item_count"),
                     **_pull_request_metrics(result),
+                    _DEPENDABOT_PULL_REQUESTS_KEY: result.results.get(
+                        _DEPENDABOT_PULL_REQUESTS_KEY
+                    ),
                     "items": [
                         _item_json(item, self.labels) for item in _item_records(result)
                     ],
@@ -260,7 +303,7 @@ class IssuesCollectionReport:
                         f"{result.owner}/{result.repo}  ({result.results.get('open_item_count')} open)",
                         *_pull_request_metric_lines(result, indent="  "),
                         *[
-                            "  " + _item_plain_line(item, self.labels)
+                            "  " + _item_plain_line(item, self.labels, dates=self.dates)
                             for item in _item_records(result)
                         ],
                     ]
@@ -269,9 +312,16 @@ class IssuesCollectionReport:
         rows = [(result, item) for result in active for item in _item_records(result)]
         if rows:
             lines.extend(
-                ["", _table_header(self.labels), _table_separator(self.labels)]
+                [
+                    "",
+                    _table_header(self.labels, self.dates),
+                    _table_separator(self.labels, self.dates),
+                ]
             )
-            lines.extend(_table_row(result, item, self.labels) for result, item in rows)
+            lines.extend(
+                _table_row(result, item, self.labels, self.dates)
+                for result, item in rows
+            )
         assert isinstance(style, TableReportStyle)
         return style.render_lines(lines)
 
@@ -287,7 +337,10 @@ class IssuesMode:
         return issues
 
     def new_collection(self, options: dict) -> IssuesCollectionReport:
-        return IssuesCollectionReport(labels=bool(options.get("labels", False)))
+        return IssuesCollectionReport(
+            labels=bool(options.get("labels", False)),
+            dates=bool(options.get("dates", False)),
+        )
 
     def new_processor(self, owner, repo, gh, monitor, options, *, owner_type=None):
         return IssuesRepoProcessor(
@@ -310,6 +363,13 @@ MODE = IssuesMode()
     help="Include issue labels in the report",
 )
 @click.option(
+    "--dates",
+    "show_dates",
+    is_flag=True,
+    default=False,
+    help="Include item creation dates in local time",
+)
+@click.option(
     "--output",
     type=click.Path(dir_okay=False, path_type=Path),
     default=None,
@@ -322,13 +382,18 @@ def issues(
     format_table: bool,
     format_json: bool,
     show_labels: bool,
+    show_dates: bool,
     output: Path | None,
 ) -> None:
     """Scan repositories for open issues and pull requests."""
     selected_format = output_format(
         plain=format_plain, table=format_table, json_format=format_json
     )
-    options = {"format": selected_format, "labels": show_labels}
+    options = {
+        "format": selected_format,
+        "labels": show_labels,
+        "dates": show_dates,
+    }
     try:
         collection = asyncio.run(run_mode(ctx.obj["cfg"], MODE, options))
     except FatalError as error:
@@ -361,6 +426,30 @@ def _pull_request_connection(data: Any) -> dict[str, Any]:
     return connection
 
 
+def _pull_request_data(
+    pull_request: dict[str, Any],
+) -> tuple[int, str, str, bool, datetime]:
+    number = pull_request.get("number")
+    created_at = pull_request.get("createdAt")
+    url = pull_request.get("url")
+    draft = pull_request.get("isDraft")
+    if not isinstance(number, int) or isinstance(number, bool):
+        raise TypeError("pull-request number is invalid")
+    if not isinstance(created_at, str) or not created_at:
+        raise TypeError("pull-request creation timestamp is invalid")
+    if not isinstance(url, str) or not url:
+        raise TypeError("pull-request URL is invalid")
+    if not isinstance(draft, bool):
+        raise TypeError("pull-request draft state is invalid")
+    try:
+        created = datetime.fromisoformat(created_at)
+    except ValueError as error:
+        raise ValueError("pull-request creation timestamp is invalid") from error
+    if created.tzinfo is None:
+        raise ValueError("pull-request creation timestamp is timezone-naive")
+    return number, created_at, url, draft, created
+
+
 def _item_labels(item: dict[str, Any]) -> list[str]:
     return [
         label["name"]
@@ -370,11 +459,18 @@ def _item_labels(item: dict[str, Any]) -> list[str]:
 
 
 def _item_record(item: dict[str, Any]) -> dict[str, Any]:
+    item_type = _item_type(item)
+    user = item.get("user")
     return {
         "number": item["number"],
         "title": item.get("title") or "",
-        "type": _item_type(item),
+        "type": item_type,
         "labels": _item_labels(item),
+        "created_at": item.get("created_at"),
+        "updated_at": item.get("updated_at"),
+        "url": item.get("html_url"),
+        "author": user.get("login") if isinstance(user, dict) else None,
+        "draft": item.get("draft") if item_type == "pr" else None,
     }
 
 
@@ -405,7 +501,7 @@ def _type_total(results: list[RepoResult], item_type: str) -> int | None:
     )
 
 
-def _summary(results: list[RepoResult]) -> dict[str, int | None]:
+def _summary(results: list[RepoResult]) -> dict[str, object]:
     return {
         "repos_scanned": len(results),
         "repos_with_items": sum(1 for result in results if _has_open_items(result)),
@@ -413,7 +509,11 @@ def _summary(results: list[RepoResult]) -> dict[str, int | None]:
         "open_prs": _type_total(results, "pr"),
         **{
             key: _pull_request_metric_total(results, key)
-            for key in _PULL_REQUEST_METRIC_KEYS
+            for key in _PULL_REQUEST_COUNT_METRIC_KEYS
+        },
+        **{
+            key: _oldest_pull_request_timestamp(results, key)
+            for key in _PULL_REQUEST_AGE_METRIC_KEYS
         },
         "pull_request_metrics_complete": _pull_request_metrics_complete(results),
     }
@@ -454,21 +554,31 @@ def _repos_to_show(results: list[RepoResult]) -> list[RepoResult]:
     )
 
 
-def _item_plain_line(item: dict, labels: bool) -> str:
-    line = f"#{item['number']} [{item['type']}] {item['title']}"
+def _item_plain_line(item: dict, labels: bool, *, dates: bool = False) -> str:
+    date_prefix = f"{_format_local_timestamp(item.get('created_at'))} " if dates else ""
+    line = f"#{item['number']} [{item['type']}] {date_prefix}{item['title']}"
     if labels and item.get("labels"):
         line += " " + " ".join(f"+{name}" for name in item["labels"])
     return line
 
 
 def _item_json(item: dict, labels: bool) -> dict:
-    value = {"number": item["number"], "title": item["title"], "type": item["type"]}
+    value = {
+        "number": item["number"],
+        "title": item["title"],
+        "type": item["type"],
+        "created_at": item.get("created_at"),
+        "updated_at": item.get("updated_at"),
+        "url": item.get("url"),
+        "author": item.get("author"),
+        "draft": item.get("draft"),
+    }
     if labels:
         value["labels"] = list(item.get("labels") or [])
     return value
 
 
-def _pull_request_metrics(result: RepoResult) -> dict[str, int | None]:
+def _pull_request_metrics(result: RepoResult) -> dict[str, object]:
     return {key: result.results.get(key) for key in _PULL_REQUEST_METRIC_KEYS}
 
 
@@ -481,11 +591,22 @@ def _pull_request_metric_total(results: list[RepoResult], key: str) -> int | Non
     )
 
 
+def _oldest_pull_request_timestamp(results: list[RepoResult], key: str) -> str | None:
+    if not _pull_request_metrics_complete(results):
+        return None
+    timestamps = [
+        value
+        for result in results
+        if isinstance((value := result.results.get(key)), str)
+    ]
+    return min(timestamps) if timestamps else None
+
+
 def _pull_request_metrics_complete(results: list[RepoResult]) -> bool:
     return all(
         result.results.get(key) is not None
         for result in results
-        for key in _PULL_REQUEST_METRIC_KEYS
+        for key in _PULL_REQUEST_COUNT_METRIC_KEYS
     )
 
 
@@ -512,29 +633,33 @@ def _fmt(label: str, value: int | str) -> str:
     return f"{label:<26}{value:>8}"
 
 
-def _display(value: int | None) -> int | str:
-    return "N/A" if value is None else value
+def _display(value: object) -> int | str:
+    return value if isinstance(value, int) else "N/A"
 
 
-def _table_header(labels: bool) -> str:
+def _table_header(labels: bool, dates: bool) -> str:
     header = f"|{'Repository':<38}|{'#':>6}|{'Type':<5}|{'Description':<50}"
     header += (
         f"|{'Dependabot PRs':>16}|{'Dependabot ready':>18}"
         f"|{'Other PRs':>12}|{'Other ready':>12}"
     )
+    if dates:
+        header += f"|{'Created (local)':<22}"
     if labels:
         header += f"|{'Labels':<24}"
     return header + "|"
 
 
-def _table_separator(labels: bool) -> str:
+def _table_separator(labels: bool, dates: bool) -> str:
     separator = "|" + "|".join("-" * width for width in (38, 6, 5, 50, 16, 18, 12, 12))
+    if dates:
+        separator += "|" + "-" * 22
     if labels:
         separator += "|" + "-" * 24
     return separator + "|"
 
 
-def _table_row(result: RepoResult, item: dict, labels: bool) -> str:
+def _table_row(result: RepoResult, item: dict, labels: bool, dates: bool) -> str:
     metrics = _pull_request_metrics(result)
     row = (
         f"|{f'{result.owner}/{result.repo}':<38}|{item['number']:>6}|{item['type']:<5}"
@@ -544,6 +669,8 @@ def _table_row(result: RepoResult, item: dict, labels: bool) -> str:
         f"|{_display(metrics['other_open_pull_requests']):>12}"
         f"|{_display(metrics['other_merge_ready_pull_requests']):>12}"
     )
+    if dates:
+        row += f"|{_format_local_timestamp(item.get('created_at')):<22}"
     if labels:
         row += f"|{', '.join(item.get('labels') or []):<24}"
     return row + "|"
@@ -551,3 +678,15 @@ def _table_row(result: RepoResult, item: dict, labels: bool) -> str:
 
 def _truncate(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def _format_local_timestamp(value: object) -> str:
+    if not isinstance(value, str) or not value:
+        return "N/A"
+    try:
+        timestamp = datetime.fromisoformat(value)
+    except ValueError:
+        return "N/A"
+    if timestamp.tzinfo is None:
+        return "N/A"
+    return timestamp.astimezone().strftime("%Y-%m-%d %H:%M %Z")
