@@ -8,6 +8,10 @@ All notable changes to ghbot are documented in this file.
 
 - Extended the `issues` command to report open Dependabot and other pull requests separately,
   including counts GitHub considers merge-ready.
+- Added dynamic discovery and registration of built-in scanner modes, with `info` represented as a
+  non-reporting mode and reportable modes exposing reusable collection factories.
+- Added `combo`, which scans each repository once and combines every discovered reportable mode
+  into labelled plain/table output or nested JSON.
 
 ## [0.30.0] - 2026-11-15
 

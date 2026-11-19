@@ -301,7 +301,7 @@ class DriftCollectionReport:
 class DriftMode:
     name: str = "drift"
     processor_type: type = DriftRepoProcessor
-    combinable: bool = True
+    combine_key: str = "030"
 
     @property
     def command(self) -> click.Command:

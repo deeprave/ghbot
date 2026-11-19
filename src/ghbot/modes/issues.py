@@ -330,7 +330,7 @@ class IssuesCollectionReport:
 class IssuesMode:
     name: str = "issues"
     processor_type: type = IssuesRepoProcessor
-    combinable: bool = True
+    combine_key: str = "020"
 
     @property
     def command(self) -> click.Command:

@@ -38,7 +38,7 @@ def test_package_owned_commands_are_registered():
     result = CliRunner().invoke(cli, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("info", "security", "issues", "drift"):
+    for command in ("combo", "info", "security", "issues", "drift"):
         assert command in result.output
 
 
@@ -223,6 +223,44 @@ def test_repo_option_strips_whitespace_from_config_owners(tmp_path):
         ("alice", "widgets"),
         ("bob", "widgets"),
     )
+
+
+def test_duplicate_cli_owners_are_deduplicated_before_repository_expansion(caplog):
+    with caplog.at_level("WARNING"):
+        result, captured = _capture_info_config(
+            ["--owner", "Alice,bob", "--owner", "alice,BOB", "--repo", "widgets"]
+        )
+
+    assert result.exit_code == 0
+    assert captured["owners"] == ["Alice", "bob"]
+    assert captured["explicit_repositories"] == (
+        ("Alice", "widgets"),
+        ("bob", "widgets"),
+    )
+    assert (
+        sum("Duplicate owner skipped" in record.message for record in caplog.records)
+        == 2
+    )
+
+
+def test_duplicate_config_owners_are_deduplicated_before_repository_expansion(
+    tmp_path, caplog
+):
+    config = tmp_path / "ghbot.toml"
+    config.write_text('owners = "Alice,bob,ALICE"\n')
+
+    with caplog.at_level("WARNING"):
+        result, captured = _capture_info_config(
+            ["--config", str(config), "--repo", "widgets"]
+        )
+
+    assert result.exit_code == 0
+    assert captured["owners"] == ["Alice", "bob"]
+    assert captured["explicit_repositories"] == (
+        ("Alice", "widgets"),
+        ("bob", "widgets"),
+    )
+    assert any("Duplicate owner skipped" in record.message for record in caplog.records)
 
 
 def test_bare_repo_option_without_owners_is_a_usage_error():

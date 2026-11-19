@@ -26,6 +26,7 @@ class TaskPool:
         self._tasks: list[asyncio.Task]
         self._aborted = False
         self._abort_reason: str | None = None
+        self._fatal_error: FatalError | None = None
         self.results: list[Any] = []
         self.stats: dict[str, int] = {
             "completed": 0,
@@ -44,6 +45,8 @@ class TaskPool:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         s = self.stats
+        if self._fatal_error:
+            raise self._fatal_error
         if self._aborted and self._abort_reason:
             raise FatalError(self._abort_reason)
         log.info(
@@ -94,6 +97,18 @@ class TaskPool:
                 result = await fn(*args, **kwargs)
                 self.results.append(result)
                 self.stats["completed"] += 1
+            except FatalError as retry_error:
+                if not isinstance(
+                    retry_error,
+                    (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError),
+                ):
+                    self._fatal_error = retry_error
+                    self._aborted = True
+                    return
+                self._abort(
+                    f"Secondary rate limit retry failed. "
+                    f"completed: {self.stats['completed']}, rate_limited: {self.stats['rate_limited']}"
+                )
             except Exception:  # noqa: BLE001 - retry failure aborts regardless of exception type.
                 self._abort(
                     f"Secondary rate limit retry failed. "
@@ -110,6 +125,10 @@ class TaskPool:
                     f"Too many network errors ({n}). "
                     f"completed: {self.stats['completed']}, network_errors: {n}"
                 )
+
+        elif isinstance(e, FatalError):
+            self._fatal_error = e
+            self._aborted = True
 
         else:
             self.stats["unexpected"] += 1

@@ -1,19 +1,19 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-17-issue-item-metadata",
-    "path": ".agents/specs/2026-11-17-issue-item-metadata",
+    "name": "2026-11-14-combo-reports",
+    "path": ".agents/specs/2026-11-14-combo-reports",
     "status": "complete",
     "progress": {
-      "tasks_completed": 8,
-      "tasks_total": 8
+      "tasks_completed": 11,
+      "tasks_total": 11
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-19",
       "gates": {
-        "pytest": "pass (377 tests)",
+        "pytest": "pass (398 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -25,9 +25,17 @@
       "last_run": "2026-11-19",
       "findings": 0
     },
-    "revision_note": "PR #54 correction: place the report data field before the new display option without adding a positional-constructor compatibility contract."
+    "revision_note": "Revised after accepted PR #53 review feedback: retain completed mode results when a later mode raises an ordinary exception, without changing retry or fatal-error propagation."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-17-issue-item-metadata",
+      "path": ".agents/specs/2026-11-17-issue-item-metadata",
+      "status": "complete",
+      "committed": true,
+      "commit": "4974cfc",
+      "note": "Item metadata, Dependabot PR detail, oldest timestamps, and local-date output delivered through merged PR #54."
+    },
     {
       "name": "2026-11-15-dynamic-mode-discovery",
       "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
@@ -99,13 +107,6 @@
       "next": "design"
     },
     {
-      "name": "2026-11-14-combo-reports",
-      "path": ".agents/specs/2026-11-14-combo-reports",
-      "status": "defined",
-      "next": "tasks",
-      "depends_on": ["dynamic-mode-discovery"]
-    },
-    {
       "name": "2026-11-17-versioned-report-schemas",
       "path": ".agents/specs/2026-11-17-versioned-report-schemas",
       "status": "defined",
@@ -133,9 +134,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Enrich issues output with item metadata, Dependabot pull-request detail, and pull-request age metrics.",
-    "behaviour": "Expose item dates, URLs, authors, and draft state plus JSON Dependabot PR details and oldest category timestamps; provide opt-in local-time human-readable dates.",
-    "constraints": "Do not add REST calls or human-readable PR-detail lists; preserve existing defaults, pagination, unavailable-data, and rate-limit behaviour."
+    "feature": "One-pass combined reports over discovered combinable modes.",
+    "behaviour": "Add combo to scan each repository once, collect every discovered reportable combinable mode, and render labelled plain, table, or nested JSON output.",
+    "constraints": "Use combinable_modes() rather than a static registry, exclude non-combinable info, preserve standalone contracts, and leave mode selection controls out of scope."
   },
   "skills": {
     "location": ".agents/skills",

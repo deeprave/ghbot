@@ -3,6 +3,7 @@ from pathlib import Path
 
 import click
 
+from ghbot.combo import combo
 from ghbot.config import DEFAULTS, load_config
 from ghbot.log import configure, get_logger
 from ghbot.modes import discover_modes
@@ -19,6 +20,17 @@ def _split_owners(
         for owner in (o.strip() for o in item.split(","))
         if owner
     )
+
+
+def _deduplicate_owners(owners: list[str]) -> list[str]:
+    unique: dict[str, str] = {}
+    for owner in owners:
+        key = owner.casefold()
+        if key in unique:
+            log.warning("Duplicate owner skipped: %s", owner)
+            continue
+        unique[key] = owner
+    return list(unique.values())
 
 
 def _repository_entries(values: tuple[str, ...]) -> tuple[str, ...]:
@@ -162,6 +174,7 @@ def cli(
         cfg["owners"] = [
             owner for item in cfg["owners"].split(",") if (owner := item.strip())
         ]
+    cfg["owners"] = _deduplicate_owners(cfg["owners"])
     if log_file:
         cfg["log-file"] = log_file
     if use_environment_token is not None:
@@ -186,6 +199,7 @@ def cli(
 
 for mode in discover_modes():
     cli.add_command(mode.command)
+cli.add_command(combo)
 
 
 if __name__ == "__main__":

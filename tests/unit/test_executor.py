@@ -76,6 +76,23 @@ async def test_primary_rate_limit_aborts_and_raises_fatal_error():
 
 
 @pytest.mark.anyio
+async def test_non_rate_limit_fatal_error_preserves_message_and_exit_code():
+    error = FatalError("stop scanning", exit_code=7)
+
+    async def task():
+        raise error
+
+    with pytest.raises(FatalError) as raised:
+        async with TaskPool() as pool:
+            await pool.submit(task)
+
+    assert raised.value is error
+    assert raised.value.message == "stop scanning"
+    assert raised.value.exit_code == 7
+    assert pool.stats["unexpected"] == 0
+
+
+@pytest.mark.anyio
 async def test_secondary_rate_limit_retries_and_succeeds(monkeypatch):
     calls = []
 
@@ -113,6 +130,33 @@ async def test_secondary_rate_limit_second_failure_aborts(monkeypatch):
     with pytest.raises(FatalError):
         async with TaskPool() as pool:
             await pool.submit(task)
+
+
+@pytest.mark.anyio
+async def test_secondary_rate_limit_retry_preserves_non_rate_limit_fatal_error(
+    monkeypatch,
+):
+    async def no_sleep(_):
+        pass
+
+    monkeypatch.setattr("ghbot.executor.asyncio.sleep", no_sleep)
+    error = FatalError("stop after retry", exit_code=7)
+    attempts = 0
+
+    async def task():
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise GitHubSecondaryRateLimitError("429")
+        raise error
+
+    with pytest.raises(FatalError) as raised:
+        async with TaskPool() as pool:
+            await pool.submit(task)
+
+    assert raised.value is error
+    assert raised.value.message == "stop after retry"
+    assert raised.value.exit_code == 7
 
 
 @pytest.mark.anyio
