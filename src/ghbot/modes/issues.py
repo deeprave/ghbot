@@ -262,8 +262,8 @@ class IssuesRepoProcessor:
 @dataclass(slots=True)
 class IssuesCollectionReport:
     labels: bool = False
-    dates: bool = False
     results: list[RepoResult] = field(default_factory=list)
+    dates: bool = False
 
     def add(self, result: RepoResult) -> None:
         self.results.append(result)

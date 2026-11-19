@@ -5,8 +5,8 @@
     "path": ".agents/specs/2026-11-17-issue-item-metadata",
     "status": "complete",
     "progress": {
-      "tasks_completed": 7,
-      "tasks_total": 7
+      "tasks_completed": 8,
+      "tasks_total": 8
     },
     "present_task": null,
     "verification": {
@@ -25,7 +25,7 @@
       "last_run": "2026-11-19",
       "findings": 0
     },
-    "revision_note": "Verified and reviewed after PR #54 triage: speculative constructor compatibility was declined; host-local date tests and JSON documentation/coverage are complete."
+    "revision_note": "PR #54 correction: place the report data field before the new display option without adding a positional-constructor compatibility contract."
   },
   "recent_specs": [
     {

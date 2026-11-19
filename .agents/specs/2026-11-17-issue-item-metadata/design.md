@@ -72,7 +72,7 @@ At collection level, count keys retain their existing sum-or-unavailable behavio
 
 ## Report rendering and CLI
 
-`IssuesCollectionReport` gains a `dates: bool` option. The command adds `--dates`, includes it in its options mapping, and `IssuesMode.new_collection()` passes it into the collection.
+`IssuesCollectionReport` gains a `dates: bool` option after its existing `results` data field (`labels`, `results`, `dates`). The command adds `--dates`, includes it in its options mapping, and `IssuesMode.new_collection()` passes it into the collection.
 
 JSON item shape, whether or not `--dates` is selected:
 

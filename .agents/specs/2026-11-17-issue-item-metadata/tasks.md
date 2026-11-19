@@ -27,3 +27,6 @@
 - [x] 7. Complete the JSON contract coverage and synopsis (`tests/unit/test_issues_report.py`, `README.md`)
   - [x] 7.1 Assert populated item `created_at`, `updated_at`, `url`, and `draft` values survive JSON serialization.
   - [x] 7.2 Update the `--json` synopsis to include oldest timestamp metrics and Dependabot detail records.
+
+- [x] 8. Keep the report data field ahead of the `dates` display option (`src/ghbot/modes/issues.py`)
+  - [x] 8.1 Order `IssuesCollectionReport` fields as `labels`, `results`, and `dates`; retain keyword construction at every internal call site.
