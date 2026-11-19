@@ -20,3 +20,10 @@
 - [x] 5. Wire the command option and document the contract (`tests/unit/test_issues_report_mode.py`, `src/ghbot/modes/issues.py`, `README.md`)
   - [x] 5.1 Add failing mode tests for `--dates` help and propagation alongside each output format and `--labels`.
   - [x] 5.2 Add the Click option and collection option plumbing, then document JSON item metadata, Dependabot detail records, oldest timestamp keys, and local-time `--dates` output.
+
+- [x] 6. Make local-date tests platform-portable (`tests/unit/test_issues_report.py`)
+  - [x] 6.1 Remove process-wide timezone mutation and assert `--dates` rendering against the host platform's local conversion.
+
+- [x] 7. Complete the JSON contract coverage and synopsis (`tests/unit/test_issues_report.py`, `README.md`)
+  - [x] 7.1 Assert populated item `created_at`, `updated_at`, `url`, and `draft` values survive JSON serialization.
+  - [x] 7.2 Update the `--json` synopsis to include oldest timestamp metrics and Dependabot detail records.

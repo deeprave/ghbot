@@ -89,7 +89,7 @@ JSON item shape, whether or not `--dates` is selected:
 }
 ```
 
-When `--dates` is selected, plain item lines include the local `YYYY-MM-DD HH:MM TZ` rendering of `created_at` before the title. The table gains a fixed-width `Created (local)` column immediately before the optional `Labels` column. Parsing converts GitHub's UTC timestamp with the operator's local timezone at render time, so the display observes daylight-saving changes (for example AEST versus AEDT). Missing or malformed item timestamps render as `N/A`; JSON preserves the original API value. Without `--dates`, both renderers retain their current exact layout. The `--labels` option remains independent and composes with `--dates`.
+When `--dates` is selected, plain item lines include the local `YYYY-MM-DD HH:MM TZ` rendering of `created_at` before the title. The table gains a fixed-width `Created (local)` column immediately before the optional `Labels` column. Parsing converts GitHub's UTC timestamp with the operator's platform-local timezone at render time, including daylight-saving changes where the configured local timezone observes them. Missing or malformed item timestamps render as `N/A`; JSON preserves the original API value. Without `--dates`, both renderers retain their current exact layout. The `--labels` option remains independent and composes with `--dates`.
 
 Summary and per-repository JSON include the two oldest timestamp keys. Human-readable summary and metric blocks do not gain those aggregate values in this increment; `--dates` is intentionally item-focused.
 
@@ -109,7 +109,7 @@ README documentation will describe the always-present JSON metadata, oldest time
 ## Test strategy
 
 - Processor tests: normalized issue and pull-request metadata, missing REST user, GraphQL pagination across categories, ordered Dependabot detail records, oldest values across pages, empty categories, malformed/missing detail fields and timestamps, all-metric unavailability, and unchanged rate-limit propagation.
-- Report tests: JSON metadata and Dependabot detail are always present on successful collection; timestamps appear in repository and summary JSON; default plain/table layout is unchanged; `--dates`, `--labels`, and both together render correctly; local timezone and daylight-saving conversion are deterministic under a patched timezone; missing or malformed creation dates render `N/A` only in date-enabled human output.
+- Report tests: JSON metadata and Dependabot detail are always present on successful collection; populated metadata values are retained by JSON serialization; timestamps appear in repository and summary JSON; default plain/table layout is unchanged; `--dates`, `--labels`, and both together render correctly against the host platform's local conversion without mutating process timezone state; missing or malformed creation dates render `N/A` only in date-enabled human output.
 - Mode tests: Click help exposes `--dates`; all format combinations pass the correct `dates` and `labels` options into `run_mode`.
 - Documentation test/update: README examples or field documentation match the output contract.
 - Implementation verification uses the project gates through `uv run`: pytest with warnings as errors, Ruff check, ty, and Ruff format check.

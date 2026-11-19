@@ -5,15 +5,15 @@
     "path": ".agents/specs/2026-11-17-issue-item-metadata",
     "status": "complete",
     "progress": {
-      "tasks_completed": 5,
-      "tasks_total": 5
+      "tasks_completed": 7,
+      "tasks_total": 7
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-19",
       "gates": {
-        "pytest": "pass (378 tests)",
+        "pytest": "pass (377 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -25,7 +25,7 @@
       "last_run": "2026-11-19",
       "findings": 0
     },
-    "revision_note": "Verified and reviewed: GitHub's UTC timestamp contract supports local-time rendering; ready for commit and pull-request delivery."
+    "revision_note": "Verified and reviewed after PR #54 triage: speculative constructor compatibility was declined; host-local date tests and JSON documentation/coverage are complete."
   },
   "recent_specs": [
     {
@@ -93,6 +93,12 @@
   ],
   "queued_specs": [
     {
+      "name": "2026-11-19-adopt-specle-workflow",
+      "path": ".agents/specs/2026-11-19-adopt-specle-workflow",
+      "status": "defined",
+      "next": "design"
+    },
+    {
       "name": "2026-11-14-combo-reports",
       "path": ".agents/specs/2026-11-14-combo-reports",
       "status": "defined",
@@ -103,8 +109,7 @@
       "name": "2026-11-17-versioned-report-schemas",
       "path": ".agents/specs/2026-11-17-versioned-report-schemas",
       "status": "defined",
-      "next": "design",
-      "depends_on": ["issue-item-metadata"]
+      "next": "design"
     }
   ],
   "python_checks": {

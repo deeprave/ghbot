@@ -1,8 +1,7 @@
 """Tests for issues report rendering (issues + pull requests, tagged by type)."""
 
 import json
-import os
-import time
+from datetime import datetime
 
 from ghbot.modes.issues import IssuesCollectionReport
 from ghbot.processor import RepoResult
@@ -223,78 +222,32 @@ class TestIssuesReportPlain:
         assert f"  {'Other PRs:':<26}{3:>8}" in repository_block
         assert f"  {'Other merge-ready PRs:':<26}{2:>8}" in repository_block
 
-    def test_dates_render_in_operator_local_timezone_and_compose_with_labels(
-        self, monkeypatch
-    ):
-        original_tz = os.environ.get("TZ")
-        original_timezone = time.tzname
-        monkeypatch.setenv("TZ", "Australia/Melbourne")
-        time.tzset()
-        try:
-            report = IssuesCollectionReport(
-                labels=True,
-                dates=True,
-                results=[
-                    _result(
-                        "acme",
-                        "web",
-                        1,
-                        [
-                            _item(
-                                12,
-                                "Fix login",
-                                labels=["bug"],
-                                created_at="2026-01-01T00:20:30Z",
-                            )
-                        ],
-                    )
-                ],
-            )
-            plain = report.render("plain")
-            table = report.render("table")
-        finally:
-            if original_tz is None:
-                monkeypatch.delenv("TZ", raising=False)
-            else:
-                monkeypatch.setenv("TZ", original_tz)
-            time.tzset()
+    def test_dates_render_in_operator_local_timezone_and_compose_with_labels(self):
+        created_at = "2026-01-01T00:20:30Z"
+        expected = (
+            datetime.fromisoformat(created_at)
+            .astimezone()
+            .strftime("%Y-%m-%d %H:%M %Z")
+        )
+        report = IssuesCollectionReport(
+            labels=True,
+            dates=True,
+            results=[
+                _result(
+                    "acme",
+                    "web",
+                    1,
+                    [_item(12, "Fix login", labels=["bug"], created_at=created_at)],
+                )
+            ],
+        )
 
-        assert "#12 [issue] 2026-01-01 11:20 AEDT Fix login +bug" in plain
+        plain = report.render("plain")
+        table = report.render("table")
+
+        assert f"#12 [issue] {expected} Fix login +bug" in plain
         assert "Created (local)" in table
-        assert "2026-01-01 11:20 AEDT" in table
-        assert original_timezone == time.tzname
-
-    def test_dates_render_aest_in_winter(self, monkeypatch):
-        original_tz = os.environ.get("TZ")
-        monkeypatch.setenv("TZ", "Australia/Melbourne")
-        time.tzset()
-        try:
-            report = IssuesCollectionReport(
-                dates=True,
-                results=[
-                    _result(
-                        "acme",
-                        "web",
-                        1,
-                        [
-                            _item(
-                                12,
-                                "Fix login",
-                                created_at="2026-06-01T00:20:30Z",
-                            )
-                        ],
-                    )
-                ],
-            )
-            plain = report.render("plain")
-        finally:
-            if original_tz is None:
-                monkeypatch.delenv("TZ", raising=False)
-            else:
-                monkeypatch.setenv("TZ", original_tz)
-            time.tzset()
-
-        assert "#12 [issue] 2026-06-01 10:20 AEST Fix login" in plain
+        assert expected in table
 
 
 class TestIssuesReportTable:
@@ -529,7 +482,16 @@ class TestIssuesReportJson:
         data = json.loads(render_issues_report([result], format="json"))
 
         repository = data["repositories"][0]
-        assert repository["items"][0]["author"] == "dependabot[bot]"
+        assert {
+            key: repository["items"][0][key]
+            for key in ("created_at", "updated_at", "url", "author", "draft")
+        } == {
+            "created_at": "2026-11-01T10:20:30Z",
+            "updated_at": "2026-11-02T10:20:30Z",
+            "url": "https://github.com/acme/widgets/pull/12",
+            "author": "dependabot[bot]",
+            "draft": False,
+        }
         assert (
             repository["dependabot_pull_requests"]
             == result.results["dependabot_pull_requests"]

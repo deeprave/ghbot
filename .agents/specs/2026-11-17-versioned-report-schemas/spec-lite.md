@@ -11,7 +11,7 @@ Version every `security`, `issues`, `drift`, and combined JSON document; ship a 
 ## Design boundaries
 
 - Each document has `schema_version` and `mode`; the combined wrapper and nested reports are independently versioned.
-- Initial versions are `1.0`, established after the #47 item-metadata work.
+- Initial versions are `1.0`, describing the report contracts implemented at delivery time.
 - Schemas are package data accessible with `importlib.resources`, permit additive properties, and document `null` as unavailable where applicable.
 - Plain and table formats remain unchanged.
 

@@ -86,7 +86,7 @@ uvx ghbot --owner acme issues [--plain | --table | --json] [--labels] [--dates] 
 |---|---|
 | `--plain` (default) | Summary and per-repo PR metrics + `#<n> [<type>] <title>` lines |
 | `--table` | One row per item, including Dependabot/other and merge-ready metric columns |
-| `--json` | `repositories[]` with `open_item_count`, four PR metrics, and an `items[]` array |
+| `--json` | `repositories[]` with `open_item_count`, four PR count metrics, two oldest-creation timestamp metrics, JSON-only Dependabot PR detail, and an `items[]` array |
 | `--labels` | Include GitHub labels (`+label` in plain, a `Labels` column in table, a `labels[]` array in JSON) |
 | `--dates` | Include item creation date, time, and timezone abbreviation in plain/table output |
 | `--output FILE` | Write the report to a file |
