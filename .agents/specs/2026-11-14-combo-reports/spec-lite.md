@@ -15,11 +15,12 @@ keyed reportable mode per repository. `info` is intentionally excluded because i
 The command obtains its modes from `combinable_modes()`, builds each mode's collection, groups its
 `RepoResult` values after shared discovery, and renders them with `CombinedCollectionReport`.
 Repository-level work remains bounded by the existing task pool; each processor receives the same
-discovery context. Partial results remain isolated to their processor. Per-repository results are
-staged until every mode completes, so a `TaskPool` retry cannot duplicate earlier results. Current
-built-ins produce the `combine_key`-ordered security `010`, issues `020`, and drift `030` sections
-without a static registry. `discover_modes()` remains alphabetical for CLI registration, while
-`combinable_modes()` selects and orders only modes that define a valid, unique key.
+discovery context. Partial results remain isolated to their processor. Completed per-repository
+results are retained across retries and committed only once, while an ordinary failure in a later
+mode retains results already completed by earlier modes. Current built-ins produce the
+`combine_key`-ordered security `010`, issues `020`, and drift `030` sections without a static
+registry. `discover_modes()` remains alphabetical for CLI registration, while `combinable_modes()`
+selects and orders only modes that define a valid, unique key.
 
 Configured owners are case-insensitively deduplicated in first-seen order before discovery and
 bare-repository expansion. The shared task pool also preserves non-rate-limit fatal processor

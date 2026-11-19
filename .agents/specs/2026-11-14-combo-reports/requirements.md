@@ -38,8 +38,9 @@ against that repository, and render their reports together.
    monitor context, and owner type to each selected processor.
 7. THE command SHALL preserve bounded repository-level concurrency and existing rate-limit
    propagation behaviour.
-8. IF one processor produces a partial repository result, THEN THE command SHALL retain the other
-   processors' results for that repository.
+8. IF one processor produces a partial repository result or a non-fatal ordinary exception, THEN
+   THE command SHALL retain the other successfully completed processors' results for that
+   repository.
 9. IF `TaskPool` retries a repository task after a secondary rate limit, THEN THE command SHALL
    add at most one result per selected mode for that repository to the combined collections.
 10. IF a selected processor raises a non-rate-limit `FatalError` on either its initial attempt or
@@ -94,5 +95,6 @@ against that repository, and render their reports together.
 - Do not change the distinct primary/secondary rate-limit classification or retry policy; that work
   remains outside this change.
 - Add focused unit tests for one-scan orchestration, discovery-derived mode selection, info
-  exclusion, combine-key validation and ordering, result grouping, JSON nesting, format selection,
-  issues-label forwarding, and file output. Run tests with `uv run`.
+  exclusion, combine-key validation and ordering, result grouping, preservation of completed modes
+  after an ordinary later-mode failure, JSON nesting, format selection, issues-label forwarding,
+  and file output. Run tests with `uv run`.

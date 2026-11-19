@@ -44,3 +44,7 @@
   - [x] 10.1 Add failing discovery and combo-output tests for the security `010`, issues `020`, drift `030` order, unkeyed info exclusion, malformed or duplicate keys, and unchanged alphabetical command discovery.
   - [x] 10.2 Replace `combinable` with optional `combine_key`, validate unique zero-padded keys for reportable modes, and make `combinable_modes()` select and order keyed modes.
   - [x] 10.3 Assign the initial keys, update contributor guidance, and preserve all existing coordinator, retry, fatal-error, labels, and standalone-command behaviour.
+
+- [x] 11. Retain completed mode results after an ordinary later-mode failure.
+  - [x] 11.1 Add a real-`TaskPool` regression test where a later mode raises an ordinary exception and assert that earlier completed-mode results are retained.
+  - [x] 11.2 Retain completed results across retry attempts, skip already-completed modes on retry, and commit only the appropriate successful results without changing fatal or rate-limit propagation.

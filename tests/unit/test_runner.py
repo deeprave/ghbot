@@ -430,3 +430,35 @@ async def test_run_combo_does_not_duplicate_results_after_secondary_rate_limit_r
 
     drift_collection.add.assert_called_once_with(drift_result)
     issues_collection.add.assert_called_once_with(issues_result)
+    drift_mode.new_processor.return_value.run.assert_awaited_once_with()
+
+
+@pytest.mark.anyio
+async def test_run_combo_retains_completed_results_after_later_ordinary_failure():
+    completed_result = RepoResult(owner="acme", repo="api")
+    completed_collection = MagicMock()
+    failed_collection = MagicMock()
+    completed_mode = MagicMock()
+    completed_mode.name = "security"
+    completed_mode.new_collection.return_value = completed_collection
+    completed_mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(return_value=completed_result)
+    )
+    failed_mode = MagicMock()
+    failed_mode.name = "issues"
+    failed_mode.new_collection.return_value = failed_collection
+    failed_mode.new_processor.return_value = MagicMock(
+        run=AsyncMock(side_effect=RuntimeError("unexpected failure"))
+    )
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=_scan_one),
+    ):
+        await run_combo(
+            {"owners": ["acme"], "concurrency": 1},
+            (completed_mode, failed_mode),
+        )
+
+    completed_collection.add.assert_called_once_with(completed_result)
+    failed_collection.add.assert_not_called()

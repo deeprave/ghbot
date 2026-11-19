@@ -27,8 +27,8 @@ Click CLI
             └─ TaskPool task per repository
                  └─ construct and await every selected processor using the same
                     owner, repository, GitHub client, monitor, options, and owner type
-                 └─ stage each RepoResult locally, then add all results to their corresponding
-                    collections only after every selected mode completes
+                 └─ retain completed RepoResults across a retry; add them once every selected
+                    mode completes, or retain them when a later mode has an ordinary failure
        └─ CombinedCollectionReport(...).render(format) -> write_report(...)
 ```
 
@@ -79,16 +79,20 @@ methods, with the existing composition class adding only section labels and blan
   existing runner policy unchanged.
 - `FatalError`, including primary and secondary rate limits, escapes `run_combo` and reaches the
   synchronous `combo` command, which logs its safe message and exits with its established code.
-- A secondary rate limit is retried by `TaskPool` at repository-task scope. The task therefore
-  stages results in a local mapping and adds them to mode collections only after every mode has
-  completed; a retry cannot duplicate earlier successful mode results.
+- A secondary rate limit is retried by `TaskPool` at repository-task scope. The task retains
+  completed results in a mapping shared by its retry attempts, skips those modes on retry, and
+  adds each result only after every selected mode has completed; a retry cannot duplicate earlier
+  successful mode results.
 - `TaskPool` retains a non-rate-limit `FatalError` object when a task raises it, including from a
   secondary-rate-limit retry, and re-raises that same object from its exit boundary after in-flight
   work completes. This preserves its safe message and exit code for `combo`'s existing CLI
   handler. Primary/secondary rate-limit classification and retry behaviour are unchanged and
   remain separate from this correction.
 - A processor's normal partial or failed `RepoResult` is added only to that mode's collection;
-  successful results from other modes for the same repository remain available.
+  successful results from other modes for the same repository remain available. If a later mode
+  raises a non-fatal ordinary exception, the task adds its already-completed mode results before
+  re-raising the error for `TaskPool`'s established ordinary-error handling. Fatal and rate-limit
+  errors do not take this partial-commit path.
 - The command uses `output_format()` for the established mutually exclusive format validation and
   `write_report()` for standard stdout/file and file-write error behaviour.
 
@@ -112,8 +116,9 @@ satisfy the scanner `MODE` contract.
 
 1. Extend runner tests with a fake discovered repository and fake reportable modes to prove one
    `scan_repositories()` pass, one TaskPool repository task, owner-type/context propagation to
-   every processor, isolated result collection, `FatalError` propagation, and no duplicate
-   collection entries after a secondary-rate-limit retry.
+   every processor, isolated result collection, `FatalError` propagation, retention of
+   completed-mode results after an ordinary later-mode failure, and no duplicate collection
+   entries after a secondary-rate-limit retry.
 2. Add combo command tests covering default/selected formats, mutually exclusive format failure,
    `--labels` option routing only to issues, output writing, and fatal exit handling.
 3. Extend CLI registration coverage to prove `combo` is available without becoming a discovered

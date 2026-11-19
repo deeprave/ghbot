@@ -3,17 +3,17 @@
   "current_spec": {
     "name": "2026-11-14-combo-reports",
     "path": ".agents/specs/2026-11-14-combo-reports",
-    "status": "verified",
+    "status": "complete",
     "progress": {
-      "tasks_completed": 10,
-      "tasks_total": 10
+      "tasks_completed": 11,
+      "tasks_total": 11
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-19",
       "gates": {
-        "pytest": "pass (397 tests)",
+        "pytest": "pass (398 tests)",
         "ruff_check": "pass",
         "ty": "pass",
         "ruff_format_check": "pass",
@@ -21,11 +21,11 @@
       }
     },
     "review": {
-      "status": "not-run",
-      "last_run": null,
+      "status": "pass",
+      "last_run": "2026-11-19",
       "findings": 0
     },
-    "revision_note": "Revised at maintainer request: combine_key replaces the boolean combination flag and orders report sections as security 010, issues 020, drift 030."
+    "revision_note": "Revised after accepted PR #53 review feedback: retain completed mode results when a later mode raises an ordinary exception, without changing retry or fatal-error propagation."
   },
   "recent_specs": [
     {

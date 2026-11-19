@@ -5,6 +5,7 @@ from typing import Any
 import gidgethub.httpx as gh_httpx
 import httpx
 
+from ghbot.errors import FatalError
 from ghbot.executor import TaskPool
 from ghbot.github.auth import get_auth_token
 from ghbot.github.repos import scan_repositories
@@ -98,20 +99,30 @@ async def run_combo(
                 gh,
                 explicit_repositories=cfg.get("explicit_repositories"),
             ):
+                results: dict[str, RepoResult] = {}
 
-                async def collect(discovered=discovered):
+                async def collect(discovered=discovered, results=results):
                     monitor = LoggingMonitor(discovered.owner, discovered.name)
-                    results = {}
-                    for mode in modes:
-                        processor = mode.new_processor(
-                            discovered.owner,
-                            discovered.name,
-                            gh,
-                            monitor,
-                            options_by_mode.get(mode.name, {}),
-                            owner_type=discovered.owner_type,
-                        )
-                        results[mode.name] = await processor.run()
+                    try:
+                        for mode in modes:
+                            if mode.name in results:
+                                continue
+                            processor = mode.new_processor(
+                                discovered.owner,
+                                discovered.name,
+                                gh,
+                                monitor,
+                                options_by_mode.get(mode.name, {}),
+                                owner_type=discovered.owner_type,
+                            )
+                            results[mode.name] = await processor.run()
+                    except FatalError:
+                        raise
+                    except Exception:
+                        for mode in modes:
+                            if mode.name in results:
+                                collections[mode.name].add(results[mode.name])
+                        raise
                     for mode in modes:
                         collections[mode.name].add(results[mode.name])
 
