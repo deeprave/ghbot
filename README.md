@@ -79,21 +79,28 @@ It also separately reports open Dependabot and other pull requests, with the num
 considers merge-ready (`CLEAN`).
 
 ```bash
-uvx ghbot --owner acme issues [--plain | --table | --json] [--labels] [--output FILE]
+uvx ghbot --owner acme issues [--plain | --table | --json] [--labels] [--dates] [--output FILE]
 ```
 
 | Option | Meaning |
 |---|---|
 | `--plain` (default) | Summary and per-repo PR metrics + `#<n> [<type>] <title>` lines |
 | `--table` | One row per item, including Dependabot/other and merge-ready metric columns |
-| `--json` | `repositories[]` with `open_item_count`, four PR metrics, and an `items[]` array |
+| `--json` | `repositories[]` with `open_item_count`, four PR count metrics, two oldest-creation timestamp metrics, JSON-only Dependabot PR detail, and an `items[]` array |
 | `--labels` | Include GitHub labels (`+label` in plain, a `Labels` column in table, a `labels[]` array in JSON) |
+| `--dates` | Include item creation date, time, and timezone abbreviation in plain/table output |
 | `--output FILE` | Write the report to a file |
 
 The summary splits `Open issues` and `Open PRs` and includes four PR metrics: Dependabot total and
 merge-ready, plus other total and merge-ready. Plain/table omit repos with nothing open; JSON
 includes every scanned repo. If the PR metrics cannot be fetched for any repository, the aggregate
 is `N/A` in text or `null` in JSON; JSON also sets `pull_request_metrics_complete` to `false`.
+
+JSON items always include `created_at`, `updated_at`, `url`, `author`, and `draft`, even without
+`--dates`. Repository records also include oldest open Dependabot and other pull-request timestamps,
+plus `dependabot_pull_requests`: detailed JSON records with number, URL, creation timestamp, draft
+state, and merge readiness. `--dates` changes only human-readable output and converts GitHub's UTC
+timestamps to the operator's local timezone.
 
 ### `drift` — commits since the latest stable release
 

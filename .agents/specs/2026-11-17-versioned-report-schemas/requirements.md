@@ -49,7 +49,7 @@ ghbot's JSON reports have no version identifier or shipped schema. Consumers can
 
 ## Non-Functional Requirements
 
-- This spec depends on `2026-11-17-issue-item-metadata`, so `1.0` describes the agreed enriched issues output rather than an immediately obsolete shape.
+- The initial schemas SHALL describe the report contracts implemented at delivery time; later additive fields follow the documented minor-version policy.
 - Preserve plain and table output behaviour.
 - Package schema assets in both wheel and sdist.
 - Run all project checks through `uv run` when implementation begins.

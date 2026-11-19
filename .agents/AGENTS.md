@@ -11,6 +11,8 @@ This is the portable entrypoint for the repository's spec-driven workflow. A rep
    source of project truth.
 4. Read the matching skill in `.agents/skills/` before performing a workflow stage.
 5. For spec work, keep `.agents/.current` and `.agents/CONTEXT.json` aligned with the lifecycle and context schema.
+6. New specs are queued by default and do not change `.agents/.current`; change the active spec only when the user explicitly asks to do so.
+7. Treat specifications as independent by default. Record a dependency only when the requirements or design identify a concrete technical prerequisite, never to impose a presumed delivery order.
 
 ## Workflow
 

@@ -27,6 +27,9 @@ def _result() -> RepoResult:
             "dependabot_merge_ready_pull_requests": 0,
             "other_open_pull_requests": 0,
             "other_merge_ready_pull_requests": 0,
+            "oldest_dependabot_pull_request_created_at": None,
+            "oldest_other_pull_request_created_at": None,
+            "dependabot_pull_requests": [],
         }
     )
     return result
@@ -37,6 +40,7 @@ def test_mode_owns_issues_processor_and_collection_options():
     assert MODE.processor_type is IssuesRepoProcessor
     assert isinstance(IssuesRepoProcessor("a", "b", None, None), RepoProcessor)
     assert MODE.new_collection({"labels": True}).labels is True
+    assert MODE.new_collection({"dates": True}).dates is True
 
 
 def test_collection_aggregates_and_renders_labels_by_style():
@@ -52,6 +56,8 @@ def test_collection_aggregates_and_renders_labels_by_style():
         "dependabot_merge_ready_pull_requests": 0,
         "other_open_pull_requests": 0,
         "other_merge_ready_pull_requests": 0,
+        "oldest_dependabot_pull_request_created_at": None,
+        "oldest_other_pull_request_created_at": None,
         "pull_request_metrics_complete": True,
     }
     assert "+bug" in collection.render("plain")
@@ -66,19 +72,29 @@ def test_issues_command_help_is_owned_by_the_mode():
 
     assert result.exit_code == 0
     assert "--labels" in result.output
+    assert "--dates" in result.output
     assert "--output" in result.output
 
 
 @pytest.mark.parametrize(
     ("arguments", "expected_options"),
     [
-        ([], {"format": "plain", "labels": False}),
-        (["--plain", "--labels"], {"format": "plain", "labels": True}),
-        (["--table", "--labels"], {"format": "table", "labels": True}),
-        (["--json", "--labels"], {"format": "json", "labels": True}),
+        ([], {"format": "plain", "labels": False, "dates": False}),
+        (
+            ["--plain", "--labels", "--dates"],
+            {"format": "plain", "labels": True, "dates": True},
+        ),
+        (
+            ["--table", "--dates"],
+            {"format": "table", "labels": False, "dates": True},
+        ),
+        (
+            ["--json", "--labels", "--dates"],
+            {"format": "json", "labels": True, "dates": True},
+        ),
     ],
 )
-def test_issues_command_routes_format_and_labels_to_its_runner(
+def test_issues_command_routes_format_labels_and_dates_to_its_runner(
     arguments, expected_options
 ):
     from ghbot.modes.issues import issues
@@ -117,7 +133,11 @@ def test_issues_command_forwards_output(tmp_path):
         )
 
     assert result.exit_code == 0
-    assert run_mode.await_args.args[2] == {"format": "plain", "labels": False}
+    assert run_mode.await_args.args[2] == {
+        "format": "plain",
+        "labels": False,
+        "dates": False,
+    }
     write_report.assert_called_once_with("report\n", destination)
 
 
