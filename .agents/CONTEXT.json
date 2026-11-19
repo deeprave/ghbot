@@ -29,6 +29,14 @@
   },
   "recent_specs": [
     {
+      "name": "2026-11-17-issue-item-metadata",
+      "path": ".agents/specs/2026-11-17-issue-item-metadata",
+      "status": "complete",
+      "committed": true,
+      "commit": "4974cfc",
+      "note": "Item metadata, Dependabot PR detail, oldest timestamps, and local-date output delivered through merged PR #54."
+    },
+    {
       "name": "2026-11-15-dynamic-mode-discovery",
       "path": ".agents/specs/2026-11-15-dynamic-mode-discovery",
       "status": "complete",
@@ -91,7 +99,20 @@
       "note": "Verified and approved. Mode-specific CLI option coverage is intentionally deferred to mode-cli-ownership, where command ownership will move to the modes."
     }
   ],
-  "queued_specs": [],
+  "queued_specs": [
+    {
+      "name": "2026-11-19-adopt-specle-workflow",
+      "path": ".agents/specs/2026-11-19-adopt-specle-workflow",
+      "status": "defined",
+      "next": "design"
+    },
+    {
+      "name": "2026-11-17-versioned-report-schemas",
+      "path": ".agents/specs/2026-11-17-versioned-report-schemas",
+      "status": "defined",
+      "next": "design"
+    }
+  ],
   "python_checks": {
     "runner": "uv run",
     "commands": {

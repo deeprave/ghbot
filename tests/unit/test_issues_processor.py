@@ -14,6 +14,15 @@ from ghbot.errors import (
 from ghbot.modes.issues import IssuesRepoProcessor
 from ghbot.processor import FeedbackEvent, RepoProcessor
 
+_PULL_REQUEST_RESULT_KEYS = (
+    "dependabot_open_pull_requests",
+    "dependabot_merge_ready_pull_requests",
+    "other_open_pull_requests",
+    "other_merge_ready_pull_requests",
+    "oldest_dependabot_pull_request_created_at",
+    "oldest_other_pull_request_created_at",
+)
+
 
 class RecordingMonitor:
     def __init__(self) -> None:
@@ -42,10 +51,22 @@ def _pr_item(number, title="A pull request", labels=None, **extra):
     return item
 
 
-def _graphql_pr(author="octocat", merge_state="CLEAN"):
+def _graphql_pr(
+    author="octocat",
+    merge_state="CLEAN",
+    *,
+    number=1,
+    created_at="2026-11-01T10:20:30Z",
+    url="https://github.com/acme/widgets/pull/1",
+    is_draft=False,
+):
     return {
+        "number": number,
         "author": None if author is None else {"login": author},
         "mergeStateStatus": merge_state,
+        "createdAt": created_at,
+        "url": url,
+        "isDraft": is_draft,
     }
 
 
@@ -151,8 +172,25 @@ class TestIssuesRepoProcessorCollection:
     async def test_records_carry_number_title_type_labels_in_order(self):
         gh = _make_gh(
             issues=[
-                _issue(12, "Fix the login redirect", labels=["bug", "urgent"]),
-                _pr_item(15, "Add retry to fetch", labels=["enhancement"]),
+                _issue(
+                    12,
+                    "Fix the login redirect",
+                    labels=["bug", "urgent"],
+                    created_at="2026-11-01T10:20:30Z",
+                    updated_at="2026-11-02T11:22:33Z",
+                    html_url="https://github.com/acme/widgets/issues/12",
+                    user={"login": "octocat"},
+                ),
+                _pr_item(
+                    15,
+                    "Add retry to fetch",
+                    labels=["enhancement"],
+                    created_at="2026-11-03T10:20:30Z",
+                    updated_at="2026-11-04T11:22:33Z",
+                    html_url="https://github.com/acme/widgets/pull/15",
+                    user={"login": "dependabot[bot]"},
+                    draft=True,
+                ),
                 _issue(3, "Flaky test on CI"),  # no labels field
             ]
         )
@@ -165,15 +203,36 @@ class TestIssuesRepoProcessorCollection:
                 "title": "Fix the login redirect",
                 "type": "issue",
                 "labels": ["bug", "urgent"],
+                "created_at": "2026-11-01T10:20:30Z",
+                "updated_at": "2026-11-02T11:22:33Z",
+                "url": "https://github.com/acme/widgets/issues/12",
+                "author": "octocat",
+                "draft": None,
             },
             {
                 "number": 15,
                 "title": "Add retry to fetch",
                 "type": "pr",
                 "labels": ["enhancement"],
+                "created_at": "2026-11-03T10:20:30Z",
+                "updated_at": "2026-11-04T11:22:33Z",
+                "url": "https://github.com/acme/widgets/pull/15",
+                "author": "dependabot[bot]",
+                "draft": True,
             },
-            {"number": 3, "title": "Flaky test on CI", "type": "issue", "labels": []},
+            {
+                "number": 3,
+                "title": "Flaky test on CI",
+                "type": "issue",
+                "labels": [],
+                "created_at": None,
+                "updated_at": None,
+                "url": None,
+                "author": None,
+                "draft": None,
+            },
         ]
+        assert gh.getitem.await_count == 0
 
     @pytest.mark.anyio
     async def test_requests_open_issues_endpoint(self):
@@ -229,6 +288,89 @@ class TestIssuesRepoProcessorPullRequestMetrics:
         assert gh.getitem.await_count == 0
 
     @pytest.mark.anyio
+    async def test_collects_oldest_timestamps_and_dependabot_detail_across_pages(self):
+        gh = _make_gh()
+        gh.graphql.side_effect = [
+            _graphql_page(
+                [
+                    _graphql_pr(
+                        "dependabot[bot]",
+                        "CLEAN",
+                        number=12,
+                        created_at="2026-11-03T10:20:30Z",
+                        url="https://github.com/acme/widgets/pull/12",
+                    ),
+                    _graphql_pr(
+                        "octocat",
+                        "BLOCKED",
+                        number=13,
+                        created_at="2026-11-02T10:20:30Z",
+                    ),
+                ],
+                has_next_page=True,
+                end_cursor="cursor-1",
+            ),
+            _graphql_page(
+                [
+                    _graphql_pr(
+                        "dependabot[bot]",
+                        "DRAFT",
+                        number=14,
+                        created_at="2026-11-01T10:20:30Z",
+                        url="https://github.com/acme/widgets/pull/14",
+                        is_draft=True,
+                    ),
+                    _graphql_pr(
+                        "octocat",
+                        "CLEAN",
+                        number=15,
+                        created_at="2026-11-04T10:20:30Z",
+                    ),
+                ]
+            ),
+        ]
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.results["oldest_dependabot_pull_request_created_at"] == (
+            "2026-11-01T10:20:30Z"
+        )
+        assert result.results["oldest_other_pull_request_created_at"] == (
+            "2026-11-02T10:20:30Z"
+        )
+        assert result.results["dependabot_pull_requests"] == [
+            {
+                "number": 12,
+                "url": "https://github.com/acme/widgets/pull/12",
+                "created_at": "2026-11-03T10:20:30Z",
+                "draft": False,
+                "merge_ready": True,
+            },
+            {
+                "number": 14,
+                "url": "https://github.com/acme/widgets/pull/14",
+                "created_at": "2026-11-01T10:20:30Z",
+                "draft": True,
+                "merge_ready": False,
+            },
+        ]
+        assert "number" in gh.graphql.await_args_list[0].args[0]
+        assert "createdAt" in gh.graphql.await_args_list[0].args[0]
+        assert "isDraft" in gh.graphql.await_args_list[0].args[0]
+
+    @pytest.mark.anyio
+    async def test_empty_dependabot_category_has_an_empty_detail_list(self):
+        processor, _ = _make_processor()
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.results["dependabot_pull_requests"] == []
+        assert result.results["oldest_dependabot_pull_request_created_at"] is None
+
+    @pytest.mark.anyio
     @pytest.mark.parametrize(
         "merge_state",
         ["HAS_HOOKS", "BLOCKED", "DIRTY", "DRAFT", "UNKNOWN", None],
@@ -248,6 +390,31 @@ class TestIssuesRepoProcessorPullRequestMetrics:
 
 
 class TestIssuesRepoProcessorPullRequestMetricFailures:
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "pull_request",
+        [
+            _graphql_pr(number=None),
+            _graphql_pr(created_at="not-a-timestamp"),
+            _graphql_pr(url=""),
+            _graphql_pr(is_draft=None),
+        ],
+        ids=["missing-number", "invalid-timestamp", "missing-url", "missing-draft"],
+    )
+    async def test_malformed_detail_marks_all_pull_request_metrics_unavailable(
+        self, pull_request
+    ):
+        gh = _make_gh()
+        gh.graphql.return_value = _graphql_page([pull_request])
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.status == "partial"
+        assert all(result.results[key] is None for key in _PULL_REQUEST_RESULT_KEYS)
+        assert result.results["dependabot_pull_requests"] is None
+
     @pytest.mark.anyio
     async def test_repeated_pagination_cursor_marks_metrics_unavailable(self):
         gh = _make_gh(issues=[_issue(1)])
@@ -319,13 +486,18 @@ class TestIssuesRepoProcessorPullRequestMetricFailures:
                 "dependabot_merge_ready_pull_requests",
                 "other_open_pull_requests",
                 "other_merge_ready_pull_requests",
+                "oldest_dependabot_pull_request_created_at",
+                "oldest_other_pull_request_created_at",
             )
         } == {
             "dependabot_open_pull_requests": None,
             "dependabot_merge_ready_pull_requests": None,
             "other_open_pull_requests": None,
             "other_merge_ready_pull_requests": None,
+            "oldest_dependabot_pull_request_created_at": None,
+            "oldest_other_pull_request_created_at": None,
         }
+        assert result.results["dependabot_pull_requests"] is None
         assert any(
             event.type == "fetch" and event.severity == "error"
             for event in monitor.events
