@@ -3,7 +3,7 @@
 ## Overview
 
 Add a `combo` coordinator command which discovers the current reportable mode set through
-`combinable_modes()`, scans each repository once, and feeds each mode's result into its own
+`combinable_modes()`, scans each repository once, and feeds each keyed mode's result into its own
 collection. It reuses `CombinedCollectionReport` to render those existing collections as labelled
 plain/table sections or a JSON object keyed by canonical mode name.
 
@@ -18,7 +18,7 @@ imports no individual mode implementation and obtains its complete scan set only
 Click CLI
   ├─ discovers and registers public scanner MODE.command values
   └─ registers combo command
-       ├─ combinable_modes() -> ReportableModeDefinition tuple
+       ├─ combinable_modes() -> combine-key-ordered ReportableModeDefinition tuple
        ├─ options-by-mode (issues receives labels; all receive format)
        └─ run_combo(cfg, modes, options_by_mode)
             ├─ construct each mode collection
@@ -53,17 +53,19 @@ Every selected mode receives its own options mapping. All modes receive `{"forma
 the `issues` mapping additionally receives `{"labels": show_labels}`. No other mode sees the
 issues-specific option.
 
-The current dynamically discovered sequence is `drift`, `issues`, and `security`. Future
-combinable modes automatically obtain a collection and section through the same loop. `info` is
-excluded before execution because `combinable_modes()` returns only reportable combinable modes.
+Every reportable mode has a unique three-digit `combine_key`. The current dynamically discovered
+sequence is security `010`, issues `020`, and drift `030`. Future keyed modes automatically obtain
+a collection and section through the same loop; inserting a mode requires only its own key. `info`
+is excluded before execution because it has no `combine_key`. `discover_modes()` remains
+alphabetical for CLI registration; only `combinable_modes()` applies report ordering.
 
 `CombinedCollectionReport.document()` already produces the required JSON shape:
 
 ```json
 {
-  "drift": {"summary": {}, "repositories": []},
+  "security": {"summary": {}, "repositories": []},
   "issues": {"summary": {}, "repositories": []},
-  "security": {"summary": {}, "repositories": []}
+  "drift": {"summary": {}, "repositories": []}
 }
 ```
 
@@ -116,8 +118,8 @@ satisfy the scanner `MODE` contract.
    `--labels` option routing only to issues, output writing, and fatal exit handling.
 3. Extend CLI registration coverage to prove `combo` is available without becoming a discovered
    scanner mode.
-4. Extend composition tests to assert discovery/canonical ordering is preserved in text and JSON
-   keys and that mode collection documents are nested unchanged.
+4. Extend discovery and composition tests to assert `combine_key` validation and ordering is
+   preserved in text and JSON keys and that mode collection documents are nested unchanged.
 5. Run the full project quality gates through `uv run`: pytest with warnings as errors, Ruff,
    ty, and format check.
 6. Add regression tests for preserving a non-rate-limit `FatalError` through the real `TaskPool`

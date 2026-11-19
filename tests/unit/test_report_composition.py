@@ -16,43 +16,43 @@ class FakeCollection:
         return f"{format} {self.name}\n"
 
 
-def test_composition_keeps_discovered_canonical_order():
+def test_composition_keeps_discovered_combine_key_order():
     report = CombinedCollectionReport(
         (
-            ReportSection("drift", FakeCollection("drift")),
-            ReportSection("issues", FakeCollection("issues")),
             ReportSection("security", FakeCollection("security")),
+            ReportSection("issues", FakeCollection("issues")),
+            ReportSection("drift", FakeCollection("drift")),
         )
     )
 
     text = report.render("table")
-    assert text.index("Drift") < text.index("Issues") < text.index("Security")
+    assert text.index("Security") < text.index("Issues") < text.index("Drift")
     assert "Info" not in text
 
 
-def test_composition_plain_output_keeps_labelled_canonical_sections():
+def test_composition_plain_output_keeps_labelled_combine_key_sections():
     report = CombinedCollectionReport(
         (
-            ReportSection("drift", FakeCollection("drift")),
-            ReportSection("issues", FakeCollection("issues")),
             ReportSection("security", FakeCollection("security")),
+            ReportSection("issues", FakeCollection("issues")),
+            ReportSection("drift", FakeCollection("drift")),
         )
     )
 
     assert report.render("plain") == (
-        "Drift\nplain drift\n\nIssues\nplain issues\n\nSecurity\nplain security\n"
+        "Security\nplain security\n\nIssues\nplain issues\n\nDrift\nplain drift\n"
     )
 
 
 def test_composition_json_nests_each_collection_document_directly():
     report = CombinedCollectionReport(
         (
-            ReportSection("drift", FakeCollection("drift")),
             ReportSection("security", FakeCollection("security")),
+            ReportSection("drift", FakeCollection("drift")),
         )
     )
 
     assert json.loads(report.render("json")) == {
-        "drift": {"summary": {"name": "drift"}},
         "security": {"summary": {"name": "security"}},
+        "drift": {"summary": {"name": "drift"}},
     }

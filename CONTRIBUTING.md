@@ -70,9 +70,11 @@ Create `src/ghbot/modes/<name>.py`. Keep these elements together:
 - `<Name>RepoProcessor`, implementing `RepoProcessor`.
 - `<Name>CollectionReport`, with `add(result)`, `document()`, and `render(format)`.
 - A named `MODE` unit exposing a non-empty canonical `name`, a `click.Command` whose name matches
-  it, a boolean `combinable` flag, and `new_processor(...)`.
-- A reportable/combinable `MODE` also exposes `new_collection(options)`. Non-reporting modes, such
-  as `info`, set `combinable = False` and do not need a collection factory.
+  it, and `new_processor(...)`.
+- A reportable `MODE` also exposes `new_collection(options)` and a unique three-digit
+  `combine_key`, such as `"040"`. The key both opts the mode into coordinator reports and places
+  it between adjacent keys without changing existing mode definitions. Non-reporting modes, such
+  as `info`, omit `combine_key` and do not need a collection factory.
 - The module's decorated Click command owns its mode-specific options and invokes the appropriate
   shared runner.
 

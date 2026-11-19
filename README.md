@@ -122,11 +122,11 @@ uvx ghbot --owner acme drift [--plain | --table | --json] [--output FILE]
 
 ### `combo` — combined repository posture
 
-Runs every reportable built-in mode in one repository-discovery pass. Today this combines
-`drift`, `issues`, and `security`; `info` is intentionally excluded because it does not produce a
-collection report. Plain and table output contain labelled sections for each mode. JSON nests each
-standalone report schema under its mode name, for example `{"drift": {...}, "issues": {...},
-"security": {...}}`.
+Runs every built-in mode with a report `combine_key` in one repository-discovery pass. Today this
+combines `security`, `issues`, and `drift`, in that order; `info` is intentionally excluded because
+it has no collection report or `combine_key`. Plain and table output contain labelled sections for
+each mode. JSON nests each standalone report schema under its mode name, for example
+`{"security": {...}, "issues": {...}, "drift": {...}}`.
 
 ```bash
 uvx ghbot --owner acme combo [--plain | --table | --json] [--labels] [--output FILE]

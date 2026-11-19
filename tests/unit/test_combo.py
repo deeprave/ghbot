@@ -26,7 +26,7 @@ def _mode(name: str) -> MagicMock:
 def test_combo_routes_discovered_modes_and_format(arguments, expected_format):
     from ghbot.combo import combo
 
-    modes = (_mode("drift"), _mode("issues"), _mode("security"))
+    modes = (_mode("security"), _mode("issues"), _mode("drift"))
     report = MagicMock()
     report.render.return_value = "report\n"
     with (
@@ -40,9 +40,9 @@ def test_combo_routes_discovered_modes_and_format(arguments, expected_format):
     discover.assert_called_once_with()
     assert run_combo.await_args.args[:2] == ({}, modes)
     assert run_combo.await_args.args[2] == {
-        "drift": {"format": expected_format},
-        "issues": {"format": expected_format, "labels": False},
         "security": {"format": expected_format},
+        "issues": {"format": expected_format, "labels": False},
+        "drift": {"format": expected_format},
     }
     report.render.assert_called_once_with(expected_format)
     write_report.assert_called_once_with("report\n", None)
@@ -51,7 +51,7 @@ def test_combo_routes_discovered_modes_and_format(arguments, expected_format):
 def test_combo_forwards_labels_only_to_issues_mode():
     from ghbot.combo import combo
 
-    modes = (_mode("drift"), _mode("issues"), _mode("security"))
+    modes = (_mode("security"), _mode("issues"), _mode("drift"))
     report = MagicMock(render=MagicMock(return_value="report\n"))
     with (
         patch("ghbot.combo.combinable_modes", return_value=modes),

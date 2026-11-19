@@ -41,7 +41,7 @@ def combo(
     show_labels: bool,
     output: Path | None,
 ) -> None:
-    """Run every combinable report in one repository scan."""
+    """Run every keyed reportable mode in one repository scan."""
     selected_format = output_format(
         plain=format_plain, table=format_table, json_format=format_json
     )

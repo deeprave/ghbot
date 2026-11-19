@@ -23,7 +23,6 @@ class InfoMode:
 
     name: str = "info"
     processor_type: type = InfoRepoProcessor
-    combinable: bool = False
 
     @property
     def command(self) -> click.Command:

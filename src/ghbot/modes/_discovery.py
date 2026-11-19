@@ -2,6 +2,7 @@
 
 import importlib
 import pkgutil
+import re
 from typing import Any, Protocol, runtime_checkable
 
 import click
@@ -19,7 +20,6 @@ class ModeDefinition(Protocol):
 
     name: str
     command: click.Command
-    combinable: bool
 
     def new_processor(
         self,
@@ -36,6 +36,8 @@ class ModeDefinition(Protocol):
 @runtime_checkable
 class ReportableModeDefinition(ModeDefinition, Protocol):
     """Discovery contract for modes with a collection-level report."""
+
+    combine_key: str
 
     def new_collection(self, options: dict) -> Any: ...
 
@@ -54,19 +56,22 @@ def validate_mode(module_name: str, candidate: object) -> ModeDefinition:
             f"{module_name}: MODE command name {command.name!r} does not match {name!r}"
         )
 
-    if not isinstance(getattr(candidate, "combinable", None), bool):
-        raise ModeDiscoveryError(
-            f"{module_name}: MODE must define a boolean combinable flag"
-        )
     if not callable(getattr(candidate, "new_processor", None)):
         raise ModeDiscoveryError(f"{module_name}: MODE must define new_processor")
     if not isinstance(candidate, ModeDefinition):
         raise ModeDiscoveryError(
             f"{module_name}: MODE does not satisfy the mode definition"
         )
-    if candidate.combinable and not isinstance(candidate, ReportableModeDefinition):
+    combine_key = getattr(candidate, "combine_key", None)
+    if combine_key is not None and (
+        not isinstance(combine_key, str) or re.fullmatch(r"\d{3}", combine_key) is None
+    ):
         raise ModeDiscoveryError(
-            f"{module_name}: combinable MODE must define new_collection"
+            f"{module_name}: MODE combine_key must be a zero-padded three-digit string"
+        )
+    if combine_key is not None and not isinstance(candidate, ReportableModeDefinition):
+        raise ModeDiscoveryError(
+            f"{module_name}: MODE with combine_key must define new_collection"
         )
     return candidate
 
@@ -100,11 +105,15 @@ def discover_modes() -> tuple[ModeDefinition, ...]:
 
 
 def combinable_modes() -> tuple[ReportableModeDefinition, ...]:
-    """Return discovered modes eligible for a future combined scan."""
+    """Return discovered keyed reportable modes in report order."""
     modes: list[ReportableModeDefinition] = []
+    keys: set[str] = set()
     for mode in discover_modes():
-        if not mode.combinable:
+        if getattr(mode, "combine_key", None) is None:
             continue
         assert isinstance(mode, ReportableModeDefinition)
+        if mode.combine_key in keys:
+            raise ModeDiscoveryError(f"duplicate combine_key: {mode.combine_key}")
+        keys.add(mode.combine_key)
         modes.append(mode)
-    return tuple(modes)
+    return tuple(sorted(modes, key=lambda mode: mode.combine_key))

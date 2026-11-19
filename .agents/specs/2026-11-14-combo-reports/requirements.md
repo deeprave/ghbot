@@ -3,14 +3,17 @@
 ## Introduction
 
 Running multiple ghbot reports currently repeats shared repository discovery for each command. A
-`combo` meta-processor should scan each repository once, run every discovered combinable mode
+`combo` meta-processor should scan each repository once, run every discovered keyed reportable mode
 against that repository, and render their reports together.
 
 ## Glossary
 
 - **combo**: The new meta-processor and CLI command that coordinates reportable built-in processors.
-- **combinable mode**: A discovered `ReportableModeDefinition` returned by
-  `combinable_modes()`. It supplies a canonical name, processor factory, and collection factory.
+- **keyed reportable mode**: A discovered `ReportableModeDefinition` returned by
+  `combinable_modes()`. It supplies a canonical name, processor factory, collection factory, and
+  `combine_key`.
+- **combine key**: A unique, zero-padded three-digit string that both makes a mode eligible for
+  combination and orders its section without edits to existing modes when a report is inserted.
 - **shared scan**: A single repository-discovery pass that feeds all reportable processors for each discovered repository.
 - **combined report**: A report document containing one nested report document for every selected
   combinable mode.
@@ -27,9 +30,9 @@ against that repository, and render their reports together.
 2. THE command SHALL obtain its selected modes solely through `combinable_modes()` and SHALL NOT
    maintain a static list of mode names, processor classes, or collections.
 3. THE command SHALL run every selected mode's processor for every discovered repository. With the
-   current built-ins, this is `drift`, `issues`, and `security`.
-4. THE command SHALL NOT run `InfoRepoProcessor`; `info` is non-combinable and therefore absent
-   from the selected set.
+   current built-ins, this is security, issues, and drift.
+4. THE command SHALL NOT run `InfoRepoProcessor`; `info` has no `combine_key` and is therefore
+   absent from the selected set.
 5. THE command SHALL use one shared repository scan for its complete execution.
 6. FOR EACH discovered repository, THE command SHALL pass the same owner, repository, API client,
    monitor context, and owner type to each selected processor.
@@ -44,6 +47,11 @@ against that repository, and render their reports together.
     exit code through the shared task-pool boundary to the CLI.
 11. THE command SHALL scan each owner at most once per invocation, treating owner names
     case-insensitively while retaining the first supplied spelling and deterministic order.
+12. EACH selected mode SHALL define a unique `combine_key` matching a zero-padded three-digit
+    number. The initial keys SHALL be security `010`, issues `020`, and drift `030`.
+13. `combinable_modes()` SHALL select and order keyed reportable modes by `combine_key`; adding an
+    intervening report SHALL require only its own mode definition and key, not edits to existing
+    modes or the combo coordinator.
 
 ### Requirement 2: Produce a combined JSON report
 
@@ -52,10 +60,11 @@ against that repository, and render their reports together.
 #### Acceptance Criteria
 
 1. IF `combo --json` is requested, THEN THE command SHALL emit one JSON object with one property
-   for every selected combinable mode, keyed by that mode's canonical name.
+   for every selected keyed reportable mode, keyed by that mode's canonical name and ordered by
+   `combine_key`.
 2. EACH nested report document SHALL preserve the corresponding standalone JSON report schema,
    including its summary and repository records.
-3. The current JSON report SHALL contain `drift`, `issues`, and `security` properties, and no
+3. The current JSON report SHALL contain `security`, `issues`, and `drift` properties, and no
    `info` property.
 4. THE combined JSON report SHALL support the existing output-file option.
 
@@ -66,7 +75,7 @@ against that repository, and render their reports together.
 #### Acceptance Criteria
 
 1. IF plain output is requested, THEN THE command SHALL render distinct, labelled sections in the
-   canonical-name order returned by `combinable_modes()` (currently drift, issues, security).
+   `combine_key` order returned by `combinable_modes()` (currently security, issues, drift).
 2. IF table output is requested, THEN THE command SHALL render the same labelled sections and
    ordering using each mode's table renderer.
 3. EACH section SHALL retain every line, summary field, row, and column from its standalone renderer.
@@ -80,10 +89,10 @@ against that repository, and render their reports together.
 - Reuse `CombinedCollectionReport` and existing mode collection renderers rather than duplicating
   individual report formatting logic.
 - Keep the existing standalone commands and their output schemas unchanged.
-- Do not add new API calls beyond the processor calls required by the selected combinable modes;
+- Do not add new API calls beyond the processor calls required by the selected keyed reportable modes;
   repository discovery occurs once.
 - Do not change the distinct primary/secondary rate-limit classification or retry policy; that work
   remains outside this change.
 - Add focused unit tests for one-scan orchestration, discovery-derived mode selection, info
-  exclusion, result grouping, canonical output ordering, JSON nesting, format selection,
+  exclusion, combine-key validation and ordering, result grouping, JSON nesting, format selection,
   issues-label forwarding, and file output. Run tests with `uv run`.

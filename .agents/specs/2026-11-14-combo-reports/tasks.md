@@ -39,3 +39,8 @@
   - [x] 9.1 Add a regression test for a secondary-limit first attempt followed by a non-rate-limit
     `FatalError`, asserting that the original error reaches the caller.
   - [x] 9.2 Route retry-path fatal errors through the same preservation path as initial attempts.
+
+- [x] 10. Replace the boolean combination flag with ordered keys (`tests/unit/test_mode_discovery.py`, `src/ghbot/modes/_discovery.py`, `src/ghbot/modes/security.py`, `src/ghbot/modes/issues.py`, `src/ghbot/modes/drift.py`, `src/ghbot/modes/info.py`, `tests/unit/test_combo.py`, `CONTRIBUTING.md`)
+  - [x] 10.1 Add failing discovery and combo-output tests for the security `010`, issues `020`, drift `030` order, unkeyed info exclusion, malformed or duplicate keys, and unchanged alphabetical command discovery.
+  - [x] 10.2 Replace `combinable` with optional `combine_key`, validate unique zero-padded keys for reportable modes, and make `combinable_modes()` select and order keyed modes.
+  - [x] 10.3 Assign the initial keys, update contributor guidance, and preserve all existing coordinator, retry, fatal-error, labels, and standalone-command behaviour.
