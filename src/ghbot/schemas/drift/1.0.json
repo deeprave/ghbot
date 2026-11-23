@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ghbot://schemas/drift/1.0.json",
+  "title": "ghbot drift report 1.0",
+  "type": "object",
+  "required": [
+    "summary",
+    "repositories"
+  ],
+  "properties": {
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "required": [
+        "repos_scanned",
+        "released_repos",
+        "repos_with_drift",
+        "commits_since_release"
+      ],
+      "properties": {
+        "repos_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "released_repos": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos_with_drift": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "commits_since_release": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "repository": {
+      "type": "object",
+      "required": [
+        "owner",
+        "repo",
+        "repository",
+        "default_branch",
+        "latest_release_tag",
+        "latest_release_published_at",
+        "commits_since_release",
+        "pypi_publishing_configured"
+      ],
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "default_branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "latest_release_tag": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "latest_release_published_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commits_since_release": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pypi_publishing_configured": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

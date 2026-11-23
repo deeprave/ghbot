@@ -146,6 +146,45 @@ Gathers per-repository facts (description, languages, contributors, latest relea
 PRs/issues, security alerts). These are collected and logged during the scan; `info` does not
 currently render a stdout report.
 
+## JSON schemas
+
+The versioned schema resources have `$id` values. Reports themselves retain their established JSON
+shapes; `$id` is not added to a report instance. The initial resource identifiers are
+`ghbot://schemas/security/1.0.json`, `ghbot://schemas/issues/1.0.json`,
+`ghbot://schemas/drift/1.0.json`, and `ghbot://schemas/combined/1.0.json`.
+
+Library consumers resolve installed schemas through `ghbot.schemas`, rather than dereferencing the
+custom URI:
+
+```python
+from ghbot.schemas import current_schema, schema_for_id, schema_ids
+
+issues_schema = current_schema("issues")
+schema = schema_for_id("ghbot://schemas/issues/1.0.json")
+```
+
+The combined schema uses local references to the standalone resources. Preload every packaged
+resource into your validator's local registry; `ghbot` does not dereference `ghbot:` IDs over the
+network:
+
+```python
+from referencing import Registry, Resource
+
+registry = Registry().with_resources(
+    (schema_id, Resource.from_contents(schema_for_id(schema_id)))
+    for schema_id in schema_ids()
+)
+```
+
+An optional additive field increments the schema ID's minor version. A removal, rename, type
+change, or semantic change increments its major version. Consumers select the schema by the report
+they requested, or use a known canonical ID; they must reject a schema major version they do not
+support. Custom IDs are not dereferenced over the network.
+
+For security repository metrics, an absent field means an unexpected failed scan did not produce a
+value; `null` means the metric was attempted but unavailable; and `0` means it was fetched with no
+findings.
+
 ## Global options
 
 Global options go **before** the command:

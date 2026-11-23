@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ghbot://schemas/combined/1.0.json",
+  "title": "ghbot combined report 1.0",
+  "type": "object",
+  "required": [
+    "security",
+    "issues",
+    "drift"
+  ],
+  "properties": {
+    "security": {
+      "$ref": "ghbot://schemas/security/1.0.json"
+    },
+    "issues": {
+      "$ref": "ghbot://schemas/issues/1.0.json"
+    },
+    "drift": {
+      "$ref": "ghbot://schemas/drift/1.0.json"
+    }
+  },
+  "additionalProperties": true
+}

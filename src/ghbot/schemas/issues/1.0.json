@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ghbot://schemas/issues/1.0.json",
+  "title": "ghbot issues report 1.0",
+  "type": "object",
+  "required": [
+    "summary",
+    "repositories"
+  ],
+  "properties": {
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "timestamp": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "repos_scanned",
+        "repos_with_items",
+        "open_issues",
+        "open_prs",
+        "dependabot_open_pull_requests",
+        "dependabot_merge_ready_pull_requests",
+        "other_open_pull_requests",
+        "other_merge_ready_pull_requests",
+        "oldest_dependabot_pull_request_created_at",
+        "oldest_other_pull_request_created_at",
+        "pull_request_metrics_complete"
+      ],
+      "properties": {
+        "repos_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos_with_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_issues": {
+          "$ref": "#/$defs/count"
+        },
+        "open_prs": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_open_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_merge_ready_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "other_open_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "other_merge_ready_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "oldest_dependabot_pull_request_created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "oldest_other_pull_request_created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "pull_request_metrics_complete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "item": {
+      "type": "object",
+      "required": [
+        "number",
+        "title",
+        "type",
+        "created_at",
+        "updated_at",
+        "url",
+        "author",
+        "draft"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "issue",
+            "pr"
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "author": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "draft": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "dependabot_pull_request": {
+      "type": "object",
+      "required": [
+        "number",
+        "url",
+        "created_at",
+        "draft",
+        "merge_ready"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer"
+        },
+        "url": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "draft": {
+          "type": "boolean"
+        },
+        "merge_ready": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "repository": {
+      "type": "object",
+      "required": [
+        "owner",
+        "repo",
+        "repository",
+        "open_item_count",
+        "dependabot_open_pull_requests",
+        "dependabot_merge_ready_pull_requests",
+        "other_open_pull_requests",
+        "other_merge_ready_pull_requests",
+        "oldest_dependabot_pull_request_created_at",
+        "oldest_other_pull_request_created_at",
+        "dependabot_pull_requests",
+        "items"
+      ],
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "open_item_count": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_open_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_merge_ready_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "other_open_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "other_merge_ready_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "oldest_dependabot_pull_request_created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "oldest_other_pull_request_created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "dependabot_pull_requests": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/dependabot_pull_request"
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

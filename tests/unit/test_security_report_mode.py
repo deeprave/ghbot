@@ -40,6 +40,12 @@ def test_security_collection_aggregates_results():
     assert "acme/api" in report.render(PlainReportStyle())
 
 
+def test_security_collection_document_does_not_identify_its_schema():
+    from ghbot.modes.security import SecurityCollectionReport
+
+    assert "$id" not in SecurityCollectionReport().document()
+
+
 def test_security_command_help_is_owned_by_the_mode():
     from ghbot.modes.security import security
 

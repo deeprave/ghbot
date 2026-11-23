@@ -36,6 +36,10 @@ def test_collection_filters_positive_drift_and_preserves_pypi_null():
     assert report.document()["repositories"][0]["pypi_publishing_configured"] is None
 
 
+def test_drift_collection_document_does_not_identify_its_schema():
+    assert "$id" not in DriftCollectionReport().document()
+
+
 def test_drift_command_help_is_owned_by_the_mode():
     from ghbot.modes.drift import drift
 

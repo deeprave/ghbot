@@ -65,6 +65,10 @@ def test_collection_aggregates_and_renders_labels_by_style():
     assert '"labels": [' in collection.render("json")
 
 
+def test_issues_collection_document_does_not_identify_its_schema():
+    assert "$id" not in IssuesCollectionReport().document()
+
+
 def test_issues_command_help_is_owned_by_the_mode():
     from ghbot.modes.issues import issues
 
