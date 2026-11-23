@@ -9,6 +9,8 @@ from ghbot.errors import AuthError
 from ghbot.modes.drift import MODE, DriftCollectionReport, DriftRepoProcessor
 from ghbot.processor import RepoProcessor, RepoResult
 
+_SCHEMA_MARKERS = {"$id", "schema", "schema_id", "schema_version"}
+
 
 def test_mode_owns_drift_processor_and_collection():
     assert MODE.name == "drift"
@@ -34,6 +36,10 @@ def test_collection_filters_positive_drift_and_preserves_pypi_null():
     assert report.document()["summary"]["repos_with_drift"] == 1
     assert "N/A" in report.render("plain")
     assert report.document()["repositories"][0]["pypi_publishing_configured"] is None
+
+
+def test_drift_collection_document_does_not_identify_its_schema():
+    assert not _SCHEMA_MARKERS.intersection(DriftCollectionReport().document())
 
 
 def test_drift_command_help_is_owned_by_the_mode():

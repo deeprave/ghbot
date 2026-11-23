@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ghbot://schemas/security/1.0.json",
+  "title": "ghbot security report 1.0",
+  "type": "object",
+  "required": [
+    "summary",
+    "repositories"
+  ],
+  "properties": {
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "repos_scanned",
+        "repos_with_issues",
+        "dependabot_alerts",
+        "code_scanning_alerts",
+        "secret_scanning_alerts",
+        "dependabot_open_pull_requests",
+        "dependabot_ready_pull_requests"
+      ],
+      "properties": {
+        "repos_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repos_with_issues": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dependabot_alerts": {
+          "$ref": "#/$defs/count"
+        },
+        "code_scanning_alerts": {
+          "$ref": "#/$defs/count"
+        },
+        "secret_scanning_alerts": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_open_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_ready_pull_requests": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "additionalProperties": true
+    },
+    "repository": {
+      "description": "Security metrics may be absent when an unexpected failed scan produced no value; null means attempted but unavailable, and zero means fetched with no findings.",
+      "type": "object",
+      "required": [
+        "owner",
+        "repo",
+        "repository"
+      ],
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "dependabot_alerts": {
+          "$ref": "#/$defs/count"
+        },
+        "code_scanning_alerts": {
+          "$ref": "#/$defs/count"
+        },
+        "secret_scanning_alerts": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_open_pull_requests": {
+          "$ref": "#/$defs/count"
+        },
+        "dependabot_ready_pull_requests": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
