@@ -6,6 +6,8 @@ from click.testing import CliRunner
 from ghbot.errors import AuthError
 from ghbot.processor import RepoResult
 
+_SCHEMA_MARKERS = {"$id", "schema", "schema_id", "schema_version"}
+
 
 def test_security_mode_unit_pairs_processor_with_collection_report():
     from ghbot.modes.security import (
@@ -43,7 +45,7 @@ def test_security_collection_aggregates_results():
 def test_security_collection_document_does_not_identify_its_schema():
     from ghbot.modes.security import SecurityCollectionReport
 
-    assert "$id" not in SecurityCollectionReport().document()
+    assert not _SCHEMA_MARKERS.intersection(SecurityCollectionReport().document())
 
 
 def test_security_command_help_is_owned_by_the_mode():

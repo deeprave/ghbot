@@ -2,6 +2,14 @@
 
 ## Active revision tasks (2026-11-23)
 
+## Accepted PR #56 correction tasks (2026-11-23)
+
+- [x] 1. Strengthen public schema-document isolation coverage (`tests/unit/test_schemas.py`)
+  - [x] 1.1 Mutate a nested value in one resolved schema document and prove a second lookup retains the packaged value.
+
+- [x] 2. Guard all standalone report payloads against schema markers (`tests/unit/test_security_report_mode.py`, `tests/unit/test_issues_report_mode.py`, `tests/unit/test_drift_report_mode.py`)
+  - [x] 2.1 Assert that `$id`, `schema`, `schema_id`, and `schema_version` are absent from each direct collection document.
+
 ## Accepted review correction tasks (2026-11-23)
 
 - [x] 1. Harden the public schema registry (`src/ghbot/schemas/__init__.py`, `tests/unit/test_schemas.py`)

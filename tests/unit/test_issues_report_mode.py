@@ -9,6 +9,8 @@ from ghbot.errors import AuthError
 from ghbot.modes.issues import MODE, IssuesCollectionReport, IssuesRepoProcessor
 from ghbot.processor import RepoProcessor, RepoResult
 
+_SCHEMA_MARKERS = {"$id", "schema", "schema_id", "schema_version"}
+
 
 def _result() -> RepoResult:
     result = RepoResult(owner="acme", repo="web")
@@ -66,7 +68,7 @@ def test_collection_aggregates_and_renders_labels_by_style():
 
 
 def test_issues_collection_document_does_not_identify_its_schema():
-    assert "$id" not in IssuesCollectionReport().document()
+    assert not _SCHEMA_MARKERS.intersection(IssuesCollectionReport().document())
 
 
 def test_issues_command_help_is_owned_by_the_mode():

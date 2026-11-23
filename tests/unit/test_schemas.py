@@ -31,9 +31,9 @@ def test_schema_for_id_returns_a_fresh_document():
     first = schema_for_id("ghbot://schemas/security/1.0.json")
     second = schema_for_id("ghbot://schemas/security/1.0.json")
 
-    first["title"] = "mutated"
+    first["$defs"]["count"]["minimum"] = -1
 
-    assert second["title"] == "ghbot security report 1.0"
+    assert second["$defs"]["count"]["minimum"] == 0
 
 
 @pytest.mark.parametrize("value", ["info", "unknown"])
