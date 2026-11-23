@@ -1,8 +1,8 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-17-versioned-report-schemas",
-    "path": ".agents/specs/2026-11-17-versioned-report-schemas",
+    "name": "2026-11-23-add-schema-to-cli",
+    "path": ".agents/specs/2026-11-23-add-schema-to-cli",
     "status": "complete",
     "progress": {
       "tasks_completed": 2,
@@ -13,7 +13,7 @@
       "status": "pass",
       "last_run": "2026-11-23",
       "gates": {
-        "tests": "pass (445)",
+        "tests": "pass (451)",
         "lint": "pass",
         "type_check": "pass",
         "format": "pass",
@@ -25,9 +25,15 @@
       "last_run": "2026-11-23",
       "findings": 0
     },
-    "revision_note": "Accepted PR #56 test-coverage corrections: prove nested schema documents are independently mutable and reject all supported schema-identification markers from standalone report payloads."
+    "revision_note": "Design created for a read-only schema command that delegates to the packaged public registry."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-17-versioned-report-schemas",
+      "path": ".agents/specs/2026-11-17-versioned-report-schemas",
+      "status": "complete",
+      "note": "Versioned report-schema registry and packaged resources delivered through merged PR #56."
+    },
     {
       "name": "2026-11-14-combo-reports",
       "path": ".agents/specs/2026-11-14-combo-reports",
@@ -107,13 +113,6 @@
   ],
   "queued_specs": [
     {
-      "name": "2026-11-23-add-schema-to-cli",
-      "path": ".agents/specs/2026-11-23-add-schema-to-cli",
-      "status": "defined",
-      "next": "design",
-      "depends_on": ["versioned-report-schemas"]
-    },
-    {
       "name": "2026-11-19-adopt-specle-workflow",
       "path": ".agents/specs/2026-11-19-adopt-specle-workflow",
       "status": "defined",
@@ -141,9 +140,9 @@
     "direct_commit_to_main": "Blocked by the repository pre-commit branch guard."
   },
   "requirements_summary": {
-    "feature": "Versioned JSON Schema resources and registry for ghbot reports.",
-    "behaviour": "Resolve packaged schemas by report identity or canonical ID while preserving existing security, issues, drift, and combined JSON payload shapes.",
-    "constraints": "Schema resources allow additive fields and document nullable unavailable values; plain and table output stay unchanged."
+    "feature": "Read-only CLI access to installed report schemas.",
+    "behaviour": "Print a schema selected by report identity or exact canonical ID as newline-terminated JSON, with local Click usage errors for unsupported selectors.",
+    "constraints": "Reuse the public registry without authentication, scans, network access, or changes to existing report commands."
   },
   "skills": {
     "location": ".agents/skills",
