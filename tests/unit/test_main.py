@@ -38,7 +38,7 @@ def test_package_owned_commands_are_registered():
     result = CliRunner().invoke(cli, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("combo", "info", "security", "issues", "drift"):
+    for command in ("combo", "info", "schema", "security", "issues", "drift"):
         assert command in result.output
 
 

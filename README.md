@@ -153,6 +153,16 @@ shapes; `$id` is not added to a report instance. The initial resource identifier
 `ghbot://schemas/security/1.0.json`, `ghbot://schemas/issues/1.0.json`,
 `ghbot://schemas/drift/1.0.json`, and `ghbot://schemas/combined/1.0.json`.
 
+Retrieve one installed schema from the command line by report identity or exact canonical ID:
+
+```bash
+ghbot schema issues
+ghbot schema --id ghbot://schemas/issues/1.0.json
+```
+
+The command reads packaged resources locally through the public registry; it does not authenticate,
+scan repositories, or dereference `ghbot:` IDs over the network.
+
 Library consumers resolve installed schemas through `ghbot.schemas`, rather than dereferencing the
 custom URI:
 

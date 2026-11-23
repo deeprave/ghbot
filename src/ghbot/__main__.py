@@ -7,6 +7,7 @@ from ghbot.combo import combo
 from ghbot.config import DEFAULTS, load_config
 from ghbot.log import configure, get_logger
 from ghbot.modes import discover_modes
+from ghbot.schema import schema
 
 log = get_logger(__name__)
 
@@ -200,6 +201,7 @@ def cli(
 for mode in discover_modes():
     cli.add_command(mode.command)
 cli.add_command(combo)
+cli.add_command(schema)
 
 
 if __name__ == "__main__":
