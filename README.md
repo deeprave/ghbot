@@ -158,10 +158,12 @@ Retrieve one installed schema from the command line by report identity or exact 
 ```bash
 ghbot schema issues
 ghbot schema --id ghbot://schemas/issues/1.0.json
+ghbot schema --list
 ```
 
 The command reads packaged resources locally through the public registry; it does not authenticate,
-scan repositories, or dereference `ghbot:` IDs over the network.
+scan repositories, or dereference `ghbot:` IDs over the network. `--list` returns every installed
+schema as a JSON list of `name` and `id` values.
 
 Library consumers resolve installed schemas through `ghbot.schemas`, rather than dereferencing the
 custom URI:

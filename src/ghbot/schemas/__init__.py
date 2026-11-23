@@ -9,6 +9,7 @@ __all__ = [
     "SchemaPackageError",
     "current_schema",
     "current_schema_id",
+    "schema_entries",
     "schema_for_id",
     "schema_ids",
 ]
@@ -34,6 +35,11 @@ class SchemaPackageError(RuntimeError):
 def schema_ids() -> tuple[str, ...]:
     """Return the canonical identifiers of all current packaged schemas."""
     return tuple(_RESOURCE_BY_ID)
+
+
+def schema_entries() -> tuple[tuple[str, str], ...]:
+    """Return the current report identities and canonical schema identifiers."""
+    return tuple(_CURRENT_IDS.items())
 
 
 def current_schema_id(report: str) -> str:

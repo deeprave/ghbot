@@ -7,6 +7,7 @@ from ghbot.schemas import (
     SchemaPackageError,
     current_schema,
     current_schema_id,
+    schema_entries,
     schema_for_id,
     schema_ids,
 )
@@ -55,6 +56,15 @@ def test_schema_ids_lists_the_current_packaged_resources():
         "ghbot://schemas/issues/1.0.json",
         "ghbot://schemas/drift/1.0.json",
         "ghbot://schemas/combined/1.0.json",
+    )
+
+
+def test_schema_entries_list_current_report_id_pairs():
+    assert schema_entries() == (
+        ("security", "ghbot://schemas/security/1.0.json"),
+        ("issues", "ghbot://schemas/issues/1.0.json"),
+        ("drift", "ghbot://schemas/drift/1.0.json"),
+        ("combined", "ghbot://schemas/combined/1.0.json"),
     )
 
 
