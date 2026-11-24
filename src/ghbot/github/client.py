@@ -35,19 +35,28 @@ def _retry_after(response: object) -> int | None:
     return delay if delay >= 0 else None
 
 
-def _secondary_reset_delay(response: object) -> int | None:
+def _header(headers: Mapping[object, object], name: str) -> str | None:
+    """Look up a response header regardless of mapping key casing."""
+    wanted = name.casefold()
+    value = next(
+        (value for key, value in headers.items() if str(key).casefold() == wanted), None
+    )
+    return str(value) if value is not None else None
+
+
+def _secondary_reset_delay(response: object) -> float | None:
     """Use exhausted REST quota reset data when GitHub omitted Retry-After."""
     headers = getattr(response, "headers", None)
     if not isinstance(headers, Mapping):
         return None
     try:
-        remaining = int(headers.get("X-RateLimit-Remaining", ""))
-        reset = int(headers.get("X-RateLimit-Reset", ""))
+        remaining = int(_header(headers, "X-RateLimit-Remaining") or "")
+        reset = int(_header(headers, "X-RateLimit-Reset") or "")
     except (TypeError, ValueError):
         return None
     if remaining != 0:
         return None
-    return max(0, int(reset - datetime.now(UTC).timestamp()))
+    return max(0.0, reset - datetime.now(UTC).timestamp())
 
 
 @asynccontextmanager
@@ -78,6 +87,19 @@ async def github_api_call(gh):
             reset_at=reset_at,
         ) from e
     except gidgethub.GraphQLException as e:
+        if isinstance(e, gidgethub.BadGraphQLRequest):
+            message = str(e).lower()
+            if e.status_code == http.HTTPStatus.TOO_MANY_REQUESTS or (
+                e.status_code == http.HTTPStatus.FORBIDDEN
+                and "secondary rate limit" in message
+            ):
+                raise GitHubSecondaryRateLimitError(
+                    str(e), delay_seconds=_FALLBACK_RATE_LIMIT_DELAY
+                ) from e
+            if e.status_code == http.HTTPStatus.FORBIDDEN and "rate limit" in message:
+                raise GitHubPrimaryRateLimitError(
+                    str(e), delay_seconds=_FALLBACK_RATE_LIMIT_DELAY
+                ) from e
         if _is_secondary_graphql_rate_limit(e):
             raise GitHubSecondaryRateLimitError(
                 str(e), delay_seconds=_FALLBACK_RATE_LIMIT_DELAY
@@ -138,7 +160,7 @@ def _is_secondary_graphql_rate_limit(error: gidgethub.GraphQLException) -> bool:
     codes = _graphql_error_codes(error)
     if any("SECONDARY" in code and "RATE" in code for code in codes):
         return True
-    return str(error) == _SECONDARY_RATE_LIMIT_MESSAGE
+    return str(error).lower().startswith(_SECONDARY_RATE_LIMIT_MESSAGE.lower())
 
 
 def _is_primary_graphql_rate_limit(gh, error: gidgethub.GraphQLException) -> bool:

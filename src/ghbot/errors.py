@@ -29,7 +29,7 @@ class GitHubRateLimitError(GitHubApiError):
         self,
         message: str,
         *,
-        delay_seconds: int | None = None,
+        delay_seconds: float | None = None,
         reset_at: datetime | None = None,
     ) -> None:
         super().__init__(message)

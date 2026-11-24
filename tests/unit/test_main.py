@@ -117,6 +117,18 @@ def test_rate_limit_options_apply_before_info_mode():
     assert captured["max-rate-limit-hits"] == 2
 
 
+@pytest.mark.parametrize("value", ["-1", "1.5", "true", '"three"'])
+def test_invalid_toml_rate_wait_is_a_usage_error(tmp_path, value):
+    config = tmp_path / "ghbot.toml"
+    config.write_text(f"max-rate-wait = {value}\n")
+    from ghbot.__main__ import cli
+
+    result = CliRunner().invoke(cli, ["--config", str(config), "info"])
+
+    assert result.exit_code != 0
+    assert "max-rate-wait must be a non-negative integer" in result.output
+
+
 @pytest.mark.parametrize("command", ["security", "issues", "drift"])
 def test_registered_modes_accept_global_quiet(command):
     with patch("ghbot.__main__.configure") as configure:

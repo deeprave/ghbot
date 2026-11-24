@@ -7,9 +7,15 @@ import gidgethub.httpx as gh_httpx
 import pytest
 
 from ghbot.errors import AuthError, GitHubSecondaryRateLimitError
+from ghbot.executor import RateLimitAbort, TaskPool
 from ghbot.github.repos import DiscoveredRepository
 from ghbot.processor import InfoRepoProcessor, RepoResult
-from ghbot.runner import run_combo, run_mode, run_processor
+from ghbot.runner import (
+    _requested_with_explicit_selections,
+    run_combo,
+    run_mode,
+    run_processor,
+)
 
 
 async def _scan_one(owners, gh, *, explicit_repositories=None):
@@ -28,6 +34,26 @@ def _pool(*, results=None, stats=None):
     pool.results = results or []
     pool.stats = stats or {}
     return pool
+
+
+def test_explicit_skipped_or_case_variant_selection_is_not_rate_limited():
+    pool = TaskPool()
+    pool.rate_limit_abort = RateLimitAbort("limited")
+    pool.skipped_explicit_ids.add("acme/missing")
+
+    requested = _requested_with_explicit_selections(
+        {
+            "explicit_repositories": (
+                ("acme", "API"),
+                ("acme", "missing"),
+                ("acme", "later"),
+            )
+        },
+        ["acme/api"],
+        pool,
+    )
+
+    assert requested == ["acme/api", "acme/later"]
 
 
 @pytest.mark.anyio

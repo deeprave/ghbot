@@ -45,6 +45,8 @@ class TaskPool:
         self._rate_limit_gate = rate_limit_gate
         self._abort_grace_seconds = abort_grace_seconds
         self.rate_limit_abort: RateLimitAbort | None = None
+        self.skipped_explicit_ids: set[str] = set()
+        self._rate_limit_abort_event: asyncio.Event | None = None
         self.completed_ids: set[str] = set()
         self.terminal_ids: set[str] = set()
         self.failed_ids: set[str] = set()
@@ -60,15 +62,31 @@ class TaskPool:
     async def __aenter__(self) -> Self:
         self._sem = asyncio.Semaphore(self._limit)
         self._tasks = []
+        self._rate_limit_abort_event = asyncio.Event()
         return self
 
     async def __aexit__(self, *exc_info: object) -> None:
         if self._tasks:
-            if self.rate_limit_abort is None:
-                await asyncio.gather(*self._tasks, return_exceptions=True)
-            else:
+            pending = set(self._tasks)
+            abort_waiter: asyncio.Task[bool] | None = None
+            if (
+                self.rate_limit_abort is None
+                and self._rate_limit_abort_event is not None
+            ):
+                abort_waiter = asyncio.create_task(self._rate_limit_abort_event.wait())
+                try:
+                    while pending and not abort_waiter.done():
+                        _done, pending = await asyncio.wait(
+                            pending | {abort_waiter},
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+                        pending.discard(abort_waiter)
+                finally:
+                    abort_waiter.cancel()
+                    await asyncio.gather(abort_waiter, return_exceptions=True)
+            if pending:
                 _, pending = await asyncio.wait(
-                    self._tasks, timeout=self._abort_grace_seconds
+                    pending, timeout=self._abort_grace_seconds
                 )
                 for task in pending:
                     task.cancel()
@@ -129,10 +147,14 @@ class TaskPool:
             if self._rate_limit_gate is None:
                 await self._handle_legacy_rate_limit(e, fn, args, kwargs, task_id)
                 return
+            if self._aborted:
+                return
             if not await self._rate_limit_gate.record(e):
                 self._abort_rate_limit(e)
                 return
             await self._rate_limit_gate.wait()
+            if self._aborted:
+                return
             try:
                 result = await fn(*args, **kwargs)
                 self.results.append(result)
@@ -146,6 +168,8 @@ class TaskPool:
             e.__cause__, (httpx.TransportError, gidgethub.GitHubBroken)
         ):
             self.stats["network_error"] += 1
+            if task_id is not None:
+                self.failed_ids.add(task_id)
             if self.stats["network_error"] >= self._network_error_threshold:
                 n = self.stats["network_error"]
                 self._abort(
@@ -177,6 +201,8 @@ class TaskPool:
         )
         self._abort(reason)
         self.rate_limit_abort = RateLimitAbort(reason)
+        if self._rate_limit_abort_event is not None:
+            self._rate_limit_abort_event.set()
 
     def abort_rate_limit(
         self, error: GitHubPrimaryRateLimitError | GitHubSecondaryRateLimitError

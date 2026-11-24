@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -116,6 +117,36 @@ async def test_zero_wait_budget_rejects_even_an_immediate_retry():
     assert not await gate.record(
         GitHubSecondaryRateLimitError("limited", delay_seconds=0)
     )
+
+
+@pytest.mark.anyio
+async def test_gate_preserves_fractional_reset_delay():
+    now = 0.0
+    waits: list[float] = []
+
+    async def sleep(delay: float) -> None:
+        nonlocal now
+        waits.append(delay)
+        now += delay
+
+    utc_now = datetime(2026, 1, 1, tzinfo=UTC)
+    gate = RateLimitGate(
+        max_wait=120,
+        max_hits=3,
+        clock=lambda: now,
+        sleep=sleep,
+        retry_jitter=lambda: 0,
+        utc_now=lambda: utc_now,
+    )
+    assert await gate.record(
+        GitHubPrimaryRateLimitError(
+            "limited", reset_at=utc_now + timedelta(seconds=0.5)
+        )
+    )
+
+    await gate.wait()
+
+    assert waits == [0.5]
 
 
 @pytest.mark.anyio

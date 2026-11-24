@@ -77,6 +77,26 @@ def test_composition_plain_output_keeps_labelled_combine_key_sections():
     )
 
 
+def test_incomplete_combined_text_has_one_banner():
+    report = ReportOutcome(
+        CombinedCollectionReport(
+            (
+                ReportSection(
+                    "security",
+                    ReportOutcome(FakeCollection("security"), "rate_limited"),
+                ),
+                ReportSection(
+                    "issues",
+                    ReportOutcome(FakeCollection("issues"), "rate_limited"),
+                ),
+            )
+        ),
+        "rate_limited",
+    )
+
+    assert report.render("plain").count("INCOMPLETE: rate limited") == 1
+
+
 def test_composition_json_nests_each_collection_document_directly():
     report = CombinedCollectionReport(
         (

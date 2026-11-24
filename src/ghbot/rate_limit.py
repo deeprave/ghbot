@@ -30,14 +30,16 @@ class RateLimitGate:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         retry_jitter: Callable[[], float] = _retry_jitter,
+        utc_now: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.max_wait = max_wait
         self.max_hits = max_hits
         self._clock = clock
         self._sleep = sleep
         self._retry_jitter = retry_jitter
+        self._utc_now = utc_now
         self._lock = asyncio.Lock()
-        self._blocked_until = 0.0
+        self._blocked_until = float("-inf")
         self._episode_started_at: float | None = None
         self.hits = 0
         self.total_wait_seconds = 0.0
@@ -49,7 +51,7 @@ class RateLimitGate:
             reset_at = error.reset_at
             if reset_at.tzinfo is None:
                 reset_at = reset_at.replace(tzinfo=UTC)
-            delay = max(0, int((reset_at - datetime.now(UTC)).total_seconds()))
+            delay = max(0.0, (reset_at - self._utc_now()).total_seconds())
         if delay is None:
             return False
         if self.max_wait == 0:
@@ -78,7 +80,7 @@ class RateLimitGate:
             self._episode_started_at = now
             self.total_wait_seconds += delay
             log.warning(
-                "GitHub rate limit: reason=%s, waiting %ds (hit %d/%d, reset=%s)",
+                "GitHub rate limit: reason=%s, waiting %.3fs (hit %d/%d, reset=%s)",
                 "primary"
                 if isinstance(error, GitHubPrimaryRateLimitError)
                 else "secondary",

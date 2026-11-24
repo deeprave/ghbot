@@ -272,6 +272,35 @@ async def test_429_raises_secondary_rate_limit_error():
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("status", "message", "error_type"),
+    [
+        (
+            http.HTTPStatus.TOO_MANY_REQUESTS,
+            "too many requests",
+            GitHubSecondaryRateLimitError,
+        ),
+        (
+            http.HTTPStatus.FORBIDDEN,
+            "You have exceeded a secondary rate limit. Wait.",
+            GitHubSecondaryRateLimitError,
+        ),
+        (
+            http.HTTPStatus.FORBIDDEN,
+            "API rate limit exceeded",
+            GitHubPrimaryRateLimitError,
+        ),
+    ],
+)
+async def test_bad_graphql_request_rate_limits_are_normalized(
+    status, message, error_type
+):
+    with pytest.raises(error_type):
+        async with github_api_call(AsyncMock()):
+            raise gidgethub.BadGraphQLRequest(status, {"message": message})
+
+
+@pytest.mark.anyio
 async def test_403_plain_raises_not_found_error():
     gh = AsyncMock()
     with pytest.raises(GitHubNotFoundError):

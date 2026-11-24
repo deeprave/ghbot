@@ -165,7 +165,7 @@ class CombinedCollectionReport:
         if isinstance(style, JSONReportStyle):
             return style.render_document(self.document())
         rendered = [
-            f"{section.name.capitalize()}\n{section.collection.render(format).rstrip()}"
+            f"{section.name.capitalize()}\n{(section.collection.collection if isinstance(section.collection, ReportOutcome) else section.collection).render(format).rstrip()}"
             for section in self.sections
         ]
         return "\n\n".join(rendered) + "\n"

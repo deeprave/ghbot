@@ -28,6 +28,9 @@ async def _scan_with_rate_retries(
 ) -> AsyncGenerator[Any]:
     """Resume discovery after recoverable limits without yielding a repository twice."""
     seen: set[str] = set()
+    skipped_explicit_ids: set[str] = set()
+    pool.skipped_explicit_ids = skipped_explicit_ids
+    gh._ghbot_skipped_explicit_ids = skipped_explicit_ids
     while not isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
         try:
             async for discovered in scan_repositories(
@@ -43,6 +46,8 @@ async def _scan_with_rate_retries(
                     yield discovered
             return
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError) as error:
+            if isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
+                return
             gate = gh.rate_limit_gate
             if not await gate.record(error):
                 pool.abort_rate_limit(error)
@@ -89,10 +94,13 @@ def _requested_with_explicit_selections(
     if not isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
         return requested
     result = list(requested)
+    identities = {identity.casefold() for identity in result}
+    skipped = getattr(pool, "skipped_explicit_ids", set())
     for owner, repository in cfg.get("explicit_repositories") or ():
         identity = f"{owner}/{repository}"
-        if identity not in result:
+        if identity.casefold() not in identities and identity.casefold() not in skipped:
             result.append(identity)
+            identities.add(identity.casefold())
     return result
 
 
@@ -112,9 +120,9 @@ def _report_outcome(
         pool, "terminal_ids", set()
     )
     not_processed = tuple(
-        (repository, "task_failed" if repository in failed_ids else "rate_limited")
+        (repository, "task_failed" if repository in failed_ids else abort_reason)
         for repository in requested
-        if repository not in settled
+        if repository not in settled and abort_reason is not None
     )
     return ReportOutcome(collection, abort_reason, not_processed)
 
