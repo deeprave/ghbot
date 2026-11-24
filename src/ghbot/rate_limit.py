@@ -6,7 +6,7 @@ import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
-from ghbot.errors import GitHubRateLimitError
+from ghbot.errors import GitHubPrimaryRateLimitError, GitHubRateLimitError
 from ghbot.log import get_logger
 
 log = get_logger(__name__)
@@ -78,7 +78,10 @@ class RateLimitGate:
             self._episode_started_at = now
             self.total_wait_seconds += delay
             log.warning(
-                "GitHub rate limit: waiting %ds (hit %d/%d, reset=%s)",
+                "GitHub rate limit: reason=%s, waiting %ds (hit %d/%d, reset=%s)",
+                "primary"
+                if isinstance(error, GitHubPrimaryRateLimitError)
+                else "secondary",
                 delay,
                 self.hits,
                 self.max_hits,

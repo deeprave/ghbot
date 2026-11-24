@@ -2,7 +2,10 @@ import asyncio
 
 import pytest
 
-from ghbot.errors import GitHubSecondaryRateLimitError
+from ghbot.errors import (
+    GitHubPrimaryRateLimitError,
+    GitHubSecondaryRateLimitError,
+)
 from ghbot.rate_limit import RateLimitGate
 
 
@@ -113,3 +116,22 @@ async def test_zero_wait_budget_rejects_even_an_immediate_retry():
     assert not await gate.record(
         GitHubSecondaryRateLimitError("limited", delay_seconds=0)
     )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("error", "reason"),
+    [
+        (GitHubPrimaryRateLimitError("limited", delay_seconds=5), "primary"),
+        (GitHubSecondaryRateLimitError("limited", delay_seconds=5), "secondary"),
+    ],
+)
+async def test_gate_logs_the_rate_limit_reason(caplog, error, reason):
+    import logging
+
+    gate = RateLimitGate(max_wait=120, max_hits=3)
+
+    with caplog.at_level(logging.WARNING):
+        assert await gate.record(error)
+
+    assert f"reason={reason}" in caplog.text
