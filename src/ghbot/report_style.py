@@ -92,6 +92,46 @@ class CollectionReport(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class ReportOutcome:
+    """A rendered collection together with its run-completion state."""
+
+    collection: CollectionReport
+    abort_reason: str | None = None
+    not_processed: tuple[str, ...] = ()
+
+    @property
+    def complete(self) -> bool:
+        return self.abort_reason is None
+
+    @property
+    def sections(self) -> tuple[ReportSection, ...]:
+        """Expose combined sections for existing library callers."""
+        return getattr(self.collection, "sections")  # noqa: B009 - protocol optionality.
+
+    def document(self) -> dict[str, object]:
+        document = dict(self.collection.document())
+        document.update(
+            {
+                "complete": self.complete,
+                "abort_reason": self.abort_reason,
+                "not_processed": [
+                    {"repository": repository, "reason": "rate_limited"}
+                    for repository in self.not_processed
+                ],
+            }
+        )
+        return document
+
+    def render(self, format: str = "plain") -> str:
+        if format == "json":
+            return JSONReportStyle().render_document(self.document())
+        text = self.collection.render(format)
+        if self.complete:
+            return text
+        return f"INCOMPLETE: rate limited\n\n{text}"
+
+
+@dataclass(frozen=True, slots=True)
 class ReportSection:
     name: str
     collection: CollectionReport

@@ -8,6 +8,19 @@
     "repositories"
   ],
   "properties": {
+    "complete": {"type": "boolean"},
+    "abort_reason": {"type": ["string", "null"], "enum": ["rate_limited", null]},
+    "not_processed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["repository", "reason"],
+        "properties": {
+          "repository": {"type": "string"},
+          "reason": {"const": "rate_limited"}
+        }
+      }
+    },
     "summary": {
       "$ref": "#/$defs/summary"
     },

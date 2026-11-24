@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 class FatalError(Exception):
     def __init__(self, message: str, exit_code: int = 1) -> None:
         super().__init__(message)
@@ -19,12 +22,34 @@ class GitHubNotFoundError(GitHubApiError):
     pass
 
 
-class GitHubPrimaryRateLimitError(GitHubApiError):
-    """gidgethub RateLimitExceeded (403) — quota exhausted, carries rate_limit object."""
+class GitHubRateLimitError(GitHubApiError):
+    """A GitHub limit with normalized retry timing, if GitHub supplied it."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        delay_seconds: int | None = None,
+        reset_at: datetime | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.delay_seconds = delay_seconds
+        self.reset_at = reset_at
 
 
-class GitHubSecondaryRateLimitError(GitHubApiError):
+class GitHubPrimaryRateLimitError(GitHubRateLimitError):
+    """gidgethub RateLimitExceeded (403) — quota exhausted."""
+
+
+class GitHubSecondaryRateLimitError(GitHubRateLimitError):
     """429 Too Many Requests — slow down, retry after delay."""
+
+
+class RateLimitAbortError(FatalError):
+    """A report was written but GitHub limits prevented completion."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, exit_code=4)
 
 
 class UnexpectedError(FatalError):

@@ -1,6 +1,8 @@
 import http
 import logging
 import logging.handlers
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import gidgethub
@@ -13,7 +15,8 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.github.client import github_api_call
+from ghbot.github.client import _retry_after, github_api_call
+from ghbot.rate_limit import RateLimitGate
 
 
 def _graphql_query_error(
@@ -26,6 +29,15 @@ def _graphql_query_error(
     if error_type is not None:
         error["type"] = error_type
     return gidgethub.QueryError({"errors": [error, *additional_errors]})
+
+
+def test_retry_after_parses_a_response_header_and_rejects_invalid_values():
+    assert (
+        _retry_after(type("Response", (), {"headers": {"Retry-After": "42"}})()) == 42
+    )
+    assert (
+        _retry_after(type("Response", (), {"headers": {"Retry-After": "no"}})()) is None
+    )
 
 
 @pytest.mark.anyio
@@ -60,6 +72,23 @@ async def test_graphql_rate_limit_error_raises_primary_rate_limit_error():
             raise _graphql_query_error(
                 "API rate limit exceeded", error_type="RATE_LIMITED"
             )
+
+
+@pytest.mark.anyio
+async def test_graphql_primary_limit_uses_the_available_reset_time():
+    reset_at = datetime.now(UTC) + timedelta(hours=1)
+    gh = SimpleNamespace(
+        rate_limit=SimpleNamespace(remaining=0, reset_datetime=reset_at)
+    )
+
+    with pytest.raises(GitHubPrimaryRateLimitError) as raised:
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "API rate limit exceeded", error_type="RATE_LIMITED"
+            )
+
+    assert raised.value.delay_seconds is None
+    assert raised.value.reset_at == reset_at
 
 
 @pytest.mark.anyio
@@ -158,17 +187,78 @@ async def test_no_exception_passes_through():
 @pytest.mark.anyio
 async def test_rate_limit_exceeded_raises_primary_rate_limit_error():
     gh = AsyncMock()
-    with pytest.raises(GitHubPrimaryRateLimitError):
+    with pytest.raises(GitHubPrimaryRateLimitError) as raised:
         async with github_api_call(gh):
             raise gidgethub.RateLimitExceeded(rate_limit=None)
+
+    assert raised.value.delay_seconds == 60
+    assert raised.value.reset_at is None
+
+
+@pytest.mark.anyio
+async def test_primary_limit_prefers_retry_after_over_reset_time():
+    gh = AsyncMock()
+    error = gidgethub.RateLimitExceeded(
+        rate_limit=SimpleNamespace(
+            reset_datetime=datetime.now(UTC) + timedelta(hours=1)
+        )
+    )
+    error.headers = {"Retry-After": "7"}
+
+    with pytest.raises(GitHubPrimaryRateLimitError) as raised:
+        async with github_api_call(gh):
+            raise error
+
+    assert raised.value.delay_seconds == 7
+
+
+@pytest.mark.anyio
+async def test_timingless_rest_and_graphql_limits_share_the_fallback_gate():
+    now = 10.0
+    waits: list[float] = []
+
+    async def sleep(delay: float) -> None:
+        nonlocal now
+        waits.append(delay)
+        now += delay
+
+    gate = RateLimitGate(
+        max_wait=120,
+        max_hits=1,
+        clock=lambda: now,
+        sleep=sleep,
+        retry_jitter=lambda: 0,
+    )
+    gh = SimpleNamespace(rate_limit_gate=gate)
+
+    with pytest.raises(GitHubPrimaryRateLimitError) as rest_error:
+        async with github_api_call(gh):
+            raise gidgethub.RateLimitExceeded(rate_limit=None)
+    assert rest_error.value.delay_seconds == 60
+    assert await gate.record(rest_error.value)
+
+    with pytest.raises(GitHubPrimaryRateLimitError) as graphql_error:
+        async with github_api_call(SimpleNamespace()):
+            raise _graphql_query_error(
+                "API rate limit exceeded", error_type="RATE_LIMITED"
+            )
+    assert graphql_error.value.delay_seconds == 60
+    assert await gate.record(graphql_error.value)
+
+    assert gate.hits == 1
+    async with github_api_call(gh):
+        pass
+    assert waits == [60]
 
 
 @pytest.mark.anyio
 async def test_429_raises_secondary_rate_limit_error():
     gh = AsyncMock()
-    with pytest.raises(GitHubSecondaryRateLimitError):
+    with pytest.raises(GitHubSecondaryRateLimitError) as raised:
         async with github_api_call(gh):
             raise gidgethub.BadRequest(http.HTTPStatus.TOO_MANY_REQUESTS)
+
+    assert raised.value.delay_seconds == 60
 
 
 @pytest.mark.anyio

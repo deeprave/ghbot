@@ -1,20 +1,51 @@
 """Shared asynchronous repository scan runners."""
 
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import gidgethub.httpx as gh_httpx
 import httpx
 
-from ghbot.errors import FatalError
-from ghbot.executor import TaskPool
+from ghbot.errors import (
+    FatalError,
+    GitHubPrimaryRateLimitError,
+    GitHubSecondaryRateLimitError,
+)
+from ghbot.executor import RateLimitAbort, TaskPool
 from ghbot.github.auth import get_auth_token
 from ghbot.github.repos import scan_repositories
 from ghbot.log import get_logger
 from ghbot.modes import ReportableModeDefinition
 from ghbot.processor import LoggingMonitor, RepoResult
-from ghbot.report_style import CombinedCollectionReport, ReportSection
+from ghbot.rate_limit import RateLimitGate
+from ghbot.report_style import CombinedCollectionReport, ReportOutcome, ReportSection
 
 log = get_logger(__name__)
+
+
+async def _scan_with_rate_retries(
+    cfg: dict, gh: Any, pool: TaskPool
+) -> AsyncGenerator[Any]:
+    """Resume discovery after recoverable limits without yielding a repository twice."""
+    seen: set[str] = set()
+    while not isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
+        try:
+            async for discovered in scan_repositories(
+                cfg["owners"],
+                gh,
+                explicit_repositories=cfg.get("explicit_repositories"),
+            ):
+                key = f"{discovered.owner}/{discovered.name}"
+                if key not in seen:
+                    seen.add(key)
+                    yield discovered
+            return
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError) as error:
+            gate = gh.rate_limit_gate
+            if not await gate.record(error):
+                pool.abort_rate_limit(error)
+                return
+            await gate.wait()
 
 
 async def run_processor(
@@ -24,13 +55,15 @@ async def run_processor(
     log.info("ghbot starting")
     token = await get_auth_token(use_environment=cfg.get("env", False))
     async with httpx.AsyncClient() as client:
-        gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
-        async with TaskPool(limit=cfg["concurrency"]) as pool:
-            async for discovered in scan_repositories(
-                cfg["owners"],
-                gh,
-                explicit_repositories=cfg.get("explicit_repositories"),
-            ):
+        gh: Any = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
+        gh.rate_limit_gate = RateLimitGate(
+            max_wait=cfg.get("max-rate-wait", 120),
+            max_hits=cfg.get("max-rate-limit-hits", 3),
+        )
+        async with TaskPool(
+            limit=cfg["concurrency"], rate_limit_gate=gh.rate_limit_gate
+        ) as pool:
+            async for discovered in _scan_with_rate_retries(cfg, gh, pool):
                 monitor = LoggingMonitor(discovered.owner, discovered.name)
                 processor = processor_cls(
                     discovered.owner,
@@ -45,19 +78,24 @@ async def run_processor(
     return pool.results
 
 
-async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> Any:
+async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportOutcome:
     """Construct mode processors and collect each successful result in the pool task."""
     options = dict(options or {})
     collection = mode.new_collection(options)
+    requested: list[str] = []
     token = await get_auth_token(use_environment=cfg.get("env", False))
     async with httpx.AsyncClient() as client:
-        gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
-        async with TaskPool(limit=cfg["concurrency"]) as pool:
-            async for discovered in scan_repositories(
-                cfg["owners"],
-                gh,
-                explicit_repositories=cfg.get("explicit_repositories"),
-            ):
+        gh: Any = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
+        gh.rate_limit_gate = RateLimitGate(
+            max_wait=cfg.get("max-rate-wait", 120),
+            max_hits=cfg.get("max-rate-limit-hits", 3),
+        )
+        async with TaskPool(
+            limit=cfg["concurrency"], rate_limit_gate=gh.rate_limit_gate
+        ) as pool:
+            async for discovered in _scan_with_rate_retries(cfg, gh, pool):
+                repository = f"{discovered.owner}/{discovered.name}"
+                requested.append(repository)
                 processor = mode.new_processor(
                     discovered.owner,
                     discovered.name,
@@ -70,16 +108,21 @@ async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> Any:
                 async def collect(processor=processor):
                     collection.add(await processor.run())
 
-                await pool.submit(collect)
+                await pool.submit(collect, task_id=repository)
     log.info("stats: %s", pool.stats)
-    return collection
+    abort_reason = "rate_limited" if getattr(pool, "rate_limit_abort", None) else None
+    completed_ids = getattr(pool, "completed_ids", set(requested))
+    not_processed = tuple(
+        repository for repository in requested if repository not in completed_ids
+    )
+    return ReportOutcome(collection, abort_reason, not_processed)
 
 
 async def run_combo(
     cfg: dict,
     modes: tuple[ReportableModeDefinition, ...],
     options_by_mode: dict[str, dict] | None = None,
-) -> CombinedCollectionReport:
+) -> ReportOutcome:
     """Scan each repository once and collect every selected reportable mode."""
     options_by_mode = {
         name: dict(options) for name, options in (options_by_mode or {}).items()
@@ -89,16 +132,21 @@ async def run_combo(
         for mode in modes
     }
     sections = tuple(ReportSection(mode.name, collections[mode.name]) for mode in modes)
+    requested: list[str] = []
 
     token = await get_auth_token(use_environment=cfg.get("env", False))
     async with httpx.AsyncClient() as client:
-        gh = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
-        async with TaskPool(limit=cfg["concurrency"]) as pool:
-            async for discovered in scan_repositories(
-                cfg["owners"],
-                gh,
-                explicit_repositories=cfg.get("explicit_repositories"),
-            ):
+        gh: Any = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
+        gh.rate_limit_gate = RateLimitGate(
+            max_wait=cfg.get("max-rate-wait", 120),
+            max_hits=cfg.get("max-rate-limit-hits", 3),
+        )
+        async with TaskPool(
+            limit=cfg["concurrency"], rate_limit_gate=gh.rate_limit_gate
+        ) as pool:
+            async for discovered in _scan_with_rate_retries(cfg, gh, pool):
+                repository = f"{discovered.owner}/{discovered.name}"
+                requested.append(repository)
                 results: dict[str, RepoResult] = {}
 
                 async def collect(discovered=discovered, results=results):
@@ -126,6 +174,24 @@ async def run_combo(
                     for mode in modes:
                         collections[mode.name].add(results[mode.name])
 
-                await pool.submit(collect)
+                await pool.submit(collect, task_id=repository)
     log.info("stats: %s", pool.stats)
-    return CombinedCollectionReport(sections)
+    abort_reason = "rate_limited" if getattr(pool, "rate_limit_abort", None) else None
+    completed_ids = getattr(pool, "completed_ids", set(requested))
+    not_processed = tuple(
+        repository for repository in requested if repository not in completed_ids
+    )
+    outcome_sections = (
+        sections
+        if abort_reason is None
+        else tuple(
+            ReportSection(
+                section.name,
+                ReportOutcome(section.collection, abort_reason, not_processed),
+            )
+            for section in sections
+        )
+    )
+    return ReportOutcome(
+        CombinedCollectionReport(outcome_sections), abort_reason, not_processed
+    )

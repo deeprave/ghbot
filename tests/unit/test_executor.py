@@ -11,6 +11,7 @@ from ghbot.errors import (
     GitHubSecondaryRateLimitError,
 )
 from ghbot.executor import TaskPool
+from ghbot.rate_limit import RateLimitGate
 
 # --- result collection and concurrency ---
 
@@ -64,15 +65,16 @@ async def test_not_found_counted_and_skipped():
 
 
 @pytest.mark.anyio
-async def test_primary_rate_limit_aborts_and_raises_fatal_error():
+async def test_rate_limit_policy_abort_is_retained_as_a_pool_outcome():
     async def task():
-        raise GitHubPrimaryRateLimitError("rate limited")
+        raise GitHubSecondaryRateLimitError("rate limited", delay_seconds=121)
 
-    with pytest.raises(FatalError, match="Rate limited"):
-        async with TaskPool() as pool:
-            await pool.submit(task)
+    gate = RateLimitGate(max_wait=120, max_hits=3)
+    async with TaskPool(rate_limit_gate=gate) as pool:
+        await pool.submit(task)
 
     assert pool.stats["rate_limited"] == 1
+    assert pool.rate_limit_abort is not None
 
 
 @pytest.mark.anyio

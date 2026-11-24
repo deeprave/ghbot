@@ -107,6 +107,16 @@ def test_env_flag_applies_before_drift_mode():
     assert run_mode.await_args.args[0]["env"] is True
 
 
+def test_rate_limit_options_apply_before_info_mode():
+    result, captured = _capture_info_config(
+        ["--max-rate-wait", "45", "--max-rate-limit-hits", "2"]
+    )
+
+    assert result.exit_code == 0
+    assert captured["max-rate-wait"] == 45
+    assert captured["max-rate-limit-hits"] == 2
+
+
 @pytest.mark.parametrize("command", ["security", "issues", "drift"])
 def test_registered_modes_accept_global_quiet(command):
     with patch("ghbot.__main__.configure") as configure:

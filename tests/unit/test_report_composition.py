@@ -2,7 +2,27 @@
 
 import json
 
-from ghbot.report_style import CombinedCollectionReport, ReportSection
+from ghbot.report_style import CombinedCollectionReport, ReportOutcome, ReportSection
+
+
+class _Collection:
+    def document(self):
+        return {"repositories": []}
+
+    def render(self, format):
+        return "report\n"
+
+
+def test_rate_limited_outcome_marks_json_and_plain_output_incomplete():
+    outcome = ReportOutcome(
+        _Collection(), abort_reason="rate_limited", not_processed=("acme/api",)
+    )
+
+    assert outcome.document()["complete"] is False
+    assert outcome.document()["not_processed"] == [
+        {"repository": "acme/api", "reason": "rate_limited"}
+    ]
+    assert outcome.render("plain").startswith("INCOMPLETE: rate limited\n")
 
 
 class FakeCollection:

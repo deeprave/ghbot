@@ -221,7 +221,7 @@ wheels = [
 
 [[package]]
 name = "ghbot"
-version = "0.30.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },

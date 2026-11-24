@@ -59,3 +59,6 @@ def combo(
         log.error(error.message)
         sys.exit(error.exit_code)
     write_report(report.render(selected_format), output)
+    if getattr(report, "abort_reason", None) == "rate_limited":
+        log.error("rate limited; wrote incomplete report")
+        sys.exit(4)

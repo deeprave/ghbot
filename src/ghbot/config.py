@@ -10,6 +10,8 @@ DEFAULTS: dict[str, Any] = {
     "log-json": False,
     "log-level": "info",
     "concurrency": 16,
+    "max-rate-wait": 120,
+    "max-rate-limit-hits": 3,
     "env": False,
 }
 
