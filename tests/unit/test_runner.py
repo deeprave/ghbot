@@ -509,10 +509,12 @@ async def test_run_combo_retains_completed_results_after_later_ordinary_failure(
         patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
         patch("ghbot.runner.scan_repositories", side_effect=_scan_one),
     ):
-        await run_combo(
+        report = await run_combo(
             {"owners": ["acme"], "concurrency": 1},
             (completed_mode, failed_mode),
         )
 
     completed_collection.add.assert_called_once_with(completed_result)
     failed_collection.add.assert_not_called()
+    assert report.sections[0].collection.complete
+    assert not report.sections[1].collection.complete

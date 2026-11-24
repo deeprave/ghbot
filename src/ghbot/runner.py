@@ -217,25 +217,27 @@ async def run_combo(
     terminal_ids = getattr(pool, "terminal_ids", set())
     if abort_reason is None and failed_ids:
         abort_reason = "task_failed"
-    outcome_sections = tuple(
-        ReportSection(
-            section.name,
-            ReportOutcome(
-                section.collection,
-                abort_reason,
-                tuple(
-                    (
-                        repository,
-                        "task_failed" if repository in failed_ids else "rate_limited",
-                    )
-                    for repository in requested
-                    if repository not in completed_by_mode[section.name]
-                    and repository not in terminal_ids
-                ),
-            ),
+    outcome_sections = []
+    for section in sections:
+        not_processed = tuple(
+            (
+                repository,
+                "task_failed" if repository in failed_ids else "rate_limited",
+            )
+            for repository in requested
+            if repository not in completed_by_mode[section.name]
+            and repository not in terminal_ids
         )
-        for section in sections
-    )
+        outcome_sections.append(
+            ReportSection(
+                section.name,
+                ReportOutcome(
+                    section.collection,
+                    abort_reason if not_processed else None,
+                    not_processed,
+                ),
+            )
+        )
     return _report_outcome(
-        CombinedCollectionReport(outcome_sections), cfg, requested, pool
+        CombinedCollectionReport(tuple(outcome_sections)), cfg, requested, pool
     )

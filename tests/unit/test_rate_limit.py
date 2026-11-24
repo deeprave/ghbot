@@ -104,3 +104,12 @@ async def test_gate_rechecks_a_block_renewed_during_retry_jitter():
     await gate.wait()
 
     assert waits == [5, 1, 2]
+
+
+@pytest.mark.anyio
+async def test_zero_wait_budget_rejects_even_an_immediate_retry():
+    gate = RateLimitGate(max_wait=0, max_hits=3)
+
+    assert not await gate.record(
+        GitHubSecondaryRateLimitError("limited", delay_seconds=0)
+    )

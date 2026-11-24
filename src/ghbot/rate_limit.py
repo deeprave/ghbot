@@ -52,6 +52,8 @@ class RateLimitGate:
             delay = max(0, int((reset_at - datetime.now(UTC)).total_seconds()))
         if delay is None:
             return False
+        if self.max_wait == 0:
+            return False
         if delay > self.max_wait:
             return False
         async with self._lock:
