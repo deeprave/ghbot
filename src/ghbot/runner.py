@@ -7,9 +7,9 @@ import gidgethub.httpx as gh_httpx
 import httpx
 
 from ghbot.errors import (
-    FatalError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
+    RateLimitAbortError,
 )
 from ghbot.executor import RateLimitAbort, TaskPool
 from ghbot.github.auth import get_auth_token
@@ -35,6 +35,8 @@ async def _scan_with_rate_retries(
                 gh,
                 explicit_repositories=cfg.get("explicit_repositories"),
             ):
+                if isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
+                    return
                 key = f"{discovered.owner}/{discovered.name}"
                 if key not in seen:
                     seen.add(key)
@@ -75,7 +77,46 @@ async def run_processor(
                 )
                 await pool.submit(processor.run)
     log.info("stats: %s", pool.stats)
+    if isinstance(abort := getattr(pool, "rate_limit_abort", None), RateLimitAbort):
+        raise RateLimitAbortError(abort.reason)
     return pool.results
+
+
+def _requested_with_explicit_selections(
+    cfg: dict, requested: list[str], pool: TaskPool
+) -> list[str]:
+    """Keep user-selected repositories visible if discovery is interrupted."""
+    if not isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
+        return requested
+    result = list(requested)
+    for owner, repository in cfg.get("explicit_repositories") or ():
+        identity = f"{owner}/{repository}"
+        if identity not in result:
+            result.append(identity)
+    return result
+
+
+def _report_outcome(
+    collection: Any, cfg: dict, requested: list[str], pool: TaskPool
+) -> ReportOutcome:
+    requested = _requested_with_explicit_selections(cfg, requested, pool)
+    abort_reason = (
+        "rate_limited"
+        if isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort)
+        else None
+    )
+    failed_ids = getattr(pool, "failed_ids", set())
+    if abort_reason is None and failed_ids:
+        abort_reason = "task_failed"
+    settled = getattr(pool, "completed_ids", set(requested)) | getattr(
+        pool, "terminal_ids", set()
+    )
+    not_processed = tuple(
+        (repository, "task_failed" if repository in failed_ids else "rate_limited")
+        for repository in requested
+        if repository not in settled
+    )
+    return ReportOutcome(collection, abort_reason, not_processed)
 
 
 async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportOutcome:
@@ -110,12 +151,7 @@ async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportO
 
                 await pool.submit(collect, task_id=repository)
     log.info("stats: %s", pool.stats)
-    abort_reason = "rate_limited" if getattr(pool, "rate_limit_abort", None) else None
-    completed_ids = getattr(pool, "completed_ids", set(requested))
-    not_processed = tuple(
-        repository for repository in requested if repository not in completed_ids
-    )
-    return ReportOutcome(collection, abort_reason, not_processed)
+    return _report_outcome(collection, cfg, requested, pool)
 
 
 async def run_combo(
@@ -133,6 +169,7 @@ async def run_combo(
     }
     sections = tuple(ReportSection(mode.name, collections[mode.name]) for mode in modes)
     requested: list[str] = []
+    completed_by_mode: dict[str, set[str]] = {mode.name: set() for mode in modes}
 
     token = await get_auth_token(use_environment=cfg.get("env", False))
     async with httpx.AsyncClient() as client:
@@ -149,49 +186,56 @@ async def run_combo(
                 requested.append(repository)
                 results: dict[str, RepoResult] = {}
 
-                async def collect(discovered=discovered, results=results):
+                async def collect(
+                    discovered=discovered, results=results, repository=repository
+                ):
                     monitor = LoggingMonitor(discovered.owner, discovered.name)
-                    try:
-                        for mode in modes:
-                            if mode.name in results:
-                                continue
-                            processor = mode.new_processor(
-                                discovered.owner,
-                                discovered.name,
-                                gh,
-                                monitor,
-                                options_by_mode.get(mode.name, {}),
-                                owner_type=discovered.owner_type,
-                            )
-                            results[mode.name] = await processor.run()
-                    except FatalError:
-                        raise
-                    except Exception:
-                        for mode in modes:
-                            if mode.name in results:
-                                collections[mode.name].add(results[mode.name])
-                        raise
                     for mode in modes:
+                        if mode.name in results:
+                            continue
+                        processor = mode.new_processor(
+                            discovered.owner,
+                            discovered.name,
+                            gh,
+                            monitor,
+                            options_by_mode.get(mode.name, {}),
+                            owner_type=discovered.owner_type,
+                        )
+                        results[mode.name] = await processor.run()
                         collections[mode.name].add(results[mode.name])
+                        completed_by_mode[mode.name].add(repository)
 
                 await pool.submit(collect, task_id=repository)
     log.info("stats: %s", pool.stats)
-    abort_reason = "rate_limited" if getattr(pool, "rate_limit_abort", None) else None
-    completed_ids = getattr(pool, "completed_ids", set(requested))
-    not_processed = tuple(
-        repository for repository in requested if repository not in completed_ids
+    requested = _requested_with_explicit_selections(cfg, requested, pool)
+    abort_reason = (
+        "rate_limited"
+        if isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort)
+        else None
     )
-    outcome_sections = (
-        sections
-        if abort_reason is None
-        else tuple(
-            ReportSection(
-                section.name,
-                ReportOutcome(section.collection, abort_reason, not_processed),
-            )
-            for section in sections
+    failed_ids = getattr(pool, "failed_ids", set())
+    terminal_ids = getattr(pool, "terminal_ids", set())
+    if abort_reason is None and failed_ids:
+        abort_reason = "task_failed"
+    outcome_sections = tuple(
+        ReportSection(
+            section.name,
+            ReportOutcome(
+                section.collection,
+                abort_reason,
+                tuple(
+                    (
+                        repository,
+                        "task_failed" if repository in failed_ids else "rate_limited",
+                    )
+                    for repository in requested
+                    if repository not in completed_by_mode[section.name]
+                    and repository not in terminal_ids
+                ),
+            ),
         )
+        for section in sections
     )
-    return ReportOutcome(
-        CombinedCollectionReport(outcome_sections), abort_reason, not_processed
+    return _report_outcome(
+        CombinedCollectionReport(outcome_sections), cfg, requested, pool
     )

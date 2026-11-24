@@ -80,3 +80,27 @@ async def test_gate_staggers_all_waiters_after_the_shared_block():
     await asyncio.gather(*waiters)
 
     assert waits == [5, 5, 5, 5]
+
+
+@pytest.mark.anyio
+async def test_gate_rechecks_a_block_renewed_during_retry_jitter():
+    now = 0.0
+    waits: list[float] = []
+
+    async def sleep(delay: float) -> None:
+        nonlocal now
+        waits.append(delay)
+        now += delay
+        if delay == 1:
+            assert await gate.record(
+                GitHubSecondaryRateLimitError("renewed", delay_seconds=2)
+            )
+
+    gate = RateLimitGate(
+        max_wait=10, max_hits=3, clock=lambda: now, sleep=sleep, retry_jitter=lambda: 1
+    )
+    assert await gate.record(GitHubSecondaryRateLimitError("limited", delay_seconds=5))
+
+    await gate.wait()
+
+    assert waits == [5, 1, 2]

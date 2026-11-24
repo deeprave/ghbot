@@ -46,6 +46,8 @@ class TaskPool:
         self._abort_grace_seconds = abort_grace_seconds
         self.rate_limit_abort: RateLimitAbort | None = None
         self.completed_ids: set[str] = set()
+        self.terminal_ids: set[str] = set()
+        self.failed_ids: set[str] = set()
         self.results: list[Any] = []
         self.stats: dict[str, int] = {
             "completed": 0,
@@ -78,10 +80,12 @@ class TaskPool:
         if self._aborted and self._abort_reason and self.rate_limit_abort is None:
             raise FatalError(self._abort_reason)
         log.info(
-            "completed: %d, not_found: %d, network_errors: %d",
+            "completed: %d, not_found: %d, network_errors: %d, rate_limit_episodes: %d, rate_limit_wait_seconds: %.1f",
             s["completed"],
             s["not_found"],
             s["network_error"],
+            self._rate_limit_gate.hits if self._rate_limit_gate else 0,
+            self._rate_limit_gate.total_wait_seconds if self._rate_limit_gate else 0,
         )
 
     async def submit(
@@ -90,6 +94,9 @@ class TaskPool:
         if self._aborted:
             return
         await self._sem.acquire()
+        if self._aborted:
+            self._sem.release()
+            return
         task = asyncio.create_task(self._run(fn, *args, task_id=task_id, **kwargs))
         self._tasks.append(task)
 
@@ -112,6 +119,8 @@ class TaskPool:
     ) -> None:
         if isinstance(e, GitHubNotFoundError):
             self.stats["not_found"] += 1
+            if task_id is not None:
+                self.terminal_ids.add(task_id)
 
         elif isinstance(
             e, (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError)
@@ -150,6 +159,8 @@ class TaskPool:
 
         else:
             self.stats["unexpected"] += 1
+            if task_id is not None:
+                self.failed_ids.add(task_id)
             log.error("Unexpected error in task: %s", e)
 
     def _abort(self, reason: str) -> None:

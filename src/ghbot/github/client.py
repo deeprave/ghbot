@@ -2,6 +2,7 @@ import asyncio
 import http
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 import gidgethub
 import httpx
@@ -32,6 +33,21 @@ def _retry_after(response: object) -> int | None:
     except (TypeError, ValueError):
         return None
     return delay if delay >= 0 else None
+
+
+def _secondary_reset_delay(response: object) -> int | None:
+    """Use exhausted REST quota reset data when GitHub omitted Retry-After."""
+    headers = getattr(response, "headers", None)
+    if not isinstance(headers, Mapping):
+        return None
+    try:
+        remaining = int(headers.get("X-RateLimit-Remaining", ""))
+        reset = int(headers.get("X-RateLimit-Reset", ""))
+    except (TypeError, ValueError):
+        return None
+    if remaining != 0:
+        return None
+    return max(0, int(reset - datetime.now(UTC).timestamp()))
 
 
 @asynccontextmanager
@@ -79,18 +95,22 @@ async def github_api_call(gh):
             raise GitHubNotFoundError(str(e)) from e
         if e.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
             delay = _retry_after(e)
+            if delay is None:
+                delay = _secondary_reset_delay(e)
             raise GitHubSecondaryRateLimitError(
                 str(e),
-                delay_seconds=_FALLBACK_RATE_LIMIT_DELAY if delay is None else delay,
+                delay_seconds=(_FALLBACK_RATE_LIMIT_DELAY if delay is None else delay),
             ) from e
         if e.status_code == http.HTTPStatus.FORBIDDEN:
             if "secondary rate limit" in str(e).lower():
                 delay = _retry_after(e)
+                if delay is None:
+                    delay = _secondary_reset_delay(e)
                 raise GitHubSecondaryRateLimitError(
                     str(e),
-                    delay_seconds=_FALLBACK_RATE_LIMIT_DELAY
-                    if delay is None
-                    else delay,
+                    delay_seconds=(
+                        _FALLBACK_RATE_LIMIT_DELAY if delay is None else delay
+                    ),
                 ) from e
             raise GitHubNotFoundError(str(e)) from e  # access denied — skip
         raise GitHubApiError(str(e)) from e

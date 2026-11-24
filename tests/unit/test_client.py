@@ -15,7 +15,7 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.github.client import _retry_after, github_api_call
+from ghbot.github.client import _retry_after, _secondary_reset_delay, github_api_call
 from ghbot.rate_limit import RateLimitGate
 
 
@@ -35,6 +35,16 @@ def test_retry_after_parses_a_response_header_and_rejects_invalid_values():
     assert (
         _retry_after(type("Response", (), {"headers": {"Retry-After": "42"}})()) == 42
     )
+
+
+def test_secondary_reset_delay_uses_only_exhausted_quota_headers():
+    response = type(
+        "Response",
+        (),
+        {"headers": {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "0"}},
+    )()
+
+    assert _secondary_reset_delay(response) == 0
     assert (
         _retry_after(type("Response", (), {"headers": {"Retry-After": "no"}})()) is None
     )

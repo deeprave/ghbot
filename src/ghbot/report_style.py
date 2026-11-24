@@ -97,7 +97,7 @@ class ReportOutcome:
 
     collection: CollectionReport
     abort_reason: str | None = None
-    not_processed: tuple[str, ...] = ()
+    not_processed: tuple[str | tuple[str, str], ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -115,7 +115,18 @@ class ReportOutcome:
                 "complete": self.complete,
                 "abort_reason": self.abort_reason,
                 "not_processed": [
-                    {"repository": repository, "reason": "rate_limited"}
+                    {
+                        "repository": (
+                            repository[0]
+                            if isinstance(repository, tuple)
+                            else repository
+                        ),
+                        "reason": (
+                            repository[1]
+                            if isinstance(repository, tuple)
+                            else self.abort_reason or "rate_limited"
+                        ),
+                    }
                     for repository in self.not_processed
                 ],
             }
@@ -128,7 +139,8 @@ class ReportOutcome:
         text = self.collection.render(format)
         if self.complete:
             return text
-        return f"INCOMPLETE: rate limited\n\n{text}"
+        reason = self.abort_reason or "unknown"
+        return f"INCOMPLETE: {reason.replace('_', ' ')}\n\n{text}"
 
 
 @dataclass(frozen=True, slots=True)

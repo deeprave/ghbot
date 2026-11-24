@@ -65,6 +65,17 @@ async def test_not_found_counted_and_skipped():
 
 
 @pytest.mark.anyio
+async def test_not_found_task_is_terminal_for_report_accounting():
+    async def task():
+        raise GitHubNotFoundError("404")
+
+    async with TaskPool() as pool:
+        await pool.submit(task, task_id="acme/missing")
+
+    assert pool.terminal_ids == {"acme/missing"}
+
+
+@pytest.mark.anyio
 async def test_rate_limit_policy_abort_is_retained_as_a_pool_outcome():
     async def task():
         raise GitHubSecondaryRateLimitError("rate limited", delay_seconds=121)

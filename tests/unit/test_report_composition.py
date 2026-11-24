@@ -25,6 +25,19 @@ def test_rate_limited_outcome_marks_json_and_plain_output_incomplete():
     assert outcome.render("plain").startswith("INCOMPLETE: rate limited\n")
 
 
+def test_task_failure_outcome_keeps_its_distinct_reason():
+    outcome = ReportOutcome(
+        _Collection(),
+        abort_reason="task_failed",
+        not_processed=(("acme/api", "task_failed"),),
+    )
+
+    assert outcome.document()["not_processed"] == [
+        {"repository": "acme/api", "reason": "task_failed"}
+    ]
+    assert outcome.render("plain").startswith("INCOMPLETE: task failed\n")
+
+
 class FakeCollection:
     def __init__(self, name: str) -> None:
         self.name = name

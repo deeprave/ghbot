@@ -38,7 +38,9 @@ class RateLimitGate:
         self._retry_jitter = retry_jitter
         self._lock = asyncio.Lock()
         self._blocked_until = 0.0
+        self._episode_started_at: float | None = None
         self.hits = 0
+        self.total_wait_seconds = 0.0
 
     async def record(self, error: GitHubRateLimitError) -> bool:
         """Record a limit and return whether it is recoverable under policy."""
@@ -55,7 +57,15 @@ class RateLimitGate:
         async with self._lock:
             now = self._clock()
             if self._blocked_until > now:
-                self._blocked_until = max(self._blocked_until, now + delay)
+                previous_until = self._blocked_until
+                extended_until = max(self._blocked_until, now + delay)
+                if (
+                    self._episode_started_at is not None
+                    and extended_until - self._episode_started_at > self.max_wait
+                ):
+                    return False
+                self._blocked_until = extended_until
+                self.total_wait_seconds += extended_until - previous_until
                 log.debug("GitHub rate limit joined active wait")
                 return True
             next_hits = self.hits + 1
@@ -63,6 +73,8 @@ class RateLimitGate:
                 return False
             self.hits = next_hits
             self._blocked_until = now + delay
+            self._episode_started_at = now
+            self.total_wait_seconds += delay
             log.warning(
                 "GitHub rate limit: waiting %ds (hit %d/%d, reset=%s)",
                 delay,
@@ -75,16 +87,19 @@ class RateLimitGate:
     async def wait(self) -> None:
         """Wait until the shared block expires, rechecking after every wake-up."""
         waited = False
+        jittered = False
         while True:
             async with self._lock:
                 delay = self._blocked_until - self._clock()
             if delay <= 0:
-                if waited:
+                if waited and not jittered:
                     jitter = min(
                         max(float(self._retry_jitter()), 0.0), _MAX_RETRY_JITTER_SECONDS
                     )
                     if jitter:
                         await self._sleep(jitter)
+                    jittered = True
+                    continue
                 return
             waited = True
             await self._sleep(delay)

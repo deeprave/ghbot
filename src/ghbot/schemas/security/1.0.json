@@ -9,7 +9,7 @@
   ],
   "properties": {
     "complete": {"type": "boolean"},
-    "abort_reason": {"type": ["string", "null"], "enum": ["rate_limited", null]},
+    "abort_reason": {"type": ["string", "null"], "enum": ["rate_limited", "task_failed", null]},
     "not_processed": {
       "type": "array",
       "items": {
@@ -17,7 +17,7 @@
         "required": ["repository", "reason"],
         "properties": {
           "repository": {"type": "string"},
-          "reason": {"const": "rate_limited"}
+          "reason": {"enum": ["rate_limited", "task_failed"]}
         }
       }
     },
