@@ -413,6 +413,7 @@ def _reportable(results: list[RepoResult]) -> list[RepoResult]:
                 isinstance(result.results.get("commits_since_release"), int)
                 and result.results["commits_since_release"] > 0
             )
+            or result.unavailable
             or result.reason is not None
         ),
         key=lambda result: f"{result.owner}/{result.repo}",
