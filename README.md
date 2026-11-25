@@ -72,6 +72,14 @@ uvx ghbot --owner acme security [--plain | --table | --json] [--output FILE]
 Counts that are unavailable (no access / feature off) show as `N/A` in text and `null` in JSON;
 `0` means accessible with nothing open.
 
+Security JSON retains the existing `dependabot_alerts` and `code_scanning_alerts` totals and adds
+`dependabot_alerts_by_severity` and `code_scanning_alerts_by_severity`. Each available breakdown
+has non-negative `critical`, `high`, `medium`, `low`, and `other` counts that sum to its total.
+Dependabot uses `security_advisory.severity`; code scanning prefers
+`rule.security_severity_level`. Missing, unknown, and non-security fallback levels (`error`,
+`warning`, or `note`) are retained in `other`. A breakdown is `null` when its paired metric is
+unavailable. Secret-scanning remains total-only because GitHub provides no severity for its alerts.
+
 ### `issues` — open issues and pull requests
 
 Lists open **issues and pull requests** per repository, each tagged by `type` (`issue` or `pr`).

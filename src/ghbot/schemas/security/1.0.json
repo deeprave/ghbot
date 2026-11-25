@@ -40,6 +40,18 @@
       ],
       "minimum": 0
     },
+    "severity_counts": {
+      "type": ["object", "null"],
+      "required": ["critical", "high", "medium", "low", "other"],
+      "properties": {
+        "critical": {"type": "integer", "minimum": 0},
+        "high": {"type": "integer", "minimum": 0},
+        "medium": {"type": "integer", "minimum": 0},
+        "low": {"type": "integer", "minimum": 0},
+        "other": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
     "unavailable": {
       "type": "object",
       "additionalProperties": {
@@ -58,7 +70,9 @@
         "repos_scanned",
         "repos_with_issues",
         "dependabot_alerts",
+        "dependabot_alerts_by_severity",
         "code_scanning_alerts",
+        "code_scanning_alerts_by_severity",
         "secret_scanning_alerts",
         "dependabot_open_pull_requests",
         "dependabot_ready_pull_requests"
@@ -75,8 +89,14 @@
         "dependabot_alerts": {
           "$ref": "#/$defs/count"
         },
+        "dependabot_alerts_by_severity": {
+          "$ref": "#/$defs/severity_counts"
+        },
         "code_scanning_alerts": {
           "$ref": "#/$defs/count"
+        },
+        "code_scanning_alerts_by_severity": {
+          "$ref": "#/$defs/severity_counts"
         },
         "secret_scanning_alerts": {
           "$ref": "#/$defs/count"
@@ -114,8 +134,14 @@
         "dependabot_alerts": {
           "$ref": "#/$defs/count"
         },
+        "dependabot_alerts_by_severity": {
+          "$ref": "#/$defs/severity_counts"
+        },
         "code_scanning_alerts": {
           "$ref": "#/$defs/count"
+        },
+        "code_scanning_alerts_by_severity": {
+          "$ref": "#/$defs/severity_counts"
         },
         "secret_scanning_alerts": {
           "$ref": "#/$defs/count"
