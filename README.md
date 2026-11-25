@@ -197,6 +197,13 @@ For security repository metrics, an absent field means an unexpected failed scan
 value; `null` means the metric was attempted but unavailable; and `0` means it was fetched with no
 findings.
 
+Unavailable metrics include an `unavailable` entry with one of `not_found`, `forbidden`,
+`disabled`, or `error`; plain and table output show `N/A (reason)`. A GitHub 404 may conceal a
+private resource from an unauthorized token, while a non-rate-limit 403 is reported as
+`forbidden`. Explicitly selected repositories that are missing, forbidden, or archived remain in
+the output with a status and reason. After writing that report ghbot exits 8: expected repository
+data is missing, so automation must not treat the scan as fully successful.
+
 ## Global options
 
 Global options go **before** the command:

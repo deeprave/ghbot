@@ -20,7 +20,16 @@ from ghbot.errors import (
 )
 from ghbot.github.client import github_api_call
 from ghbot.log import get_logger
-from ghbot.processor import FeedbackEvent, GitHubClient, Monitor, RepoResult
+from ghbot.processor import (
+    FeedbackEvent,
+    GitHubClient,
+    Monitor,
+    RepoResult,
+    display_metric,
+    record_unavailable,
+    report_metadata,
+    unavailable_reason,
+)
 from ghbot.report_style import (
     JSONReportStyle,
     PlainReportStyle,
@@ -145,12 +154,19 @@ class IssuesRepoProcessor:
                 ]
             result.results["open_item_count"] = len(items)
             result.results["open_items"] = items
-        except GitHubNotFoundError:
+        except GitHubNotFoundError as error:
             await self._defer_event(
                 FeedbackEvent("fetch", "debug", "open items not accessible")
             )
             result.results["open_item_count"] = None
             result.results["open_items"] = None
+            record_unavailable(
+                result,
+                "open_item_count",
+                "open_items",
+                reason="not_found",
+                error=error,
+            )
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
@@ -159,6 +175,13 @@ class IssuesRepoProcessor:
             )
             result.results["open_item_count"] = None
             result.results["open_items"] = None
+            record_unavailable(
+                result,
+                "open_item_count",
+                "open_items",
+                reason=unavailable_reason(error),
+                error=error,
+            )
             result.errors.append(f"open items: {error}")
 
     async def _fetch_open_pull_request_metrics(self, result: RepoResult) -> None:
@@ -256,6 +279,13 @@ class IssuesRepoProcessor:
         for key in _PULL_REQUEST_METRIC_KEYS:
             result.results[key] = None
         result.results[_DEPENDABOT_PULL_REQUESTS_KEY] = None
+        record_unavailable(
+            result,
+            *_PULL_REQUEST_METRIC_KEYS,
+            _DEPENDABOT_PULL_REQUESTS_KEY,
+            reason=unavailable_reason(error),
+            error=error,
+        )
         result.errors.append(f"open pull requests: {error}")
 
 
@@ -284,6 +314,7 @@ class IssuesCollectionReport:
                     "items": [
                         _item_json(item, self.labels) for item in _item_records(result)
                     ],
+                    **report_metadata(result),
                 }
                 for result in self.results
             ],
@@ -300,7 +331,7 @@ class IssuesCollectionReport:
                 lines.extend(
                     [
                         "",
-                        f"{result.owner}/{result.repo}  ({result.results.get('open_item_count')} open)",
+                        _repository_heading(result),
                         *_pull_request_metric_lines(result, indent="  "),
                         *[
                             "  " + _item_plain_line(item, self.labels, dates=self.dates)
@@ -322,6 +353,19 @@ class IssuesCollectionReport:
                 _table_row(result, item, self.labels, self.dates)
                 for result, item in rows
             )
+        unavailable = [result for result in active if not _item_records(result)]
+        if unavailable and not rows:
+            lines.extend(
+                [
+                    "",
+                    _table_header(self.labels, self.dates),
+                    _table_separator(self.labels, self.dates),
+                ]
+            )
+        lines.extend(
+            _unavailable_table_row(result, self.labels, self.dates)
+            for result in unavailable
+        )
         assert isinstance(style, TableReportStyle)
         return style.render_lines(lines)
 
@@ -400,9 +444,14 @@ def issues(
         log.error(error.message)
         sys.exit(error.exit_code)
     write_report(collection.render(selected_format), output)
-    if getattr(collection, "abort_reason", None) == "rate_limited":
+    if getattr(collection, "exit_code", 0) == 4:
         log.error("rate limited; wrote incomplete report")
         sys.exit(4)
+    if getattr(collection, "exit_code", 0) == 8:
+        log.error(
+            "unavailable explicit repository; wrote report with missing expected data"
+        )
+        sys.exit(8)
 
 
 def _item_type(item: dict[str, Any]) -> str:
@@ -552,7 +601,13 @@ def _summary_lines(results: list[RepoResult]) -> list[str]:
 
 def _repos_to_show(results: list[RepoResult]) -> list[RepoResult]:
     return sorted(
-        (result for result in results if _has_open_items(result)),
+        (
+            result
+            for result in results
+            if _has_open_items(result)
+            or result.unavailable
+            or result.reason is not None
+        ),
         key=lambda result: f"{result.owner}/{result.repo}",
     )
 
@@ -617,22 +672,45 @@ def _pull_request_metric_lines(result: RepoResult, *, indent: str = "") -> list[
     metrics = _pull_request_metrics(result)
     return [
         indent
-        + _fmt("Dependabot PRs:", _display(metrics["dependabot_open_pull_requests"])),
+        + _fmt(
+            "Dependabot PRs:",
+            display_metric(
+                result,
+                "dependabot_open_pull_requests",
+                metrics["dependabot_open_pull_requests"],
+            ),
+        ),
         indent
         + _fmt(
             "Dependabot merge-ready PRs:",
-            _display(metrics["dependabot_merge_ready_pull_requests"]),
+            display_metric(
+                result,
+                "dependabot_merge_ready_pull_requests",
+                metrics["dependabot_merge_ready_pull_requests"],
+            ),
         ),
-        indent + _fmt("Other PRs:", _display(metrics["other_open_pull_requests"])),
+        indent
+        + _fmt(
+            "Other PRs:",
+            display_metric(
+                result,
+                "other_open_pull_requests",
+                metrics["other_open_pull_requests"],
+            ),
+        ),
         indent
         + _fmt(
             "Other merge-ready PRs:",
-            _display(metrics["other_merge_ready_pull_requests"]),
+            display_metric(
+                result,
+                "other_merge_ready_pull_requests",
+                metrics["other_merge_ready_pull_requests"],
+            ),
         ),
     ]
 
 
-def _fmt(label: str, value: int | str) -> str:
+def _fmt(label: str, value: object) -> str:
     return f"{label:<26}{value:>8}"
 
 
@@ -641,10 +719,10 @@ def _display(value: object) -> int | str:
 
 
 def _table_header(labels: bool, dates: bool) -> str:
-    header = f"|{'Repository':<38}|{'#':>6}|{'Type':<5}|{'Description':<50}"
+    header = f"|{'Repository':<48}|{'#':>6}|{'Type':<5}|{'Description':<50}"
     header += (
         f"|{'Dependabot PRs':>16}|{'Dependabot ready':>18}"
-        f"|{'Other PRs':>12}|{'Other ready':>12}"
+        f"|{'Other PRs':>16}|{'Other ready':>16}"
     )
     if dates:
         header += f"|{'Created (local)':<22}"
@@ -654,7 +732,7 @@ def _table_header(labels: bool, dates: bool) -> str:
 
 
 def _table_separator(labels: bool, dates: bool) -> str:
-    separator = "|" + "|".join("-" * width for width in (38, 6, 5, 50, 16, 18, 12, 12))
+    separator = "|" + "|".join("-" * width for width in (48, 6, 5, 50, 16, 18, 16, 16))
     if dates:
         separator += "|" + "-" * 22
     if labels:
@@ -665,18 +743,41 @@ def _table_separator(labels: bool, dates: bool) -> str:
 def _table_row(result: RepoResult, item: dict, labels: bool, dates: bool) -> str:
     metrics = _pull_request_metrics(result)
     row = (
-        f"|{f'{result.owner}/{result.repo}':<38}|{item['number']:>6}|{item['type']:<5}"
+        f"|{_table_repository(result):<48}|{item['number']:>6}|{item['type']:<5}"
         f"|{_truncate(item['title'], 50):<50}"
-        f"|{_display(metrics['dependabot_open_pull_requests']):>16}"
-        f"|{_display(metrics['dependabot_merge_ready_pull_requests']):>18}"
-        f"|{_display(metrics['other_open_pull_requests']):>12}"
-        f"|{_display(metrics['other_merge_ready_pull_requests']):>12}"
+        f"|{display_metric(result, 'dependabot_open_pull_requests', metrics['dependabot_open_pull_requests']):>16}"
+        f"|{display_metric(result, 'dependabot_merge_ready_pull_requests', metrics['dependabot_merge_ready_pull_requests']):>18}"
+        f"|{display_metric(result, 'other_open_pull_requests', metrics['other_open_pull_requests']):>16}"
+        f"|{display_metric(result, 'other_merge_ready_pull_requests', metrics['other_merge_ready_pull_requests']):>16}"
     )
     if dates:
         row += f"|{_format_local_timestamp(item.get('created_at')):<22}"
     if labels:
         row += f"|{', '.join(item.get('labels') or []):<24}"
     return row + "|"
+
+
+def _repository_heading(result: RepoResult) -> str:
+    name = f"{result.owner}/{result.repo}"
+    count = display_metric(
+        result, "open_item_count", result.results.get("open_item_count")
+    )
+    status = f" ({result.status}: {result.reason})" if result.reason else ""
+    return f"{name}{status}  ({count} open)"
+
+
+def _table_repository(result: RepoResult) -> str:
+    name = f"{result.owner}/{result.repo}"
+    return f"{name} ({result.status}: {result.reason})" if result.reason else name
+
+
+def _unavailable_table_row(result: RepoResult, labels: bool, dates: bool) -> str:
+    reason = result.reason or next(
+        (unavailable.reason for unavailable in result.unavailable.values()),
+        "unavailable",
+    )
+    item = {"number": "N/A", "type": "", "title": f"N/A ({reason})", "labels": []}
+    return _table_row(result, item, labels, dates)
 
 
 def _truncate(text: str, width: int) -> str:

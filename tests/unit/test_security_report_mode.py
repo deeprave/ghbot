@@ -129,3 +129,23 @@ def test_security_command_exits_for_fatal_errors():
 
     assert result.exit_code == 1
     log_error.assert_called_once_with("bad token")
+
+
+def test_security_command_writes_before_exiting_for_unavailable_selection():
+    from ghbot.modes.security import security
+
+    report = MagicMock()
+    report.render.return_value = "report\n"
+    report.exit_code = 8
+    with (
+        patch("ghbot.modes.security.run_mode", new=AsyncMock(return_value=report)),
+        patch("ghbot.modes.security.write_report") as write_report,
+        patch("ghbot.modes.security.log.error") as log_error,
+    ):
+        result = CliRunner().invoke(security, [], obj={"cfg": {}})
+
+    assert result.exit_code == 8
+    write_report.assert_called_once_with("report\n", None)
+    log_error.assert_called_once_with(
+        "unavailable explicit repository; wrote report with missing expected data"
+    )

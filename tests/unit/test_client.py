@@ -11,6 +11,7 @@ import pytest
 
 from ghbot.errors import (
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -301,11 +302,45 @@ async def test_bad_graphql_request_rate_limits_are_normalized(
 
 
 @pytest.mark.anyio
-async def test_403_plain_raises_not_found_error():
+async def test_bad_graphql_request_403_raises_forbidden_error():
+    with pytest.raises(GitHubForbiddenError, match="Resource not accessible") as raised:
+        async with github_api_call(AsyncMock()):
+            raise gidgethub.BadGraphQLRequest(
+                http.HTTPStatus.FORBIDDEN,
+                {"message": "Resource not accessible by integration"},
+            )
+
+    assert type(raised.value) is GitHubForbiddenError
+
+
+@pytest.mark.anyio
+async def test_bad_graphql_request_404_raises_not_found_error():
+    with pytest.raises(GitHubNotFoundError, match="Not Found") as raised:
+        async with github_api_call(AsyncMock()):
+            raise gidgethub.BadGraphQLRequest(
+                http.HTTPStatus.NOT_FOUND, {"message": "Not Found"}
+            )
+
+    assert type(raised.value) is GitHubNotFoundError
+
+
+@pytest.mark.anyio
+async def test_graphql_forbidden_code_raises_forbidden_error():
+    with pytest.raises(GitHubForbiddenError, match="Forbidden") as raised:
+        async with github_api_call(AsyncMock()):
+            raise _graphql_query_error("Forbidden", error_type="FORBIDDEN")
+
+    assert type(raised.value) is GitHubForbiddenError
+
+
+@pytest.mark.anyio
+async def test_403_plain_raises_forbidden_error():
     gh = AsyncMock()
-    with pytest.raises(GitHubNotFoundError):
+    with pytest.raises(GitHubForbiddenError, match="Forbidden") as raised:
         async with github_api_call(gh):
             raise gidgethub.BadRequest(http.HTTPStatus.FORBIDDEN)
+
+    assert type(raised.value) is GitHubForbiddenError
 
 
 @pytest.mark.anyio

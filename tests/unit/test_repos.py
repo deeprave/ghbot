@@ -4,11 +4,17 @@ import pytest
 
 from ghbot.errors import (
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.github.repos import DiscoveredRepository, list_repos, scan_repositories
+from ghbot.github.repos import (
+    DiscoveredRepository,
+    ExplicitRepositoryOutcome,
+    list_repos,
+    scan_repositories,
+)
 
 
 def _make_gh(pages: list[list[dict]], owner_type: str = "User"):
@@ -244,7 +250,7 @@ async def test_scan_repositories_validates_explicit_repository_without_owner_lis
 
 
 @pytest.mark.anyio
-async def test_explicit_repository_not_found_is_skipped(caplog):
+async def test_explicit_repository_not_found_is_reported(caplog):
     gh = AsyncMock()
     gh.getitem = AsyncMock(side_effect=GitHubNotFoundError("not found"))
 
@@ -256,8 +262,29 @@ async def test_explicit_repository_not_found_is_skipped(caplog):
             )
         ]
 
-    assert result == []
+    assert result == [
+        ExplicitRepositoryOutcome("acme", "missing", "failed", "not_found")
+    ]
     assert any("acme/missing" in record.message for record in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_explicit_repository_forbidden_is_reported(caplog):
+    gh = AsyncMock()
+    gh.getitem = AsyncMock(side_effect=GitHubForbiddenError("not accessible"))
+
+    with caplog.at_level("WARNING"):
+        result = [
+            item
+            async for item in scan_repositories(
+                [], gh, explicit_repositories=(("acme", "private"),)
+            )
+        ]
+
+    assert result == [
+        ExplicitRepositoryOutcome("acme", "private", "failed", "forbidden")
+    ]
+    assert any("forbidden" in record.message for record in caplog.records)
 
 
 @pytest.mark.anyio
@@ -320,7 +347,7 @@ async def test_explicit_repository_uses_none_for_unknown_owner_type(caplog):
 
 
 @pytest.mark.anyio
-async def test_explicit_archived_repository_is_skipped():
+async def test_explicit_archived_repository_is_reported():
     gh = AsyncMock()
     gh.getitem = AsyncMock(
         return_value={
@@ -337,7 +364,9 @@ async def test_explicit_archived_repository_is_skipped():
         )
     ]
 
-    assert result == []
+    assert result == [
+        ExplicitRepositoryOutcome("acme", "old-widgets", "skipped", "archived")
+    ]
 
 
 @pytest.mark.anyio

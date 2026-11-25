@@ -22,6 +22,10 @@ class GitHubNotFoundError(GitHubApiError):
     pass
 
 
+class GitHubForbiddenError(GitHubApiError):
+    pass
+
+
 class GitHubRateLimitError(GitHubApiError):
     """A GitHub limit with normalized retry timing, if GitHub supplied it."""
 

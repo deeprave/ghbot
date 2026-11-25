@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 from ghbot.modes.issues import IssuesCollectionReport
-from ghbot.processor import RepoResult
+from ghbot.processor import RepoResult, record_unavailable
 from ghbot.report_style import write_report
 
 PULL_REQUEST_METRIC_KEYS = (
@@ -203,6 +203,16 @@ class TestIssuesReportPlain:
         assert "acme/empty" not in out
         assert "acme/denied" not in out
 
+    def test_unavailable_repository_is_shown_with_status_and_reason(self):
+        result = _result("acme", "missing", None, None, status="failed")
+        result.reason = "not_found"
+        record_unavailable(result, "open_item_count", reason="not_found")
+
+        out = render_issues_report([result], format="plain")
+
+        assert "acme/missing (failed: not_found)" in out
+        assert "N/A (not_found)" in out
+
     def test_includes_pull_request_metrics_for_each_displayed_repository(self):
         results = [
             _result(
@@ -251,6 +261,14 @@ class TestIssuesReportPlain:
 
 
 class TestIssuesReportTable:
+    def test_explicit_outcome_shows_status_and_reason(self):
+        result = _result("acme", "missing", None, None, status="failed")
+        result.reason = "not_found"
+
+        out = render_issues_report([result], format="table")
+
+        assert "acme/missing (failed: not_found)" in out
+
     def test_one_row_per_item_with_type_column(self):
         results = [
             _result(

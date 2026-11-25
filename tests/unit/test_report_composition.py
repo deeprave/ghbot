@@ -38,6 +38,20 @@ def test_task_failure_outcome_keeps_its_distinct_reason():
     assert outcome.render("plain").startswith("INCOMPLETE: task failed\n")
 
 
+def test_rate_limit_exit_takes_precedence_over_explicit_repository_unavailability():
+    outcome = ReportOutcome(
+        _Collection(), abort_reason="rate_limited", explicit_unavailable=True
+    )
+
+    assert outcome.exit_code == 4
+
+
+def test_metric_unavailability_does_not_change_a_successful_exit():
+    outcome = ReportOutcome(_Collection())
+
+    assert outcome.exit_code == 0
+
+
 class FakeCollection:
     def __init__(self, name: str) -> None:
         self.name = name

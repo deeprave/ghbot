@@ -59,6 +59,11 @@ def combo(
         log.error(error.message)
         sys.exit(error.exit_code)
     write_report(report.render(selected_format), output)
-    if getattr(report, "abort_reason", None) == "rate_limited":
+    if getattr(report, "exit_code", 0) == 4:
         log.error("rate limited; wrote incomplete report")
         sys.exit(4)
+    if getattr(report, "exit_code", 0) == 8:
+        log.error(
+            "unavailable explicit repository; wrote report with missing expected data"
+        )
+        sys.exit(8)

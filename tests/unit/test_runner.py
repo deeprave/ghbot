@@ -8,7 +8,7 @@ import pytest
 
 from ghbot.errors import AuthError, GitHubSecondaryRateLimitError
 from ghbot.executor import RateLimitAbort, TaskPool
-from ghbot.github.repos import DiscoveredRepository
+from ghbot.github.repos import DiscoveredRepository, ExplicitRepositoryOutcome
 from ghbot.processor import InfoRepoProcessor, RepoResult
 from ghbot.runner import (
     _requested_with_explicit_selections,
@@ -265,6 +265,49 @@ async def test_run_mode_forwards_explicit_repositories_to_scanner():
         )
 
     assert captured == [explicit_repositories]
+
+
+@pytest.mark.anyio
+async def test_run_mode_keeps_explicit_unavailable_repository_without_processing():
+    class EmptyPool:
+        def __init__(self):
+            self.stats = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn, **kwargs):
+            await fn()
+
+    collection = MagicMock()
+    mode = MagicMock()
+    mode.new_collection.return_value = collection
+
+    async def scan(owners, gh, *, explicit_repositories=None):
+        yield ExplicitRepositoryOutcome("acme", "missing", "failed", "not_found")
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=scan),
+        patch("ghbot.runner.TaskPool", return_value=EmptyPool()),
+    ):
+        report = await run_mode(
+            {
+                "owners": [],
+                "concurrency": 1,
+                "explicit_repositories": (("acme", "missing"),),
+            },
+            mode,
+        )
+
+    mode.new_processor.assert_not_called()
+    assert report.exit_code == 8
+    collection.add.assert_called_once_with(
+        RepoResult(owner="acme", repo="missing", status="failed", reason="not_found")
+    )
 
 
 @pytest.mark.anyio

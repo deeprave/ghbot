@@ -6,6 +6,7 @@ import gidgethub.httpx as gh_httpx
 
 from ghbot.errors import (
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -18,6 +19,8 @@ log = get_logger(__name__)
 
 OwnerType = Literal["User", "Organization"] | None
 type RepositoryReference = tuple[str, str]
+ExplicitRepositoryStatus = Literal["failed", "skipped"]
+ExplicitRepositoryReason = Literal["not_found", "forbidden", "archived", "error"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +34,20 @@ class DiscoveredRepository:
     @property
     def name(self) -> str:
         return self.metadata["name"]
+
+
+@dataclass(frozen=True, slots=True)
+class ExplicitRepositoryOutcome:
+    """A selected repository which GitHub could not make scannable."""
+
+    owner: str
+    repo: str
+    status: ExplicitRepositoryStatus
+    reason: ExplicitRepositoryReason
+
+    @property
+    def name(self) -> str:
+        return self.repo
 
 
 def _owner_type(metadata: dict, owner: str) -> OwnerType:
@@ -77,7 +94,7 @@ async def list_repos(
 
 async def _explicit_repository(
     owner: str, repo: str, gh: gh_httpx.GitHubAPI
-) -> DiscoveredRepository | None:
+) -> DiscoveredRepository | ExplicitRepositoryOutcome:
     for attempt in range(2):
         try:
             async with github_api_call(gh):
@@ -91,16 +108,21 @@ async def _explicit_repository(
             return DiscoveredRepository(owner, metadata, owner_type)
         except GitHubNotFoundError:
             log.warning(
-                "Repository not found or inaccessible, skipping: %s/%s", owner, repo
+                "Explicit repository unavailable (not_found): %s/%s", owner, repo
             )
-            return None
+            return ExplicitRepositoryOutcome(owner, repo, "failed", "not_found")
+        except GitHubForbiddenError:
+            log.warning(
+                "Explicit repository unavailable (forbidden): %s/%s", owner, repo
+            )
+            return ExplicitRepositoryOutcome(owner, repo, "failed", "forbidden")
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
-        except GitHubApiError as e:
+        except GitHubApiError:
             if attempt == 1:
-                log.error("GitHub API error for %s/%s, skipping: %s", owner, repo, e)
-                return None
-    return None
+                log.error("Explicit repository unavailable (error): %s/%s", owner, repo)
+                return ExplicitRepositoryOutcome(owner, repo, "failed", "error")
+    return ExplicitRepositoryOutcome(owner, repo, "failed", "error")
 
 
 async def scan_repositories(
@@ -108,20 +130,18 @@ async def scan_repositories(
     gh: gh_httpx.GitHubAPI,
     *,
     explicit_repositories: Sequence[RepositoryReference] | None = None,
-) -> AsyncGenerator[DiscoveredRepository]:
+) -> AsyncGenerator[DiscoveredRepository | ExplicitRepositoryOutcome]:
     if explicit_repositories is not None:
         for owner, repo in explicit_repositories:
             discovered = await _explicit_repository(owner, repo, gh)
-            if discovered is None:
-                skipped = getattr(gh, "_ghbot_skipped_explicit_ids", None)
-                if isinstance(skipped, set):
-                    skipped.add(f"{owner}/{repo}".casefold())
+            if isinstance(discovered, ExplicitRepositoryOutcome):
+                yield discovered
                 continue
             if discovered.metadata.get("archived", False):
-                log.debug("Archived repository, skipping: %s/%s", owner, repo)
-                skipped = getattr(gh, "_ghbot_skipped_explicit_ids", None)
-                if isinstance(skipped, set):
-                    skipped.add(f"{owner}/{repo}".casefold())
+                log.info(
+                    "Explicit repository unavailable (archived): %s/%s", owner, repo
+                )
+                yield ExplicitRepositoryOutcome(owner, repo, "skipped", "archived")
                 continue
             yield discovered
         return

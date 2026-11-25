@@ -98,10 +98,18 @@ class ReportOutcome:
     collection: CollectionReport
     abort_reason: str | None = None
     not_processed: tuple[str | tuple[str, str], ...] = ()
+    explicit_unavailable: bool = False
 
     @property
     def complete(self) -> bool:
         return self.abort_reason is None
+
+    @property
+    def exit_code(self) -> int:
+        """Return the post-output process status for this report."""
+        if self.abort_reason == "rate_limited":
+            return 4
+        return 8 if self.explicit_unavailable else 0
 
     @property
     def sections(self) -> tuple[ReportSection, ...]:
