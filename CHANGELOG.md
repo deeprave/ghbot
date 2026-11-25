@@ -2,7 +2,7 @@
 
 All notable changes to ghbot are documented in this file.
 
-## [Unreleased]
+## [1.0.0]
 
 ### Added
 
@@ -11,6 +11,7 @@ All notable changes to ghbot are documented in this file.
 - Added combined reports.
 - Added versioned report schemas and CLI discovery.
 - Added resilient GitHub rate-limit handling.
+- Enhanced security reports with per-severity Dependabot and code-scanning alert counts.
 
 ## [0.30.0] - 2026-11-15
 
