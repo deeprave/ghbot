@@ -23,3 +23,14 @@
 - [x] 6. Close verification coverage gaps (`tests/unit/test_security_processor.py`, `tests/unit/test_security_report.py`)
   - [x] 6.1 Add a severity-specific paginated-listing regression test that asserts every yielded alert contributes to the paired total and breakdown.
   - [x] 6.2 Add a table-rendering regression test for compact Dependabot and code-scanning severity values.
+
+- [x] 7. Separate code-scanning security and rule severity (`tests/unit/test_security_processor.py`, `src/ghbot/modes/security.py`)
+  - [x] 7.1 Add failing tests for Dependabot `moderate`, security-level classification, and fallback `error`/`warning`/`note` diagnostic classification.
+  - [x] 7.2 Normalize `moderate` to `medium` and classify each code-scanning alert into exactly one separate security- or rule-severity breakdown.
+
+- [x] 8. Extend the report contract and rendering (`tests/unit/test_report_schemas.py`, `tests/unit/test_security_report.py`, `src/ghbot/schemas/security/1.0.json`, `src/ghbot/modes/security.py`, `README.md`)
+  - [x] 8.1 Add failing schema and labelled plain/table/JSON tests for both code-scanning breakdowns and their combined-total invariant.
+  - [x] 8.2 Add the fields, summary aggregation, distinct compact renderings, documentation, and label-bound assertions while retaining existing totals.
+
+- [x] 9. Assert zero-shaped code-scanning breakdowns (`tests/unit/test_security_processor.py`)
+  - [x] 9.1 Extend the existing zero-alert processor test to assert both complete all-zero breakdown maps.

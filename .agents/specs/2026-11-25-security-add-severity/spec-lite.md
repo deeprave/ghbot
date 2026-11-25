@@ -7,17 +7,18 @@ critical risk from low-severity volume.
 
 ## Goal
 
-Keep existing totals and add nullable per-severity breakdowns for Dependabot and code-scanning
-alerts. Use the alert data already fetched through the existing paginated listings; no new API
-requests. Secret scanning remains total-only.
+Keep existing totals and add nullable severity data from the existing paginated listings; no new
+API requests. Dependabot has one security-severity breakdown. Code scanning separates security
+severity from the scanner's diagnostic rule severity. Secret scanning remains total-only.
 
 ## Contract
 
-Each repository and the report summary gain `dependabot_alerts_by_severity` and
-`code_scanning_alerts_by_severity`. Available breakdowns contain `critical`, `high`, `medium`,
-`low`, and `other`; their counts sum to the existing total. Unknown or missing severity and
-code-scanning's non-security fallback severity are counted as `other`. If a total is unavailable,
-its breakdown is `null`; a genuine zero has every count at zero.
+Each repository and summary gain `dependabot_alerts_by_severity`,
+`code_scanning_alerts_by_security_severity`, and `code_scanning_alerts_by_rule_severity`.
+Security breakdowns contain `critical`, `high`, `medium`, `low`, and `other`; rule breakdowns
+contain `error`, `warning`, `note`, and `other`. Each code-scanning alert contributes to exactly
+one of its two breakdowns, preserving the existing total. Normalize Dependabot `moderate` to
+`medium`. Unavailable breakdowns are `null`; a genuine zero has zero counts.
 
 JSON is additive and schemas validate the new fields. Plain output shows per-repository severity;
 tables use a readable compact representation such as `C/H/M/L`. Existing totals, unavailable

@@ -86,3 +86,24 @@ README documents the fields, source values, `other`, null semantics, and total-o
 - Rendering tests: JSON, plain per-repository and summary lines, compact table columns, and unavailable markers.
 - Schema tests: nullable and zero-valued breakdowns; reject missing keys, negative counts, extra keys, and invalid values.
 - Confirm README matches the public contract, then run `uv run pytest -v -Werror -Walways`, `uv run ruff check`, `uv run ty check src/`, and `uv run ruff format --check`.
+
+## Review revision: separate code-scanning sources
+
+This section supersedes the earlier single `code_scanning_alerts_by_severity` design. Preserve the
+existing `code_scanning_alerts` total and add two nullable breakdowns:
+
+```text
+code_scanning_alerts_by_security_severity  # critical/high/medium/low/other
+code_scanning_alerts_by_rule_severity      # error/warning/note/other
+```
+
+If `rule.security_severity_level` is present, count the alert only in the security breakdown;
+unknown supplied security values use `other`. If it is absent, count `rule.severity` only in the
+rule breakdown, with missing or unknown values in its `other`. Thus the two breakdown sums equal
+the unchanged code-scanning total. Normalize Dependabot `moderate` to the existing `medium`
+bucket. All paired breakdowns are null when their metric is unavailable and zero-shaped on an
+empty listing.
+
+Add matching summary/schema/README fields and distinct plain/table labels (`Scan Sec`, `Scan
+Rule`). Tests must bind each rendered value to its label/column, cover `moderate`, and cover the
+combined-total invariant.

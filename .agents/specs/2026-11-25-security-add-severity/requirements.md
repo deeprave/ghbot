@@ -9,7 +9,9 @@ the existing totals or adding GitHub API requests.
 
 ## Glossary
 
-- **severity breakdown**: an object containing counts for individual severity levels and `other`.
+- **security-severity breakdown**: counts for `critical`, `high`, `medium`, `low`, and `other`.
+- **rule-severity breakdown**: code-scanning diagnostic counts for `error`, `warning`, `note`, and
+  `other`.
 - **known security severity**: `critical`, `high`, `medium`, or `low`.
 - **fallback severity**: a code-scanning rule's `severity` when its security severity is absent.
 - **unavailable**: a metric that could not be collected and is represented as `null` with the
@@ -26,21 +28,24 @@ severity so that I can apply meaningful risk thresholds.
 
 1. WHEN Dependabot alerts are collected, THE security processor SHALL publish
    `dependabot_alerts_by_severity` with counts for known security severities and `other`.
-2. WHEN code-scanning alerts are collected, THE security processor SHALL publish
-   `code_scanning_alerts_by_severity` with counts for known security severities and `other`.
+2. WHEN code-scanning alerts are collected, THE security processor SHALL publish separate
+   `code_scanning_alerts_by_security_severity` and `code_scanning_alerts_by_rule_severity`
+   breakdowns.
 3. WHEN a code-scanning alert has `rule.security_severity_level`, THE processor SHALL classify it
    using that value.
-4. WHEN a code-scanning alert has no `rule.security_severity_level` and has `rule.severity`, THE
-   processor SHALL classify that fallback value as `other` rather than folding it into a known
-   security severity.
+4. WHEN a code-scanning alert has no `rule.security_severity_level`, THE processor SHALL classify
+   `rule.severity` as `error`, `warning`, `note`, or `other` in the rule-severity breakdown and
+   SHALL NOT present it as a security severity.
 5. WHEN GitHub supplies a missing or unrecognised severity, THE processor SHALL count it as
    `other` and SHALL NOT discard the alert.
-6. FOR every available Dependabot or code-scanning metric, THE sum of its severity breakdown SHALL
-   equal its existing total alert count.
-7. WHEN an alert total is `null` because collection is unavailable, THE corresponding severity
+6. FOR every available Dependabot metric, its security-severity breakdown SHALL equal its total;
+   FOR every available code-scanning metric, its security- and rule-severity breakdowns combined
+   SHALL equal `code_scanning_alerts`.
+7. WHEN Dependabot reports `moderate`, THE processor SHALL normalize it to `medium`.
+8. WHEN an alert total is `null` because collection is unavailable, THE corresponding severity
    breakdown SHALL be `null`; WHEN the total is zero, its breakdown SHALL contain zero for every
    defined severity key.
-8. THE processor SHALL derive breakdowns from the existing paginated alert listings and SHALL NOT
+9. THE processor SHALL derive breakdowns from the existing paginated alert listings and SHALL NOT
    make extra GitHub API calls.
 
 ### Requirement 2: Report contract and rendering
@@ -51,12 +56,12 @@ the existing totals, so that I can assess risk interactively or through automati
 #### Acceptance Criteria
 
 1. THE JSON report SHALL retain the existing total keys and their meanings unchanged.
-2. THE JSON report SHALL add nullable `dependabot_alerts_by_severity` and
-   `code_scanning_alerts_by_severity` fields to each repository result and matching aggregate
-   summary totals.
+2. THE JSON report SHALL add nullable `dependabot_alerts_by_severity`,
+   `code_scanning_alerts_by_security_severity`, and `code_scanning_alerts_by_rule_severity` fields
+   to each repository result and matching aggregate summary totals.
 3. Plain output SHALL render the severity breakdown for each repository with available alert data.
-4. Table output SHALL render compact per-severity values while keeping the default table readable;
-   a `C/H/M/L` representation is permitted.
+4. Table output SHALL render distinct compact security- and rule-severity values while keeping the
+   default table readable; `C/H/M/L/O` and `E/W/N/O` representations are permitted.
 5. WHEN a breakdown is unavailable, human-readable output SHALL distinguish it from a zero-alert
    breakdown using the established unavailable rendering.
 6. Secret-scanning reporting SHALL remain total-only because GitHub supplies no alert severity for
@@ -70,12 +75,12 @@ fields reliably.
 #### Acceptance Criteria
 
 1. THE security JSON Schema SHALL validate the new nullable breakdown fields and reject malformed
-   counts or unknown breakdown keys.
+   counts or unknown keys for each breakdown type.
 2. README documentation SHALL describe the new fields, supported severity sources, `other`, and
    the unchanged secret-scanning total.
-3. Tests SHALL cover mixed known severities, a missing severity, an unknown severity,
-   code-scanning fallback severity, zero totals, unavailable alert collection, pagination, JSON,
-   plain output, table output, summaries, and schema validation.
+3. Tests SHALL cover `moderate`, mixed/unknown security severities, rule `error`/`warning`/`note`,
+   zero totals, unavailable collection, pagination, JSON, labelled plain/table output, summaries,
+   and schema validation.
 
 ## Non-Functional Requirements
 
