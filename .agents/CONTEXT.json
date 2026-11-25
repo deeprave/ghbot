@@ -1,23 +1,23 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-25-distinguish-permission-failures",
-    "path": ".agents/specs/2026-11-25-distinguish-permission-failures",
-    "status": "complete",
+    "name": "2026-11-25-security-add-severity",
+    "path": ".agents/specs/2026-11-25-security-add-severity",
+    "status": "building",
     "progress": {
       "tasks_completed": 6,
       "tasks_total": 6
     },
     "present_task": null,
     "verification": {
-      "status": "pass",
+      "status": "stale",
       "last_run": "2026-11-25",
       "gates": {
-        "tests": "pass (506)",
+        "tests": "pass (516)",
         "lint": "pass",
         "type_check": "pass",
         "format": "pass",
-        "diff": "pass"
+        "acceptance_coverage": "pass"
       }
     },
     "review": {
@@ -25,9 +25,15 @@
       "last_run": "2026-11-25",
       "findings": 0
     },
-    "revision_note": "Verified drift metric-unavailability output follow-up (506 tests); security table-cell test strengthening remains deferred to the next security-stats change."
+    "revision_note": "Added the user-facing security severity changelog entry; verification and review require refresh."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-25-distinguish-permission-failures",
+      "path": ".agents/specs/2026-11-25-distinguish-permission-failures",
+      "status": "complete",
+      "note": "Permission-failure distinction delivered through merged PR #62."
+    },
     {
       "name": "2026-11-24-rate-limit-resilience",
       "path": ".agents/specs/2026-11-24-rate-limit-resilience",

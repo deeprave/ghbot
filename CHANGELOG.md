@@ -2,16 +2,17 @@
 
 All notable changes to ghbot are documented in this file.
 
-## [1.0.0]
+## [1.0.0] - 2026-11-26
 
 ### Added
 
 - Added explicit repository selection.
-- Enhanced `issues` reporting.
 - Added combined reports.
 - Added versioned report schemas and CLI discovery.
 - Added resilient GitHub rate-limit handling.
 - Enhanced security reports with per-severity Dependabot and code-scanning alert counts.
+- Report unavailable repository data with clear reason markers and exit status 8 for explicit selections.
+- Enhanced `issues` reporting with per-item metadata and merge-ready pull-request metrics.
 
 ## [0.30.0] - 2026-11-15
 
