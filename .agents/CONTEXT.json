@@ -1,19 +1,19 @@
 {
   "$comment": "Auto-generated agent context for AI consumption. Read first after context compression.",
   "current_spec": {
-    "name": "2026-11-24-rate-limit-resilience",
-    "path": ".agents/specs/2026-11-24-rate-limit-resilience",
-    "status": "verified",
+    "name": "2026-11-25-distinguish-permission-failures",
+    "path": ".agents/specs/2026-11-25-distinguish-permission-failures",
+    "status": "complete",
     "progress": {
-      "tasks_completed": 14,
-      "tasks_total": 14
+      "tasks_completed": 6,
+      "tasks_total": 6
     },
     "present_task": null,
     "verification": {
       "status": "pass",
       "last_run": "2026-11-25",
       "gates": {
-        "tests": "pass (484)",
+        "tests": "pass (506)",
         "lint": "pass",
         "type_check": "pass",
         "format": "pass",
@@ -21,13 +21,19 @@
       }
     },
     "review": {
-      "status": "not-run",
-      "last_run": null,
+      "status": "pass",
+      "last_run": "2026-11-25",
       "findings": 0
     },
-    "revision_note": "Accepted triaged review findings R-1 through R-8: correct abort shutdown, GraphQL classification, retry guards, ledger accuracy, fractional timing, policy validation, and combo text rendering."
+    "revision_note": "Verified drift metric-unavailability output follow-up (506 tests); security table-cell test strengthening remains deferred to the next security-stats change."
   },
   "recent_specs": [
+    {
+      "name": "2026-11-24-rate-limit-resilience",
+      "path": ".agents/specs/2026-11-24-rate-limit-resilience",
+      "status": "complete",
+      "note": "Rate-limit resilience delivered through merged PR #61."
+    },
     {
       "name": "2026-11-23-list-schemas",
       "path": ".agents/specs/2026-11-23-list-schemas",
