@@ -55,6 +55,8 @@ def _make_gh(
     dependabot=3,
     code_scanning=2,
     secret_scanning=1,
+    dependabot_items=None,
+    code_scanning_items=None,
     prs=None,
     status_state="success",
     check_runs=None,
@@ -63,14 +65,20 @@ def _make_gh(
     gh = MagicMock()
     prs = [] if prs is None else prs
     check_runs = [] if check_runs is None else check_runs
+    dependabot_items = (
+        [{}] * dependabot if dependabot_items is None else dependabot_items
+    )
+    code_scanning_items = (
+        [{}] * code_scanning if code_scanning_items is None else code_scanning_items
+    )
 
     def _getiter(url, *, url_vars=None):
         if "/pulls?state=open" in url:
             return _aiter(*prs)
         if "/dependabot/alerts" in url:
-            return _aiter(*[{}] * dependabot)
+            return _aiter(*dependabot_items)
         if "code-scanning" in url:
-            return _aiter(*[{}] * code_scanning)
+            return _aiter(*code_scanning_items)
         if "secret-scanning" in url:
             return _aiter(*[{}] * secret_scanning)
         return _aiter()
@@ -155,6 +163,84 @@ class TestSecurityRepoProcessorHappyPath:
         assert result.results["dependabot_ready_pull_requests"] == 1
 
     @pytest.mark.anyio
+    async def test_run_stores_dependabot_severity_breakdown(self):
+        processor, _ = _make_processor(
+            _make_gh(
+                dependabot_items=[
+                    {"security_advisory": {"severity": "critical"}},
+                    {"security_advisory": {"severity": "high"}},
+                    {"security_advisory": {"severity": "moderate"}},
+                    {"security_advisory": {"severity": "unexpected"}},
+                    {},
+                ]
+            )
+        )
+        with patch("ghbot.processor.github_api_call", _passthrough):
+            result = await processor.run()
+        assert result.results["dependabot_alerts"] == 5
+        assert result.results["dependabot_alerts_by_severity"] == {
+            "critical": 1,
+            "high": 1,
+            "medium": 1,
+            "low": 0,
+            "other": 2,
+        }
+
+    @pytest.mark.anyio
+    async def test_run_stores_code_scanning_severity_breakdown(self):
+        processor, _ = _make_processor(
+            _make_gh(
+                code_scanning_items=[
+                    {"rule": {"security_severity_level": "high"}},
+                    {"rule": {"severity": "error"}},
+                    {"rule": {"severity": "warning"}},
+                    {"rule": {"severity": "note"}},
+                    {"rule": {"security_severity_level": "unexpected"}},
+                    {"rule": {}},
+                ]
+            )
+        )
+        with patch("ghbot.processor.github_api_call", _passthrough):
+            result = await processor.run()
+        assert result.results["code_scanning_alerts"] == 6
+        assert result.results["code_scanning_alerts_by_security_severity"] == {
+            "critical": 0,
+            "high": 1,
+            "medium": 0,
+            "low": 0,
+            "other": 1,
+        }
+        assert result.results["code_scanning_alerts_by_rule_severity"] == {
+            "error": 1,
+            "warning": 1,
+            "note": 1,
+            "other": 1,
+        }
+
+    @pytest.mark.anyio
+    async def test_run_counts_every_alert_yielded_by_the_paginated_listing(self):
+        processor, _ = _make_processor(
+            _make_gh(
+                dependabot_items=[
+                    {"security_advisory": {"severity": "low"}},
+                    {"security_advisory": {"severity": "medium"}},
+                    {"security_advisory": {"severity": "high"}},
+                ]
+            )
+        )
+        with patch("ghbot.processor.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.results["dependabot_alerts"] == 3
+        assert result.results["dependabot_alerts_by_severity"] == {
+            "critical": 0,
+            "high": 1,
+            "medium": 1,
+            "low": 1,
+            "other": 0,
+        }
+
+    @pytest.mark.anyio
     async def test_run_returns_correct_owner_and_repo(self):
         processor, _ = _make_processor()
         with patch("ghbot.processor.github_api_call", _passthrough):
@@ -222,8 +308,21 @@ class TestSecurityRepoProcessorHappyPath:
             _make_gh(dependabot=0, code_scanning=0, secret_scanning=0)
         )
         with patch("ghbot.processor.github_api_call", _passthrough):
-            await processor.run()
+            result = await processor.run()
         assert monitor.events == []
+        assert result.results["code_scanning_alerts_by_security_severity"] == {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "other": 0,
+        }
+        assert result.results["code_scanning_alerts_by_rule_severity"] == {
+            "error": 0,
+            "warning": 0,
+            "note": 0,
+            "other": 0,
+        }
 
     @pytest.mark.anyio
     async def test_run_counts_only_dependabot_open_pull_requests(self):
@@ -414,6 +513,7 @@ class TestSecurityRepoProcessorNotFound:
         with patch("ghbot.processor.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["dependabot_alerts"] is None
+        assert result.results["dependabot_alerts_by_severity"] is None
         assert result.errors == []
         assert result.status == "success"
         assert result.unavailable["dependabot_alerts"].reason == "not_found"
@@ -438,6 +538,8 @@ class TestSecurityRepoProcessorNotFound:
         with patch("ghbot.processor.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["code_scanning_alerts"] is None
+        assert result.results["code_scanning_alerts_by_security_severity"] is None
+        assert result.results["code_scanning_alerts_by_rule_severity"] is None
         assert result.errors == []
 
     @pytest.mark.anyio
@@ -495,6 +597,7 @@ class TestSecurityRepoProcessorApiError:
         with patch("ghbot.processor.github_api_call", _passthrough):
             result = await processor.run()
         assert result.results["dependabot_alerts"] is None
+        assert result.results["dependabot_alerts_by_severity"] is None
         assert result.status == "partial"
         assert len(result.errors) == 1
         assert result.unavailable["dependabot_alerts"].reason == "error"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,6 +41,34 @@ from ghbot.report_style import (
 from ghbot.runner import run_mode
 
 log = get_logger(__name__)
+
+_SEVERITY_KEYS = ("critical", "high", "medium", "low", "other")
+_RULE_SEVERITY_KEYS = ("error", "warning", "note", "other")
+
+
+def _severity_counts() -> dict[str, int]:
+    return dict.fromkeys(_SEVERITY_KEYS, 0)
+
+
+def _rule_severity_counts() -> dict[str, int]:
+    return dict.fromkeys(_RULE_SEVERITY_KEYS, 0)
+
+
+def _severity(value: object) -> str:
+    return value if isinstance(value, str) and value in _SEVERITY_KEYS[:-1] else "other"
+
+
+def _dependabot_severity(alert: dict) -> str:
+    value = (alert.get("security_advisory") or {}).get("severity")
+    return "medium" if value == "moderate" else _severity(value)
+
+
+def _rule_severity(value: object) -> str:
+    return (
+        value
+        if isinstance(value, str) and value in _RULE_SEVERITY_KEYS[:-1]
+        else "other"
+    )
 
 
 class SecurityRepoProcessor:
@@ -124,17 +153,21 @@ class SecurityRepoProcessor:
         try:
             async with github_api_call(self._gh):
                 count = 0
-                async for _ in self._gh.getiter(
+                breakdown = _severity_counts()
+                async for alert in self._gh.getiter(
                     "/repos/{owner}/{repo}/dependabot/alerts?state=open",
                     url_vars={"owner": self._owner, "repo": self._repo},
                 ):
                     count += 1
+                    breakdown[_dependabot_severity(alert)] += 1
             result.results["dependabot_alerts"] = count
+            result.results["dependabot_alerts_by_severity"] = breakdown
         except GitHubNotFoundError as error:
             await self._defer_event(
                 FeedbackEvent("fetch", "debug", "dependabot alerts not accessible")
             )
             result.results["dependabot_alerts"] = None
+            result.results["dependabot_alerts_by_severity"] = None
             record_unavailable(
                 result, "dependabot_alerts", reason="not_found", error=error
             )
@@ -142,17 +175,53 @@ class SecurityRepoProcessor:
             raise
         except GitHubApiError as error:
             result.results["dependabot_alerts"] = None
+            result.results["dependabot_alerts_by_severity"] = None
             await self._record_alert_error(
                 result, "dependabot_alerts", "dependabot alerts", error
             )
 
     async def _fetch_code_scanning_alerts(self, result: RepoResult) -> None:
-        await self._fetch_alert_count(
-            result,
-            key="code_scanning_alerts",
-            endpoint="/repos/{owner}/{repo}/code-scanning/alerts?state=open",
-            label="code scanning alerts",
+        await self._defer_event(
+            FeedbackEvent("progress", "debug", "fetching code scanning alerts")
         )
+        try:
+            async with github_api_call(self._gh):
+                count = 0
+                security = _severity_counts()
+                rule_counts = _rule_severity_counts()
+                async for alert in self._gh.getiter(
+                    "/repos/{owner}/{repo}/code-scanning/alerts?state=open",
+                    url_vars={"owner": self._owner, "repo": self._repo},
+                ):
+                    count += 1
+                    rule = alert.get("rule") or {}
+                    value = rule.get("security_severity_level")
+                    if value is None:
+                        rule_counts[_rule_severity(rule.get("severity"))] += 1
+                    else:
+                        security[_severity(value)] += 1
+            result.results["code_scanning_alerts"] = count
+            result.results["code_scanning_alerts_by_security_severity"] = security
+            result.results["code_scanning_alerts_by_rule_severity"] = rule_counts
+        except GitHubNotFoundError as error:
+            result.results["code_scanning_alerts"] = None
+            result.results["code_scanning_alerts_by_security_severity"] = None
+            result.results["code_scanning_alerts_by_rule_severity"] = None
+            await self._defer_event(
+                FeedbackEvent("fetch", "debug", "code scanning alerts not accessible")
+            )
+            record_unavailable(
+                result, "code_scanning_alerts", reason="not_found", error=error
+            )
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as error:
+            result.results["code_scanning_alerts"] = None
+            result.results["code_scanning_alerts_by_security_severity"] = None
+            result.results["code_scanning_alerts_by_rule_severity"] = None
+            await self._record_alert_error(
+                result, "code_scanning_alerts", "code scanning alerts", error
+            )
 
     async def _fetch_secret_scanning_alerts(self, result: RepoResult) -> None:
         await self._fetch_alert_count(
@@ -163,27 +232,43 @@ class SecurityRepoProcessor:
         )
 
     async def _fetch_alert_count(
-        self, result: RepoResult, *, key: str, endpoint: str, label: str
+        self,
+        result: RepoResult,
+        *,
+        key: str,
+        endpoint: str,
+        label: str,
+        severity_key: str | None = None,
+        severity_for_alert: Callable[[dict], str] | None = None,
     ) -> None:
         await self._defer_event(FeedbackEvent("progress", "debug", f"fetching {label}"))
         try:
             async with github_api_call(self._gh):
                 count = 0
-                async for _ in self._gh.getiter(
+                breakdown = _severity_counts() if severity_key else None
+                async for alert in self._gh.getiter(
                     endpoint, url_vars={"owner": self._owner, "repo": self._repo}
                 ):
                     count += 1
+                    if breakdown is not None and severity_for_alert is not None:
+                        breakdown[severity_for_alert(alert)] += 1
             result.results[key] = count
+            if severity_key:
+                result.results[severity_key] = breakdown
         except GitHubNotFoundError as error:
             await self._defer_event(
                 FeedbackEvent("fetch", "debug", f"{label} not accessible")
             )
             result.results[key] = None
+            if severity_key:
+                result.results[severity_key] = None
             record_unavailable(result, key, reason="not_found", error=error)
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
             result.results[key] = None
+            if severity_key:
+                result.results[severity_key] = None
             await self._record_alert_error(result, key, label, error)
 
     async def _record_alert_error(
@@ -315,6 +400,28 @@ class SecurityCollectionReport:
             return None
         return sum(value for value in values if value is not None)
 
+    def _severity_total(self, key: str) -> dict[str, int] | None:
+        values = [result.results.get(key) for result in self.results]
+        available = [value for value in values if value is not None]
+        if not available:
+            return None
+        total = _severity_counts()
+        for value in available:
+            for severity in _SEVERITY_KEYS:
+                total[severity] += value[severity]
+        return total
+
+    def _rule_severity_total(self, key: str) -> dict[str, int] | None:
+        values = [result.results.get(key) for result in self.results]
+        available = [value for value in values if value is not None]
+        if not available:
+            return None
+        total = _rule_severity_counts()
+        for value in available:
+            for severity in _RULE_SEVERITY_KEYS:
+                total[severity] += value[severity]
+        return total
+
     def _active(self, result: RepoResult) -> bool:
         return any(
             result.results.get(key) not in (None, 0)
@@ -332,7 +439,16 @@ class SecurityCollectionReport:
             "repos_scanned": len(self.results),
             "repos_with_issues": sum(self._active(result) for result in self.results),
             "dependabot_alerts": self._total("dependabot_alerts"),
+            "dependabot_alerts_by_severity": self._severity_total(
+                "dependabot_alerts_by_severity"
+            ),
             "code_scanning_alerts": self._total("code_scanning_alerts"),
+            "code_scanning_alerts_by_security_severity": self._severity_total(
+                "code_scanning_alerts_by_security_severity"
+            ),
+            "code_scanning_alerts_by_rule_severity": self._rule_severity_total(
+                "code_scanning_alerts_by_rule_severity"
+            ),
             "secret_scanning_alerts": self._total("secret_scanning_alerts"),
             "dependabot_open_pull_requests": self._total(
                 "dependabot_open_pull_requests"
@@ -376,11 +492,29 @@ class SecurityCollectionReport:
                         ),
                     ),
                     _fmt(
+                        "  Dependabot severity:",
+                        _result_severity(result, "dependabot_alerts_by_severity"),
+                    ),
+                    _fmt(
                         "  Code scanning alerts:",
                         display_metric(
                             result,
                             "code_scanning_alerts",
                             result.results.get("code_scanning_alerts"),
+                        ),
+                    ),
+                    _fmt(
+                        "  Code scanning severity:",
+                        _result_severity(
+                            result,
+                            "code_scanning_alerts_by_security_severity",
+                            metric="code_scanning_alerts",
+                        ),
+                    ),
+                    _fmt(
+                        "  Code scanning rule severity:",
+                        _result_rule_severity(
+                            result, "code_scanning_alerts_by_rule_severity"
                         ),
                     ),
                     _fmt(
@@ -437,7 +571,21 @@ class SecurityCollectionReport:
             _fmt("Repos scanned:", summary["repos_scanned"]),
             _fmt("Repos with issues:", summary["repos_with_issues"]),
             _fmt("Dependabot alerts:", _display(summary["dependabot_alerts"])),
+            _fmt(
+                "Dependabot severity:",
+                _display_severity(summary["dependabot_alerts_by_severity"]),
+            ),
             _fmt("Code scanning alerts:", _display(summary["code_scanning_alerts"])),
+            _fmt(
+                "Code scanning severity:",
+                _display_severity(summary["code_scanning_alerts_by_security_severity"]),
+            ),
+            _fmt(
+                "Code scanning rule severity:",
+                _display_rule_severity(
+                    summary["code_scanning_alerts_by_rule_severity"]
+                ),
+            ),
             _fmt(
                 "Secret scanning alerts:", _display(summary["secret_scanning_alerts"])
             ),
@@ -519,6 +667,38 @@ def _display(value: int | None) -> int | str:
     return "N/A" if value is None else value
 
 
+def _display_severity(value: dict[str, int] | None) -> str:
+    if value is None:
+        return "N/A"
+    return " ".join(
+        f"{severity[0].upper()}{value[severity]}" for severity in _SEVERITY_KEYS
+    )
+
+
+def _result_severity(result: RepoResult, key: str, *, metric: str | None = None) -> str:
+    value = result.results.get(key)
+    if value is None:
+        return str(
+            display_metric(result, metric or key.removesuffix("_by_severity"), None)
+        )
+    return _display_severity(value)
+
+
+def _display_rule_severity(value: dict[str, int] | None) -> str:
+    if value is None:
+        return "N/A"
+    return " ".join(
+        f"{severity[0].upper()}{value[severity]}" for severity in _RULE_SEVERITY_KEYS
+    )
+
+
+def _result_rule_severity(result: RepoResult, key: str) -> str:
+    value = result.results.get(key)
+    if value is None:
+        return str(display_metric(result, "code_scanning_alerts", None))
+    return _display_rule_severity(value)
+
+
 def _repository_heading(result: RepoResult) -> str:
     name = f"{result.owner}/{result.repo}"
     return (
@@ -577,12 +757,16 @@ def _check_run_is_ready(check_run: dict) -> bool:
 def _table_header() -> str:
     return (
         f"|{'Repository':<48}|{' Dependabot ':>16}|{' Scanning ':>16}"
-        f"|{' Secrets ':>16}|{' Dep PRs ':>16}|{' Ready ':>16}|"
+        f"|{' Dep Sev ':>16}|{' Scan Sec ':>16}|{' Scan Rule ':>16}|{' Secrets ':>16}|{' Dep PRs ':>16}|{' Ready ':>16}|"
     )
 
 
 def _table_separator() -> str:
-    return "|" + "|".join("-" * width for width in (48, 16, 16, 16, 16, 16)) + "|"
+    return (
+        "|"
+        + "|".join("-" * width for width in (48, 16, 16, 16, 16, 16, 16, 16, 16))
+        + "|"
+    )
 
 
 def _table_row(result: RepoResult) -> str:
@@ -594,6 +778,13 @@ def _table_row(result: RepoResult) -> str:
         display_metric(
             result, "code_scanning_alerts", result.results.get("code_scanning_alerts")
         ),
+        _result_severity(result, "dependabot_alerts_by_severity"),
+        _result_severity(
+            result,
+            "code_scanning_alerts_by_security_severity",
+            metric="code_scanning_alerts",
+        ),
+        _result_rule_severity(result, "code_scanning_alerts_by_rule_severity"),
         display_metric(
             result,
             "secret_scanning_alerts",
@@ -611,8 +802,8 @@ def _table_row(result: RepoResult) -> str:
         ),
     )
     return (
-        f"|{values[0]:<48}|{values[1]:>16}|{values[2]:>16}|{values[3]:>16}"
-        f"|{values[4]:>16}|{values[5]:>16}|"
+        f"|{values[0]:<48}|{values[1]:>16}|{values[2]:>16}|{values[3]:>16}|{values[4]:>16}"
+        f"|{values[5]:>16}|{values[6]:>16}|{values[7]:>16}|{values[8]:>16}|"
     )
 
 

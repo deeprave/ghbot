@@ -23,6 +23,9 @@ def _result(
     secret_scanning=None,
     dependabot_prs=None,
     dependabot_ready_prs=None,
+    dependabot_severity=None,
+    code_scanning_security_severity=None,
+    code_scanning_rule_severity=None,
     status="success",
 ):
     r = RepoResult(owner=owner, repo=repo, status=status)
@@ -31,10 +34,115 @@ def _result(
     r.results["secret_scanning_alerts"] = secret_scanning
     r.results["dependabot_open_pull_requests"] = dependabot_prs
     r.results["dependabot_ready_pull_requests"] = dependabot_ready_prs
+    r.results["dependabot_alerts_by_severity"] = dependabot_severity
+    r.results["code_scanning_alerts_by_security_severity"] = (
+        code_scanning_security_severity
+    )
+    r.results["code_scanning_alerts_by_rule_severity"] = code_scanning_rule_severity
     return r
 
 
 class TestPrintSecurityReportSummary:
+    def test_severity_breakdowns_aggregate_and_render(self, capsys):
+        first = _result(
+            "o",
+            "a",
+            dependabot=2,
+            code_scanning=2,
+            secret_scanning=0,
+            dependabot_severity={
+                "critical": 1,
+                "high": 1,
+                "medium": 0,
+                "low": 0,
+                "other": 0,
+            },
+            code_scanning_security_severity={
+                "critical": 0,
+                "high": 0,
+                "medium": 1,
+                "low": 0,
+                "other": 0,
+            },
+            code_scanning_rule_severity={
+                "error": 0,
+                "warning": 1,
+                "note": 0,
+                "other": 0,
+            },
+        )
+        second = _result(
+            "o",
+            "b",
+            dependabot=1,
+            code_scanning=None,
+            secret_scanning=0,
+            dependabot_severity={
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "other": 1,
+            },
+            code_scanning_security_severity=None,
+        )
+
+        report = SecurityCollectionReport([first, second])
+        document = report.document()
+
+        assert document["summary"]["dependabot_alerts_by_severity"] == {
+            "critical": 1,
+            "high": 1,
+            "medium": 0,
+            "low": 0,
+            "other": 1,
+        }
+        assert document["summary"]["code_scanning_alerts_by_security_severity"] == {
+            "critical": 0,
+            "high": 0,
+            "medium": 1,
+            "low": 0,
+            "other": 0,
+        }
+        assert document["summary"]["code_scanning_alerts_by_rule_severity"] == {
+            "error": 0,
+            "warning": 1,
+            "note": 0,
+            "other": 0,
+        }
+        assert (
+            sum(
+                document["summary"][
+                    "code_scanning_alerts_by_security_severity"
+                ].values()
+            )
+            + sum(document["summary"]["code_scanning_alerts_by_rule_severity"].values())
+            == document["summary"]["code_scanning_alerts"]
+        )
+
+        print_security_report([first, second])
+        output = capsys.readouterr().out
+        lines = output.splitlines()
+        assert "C1 H1 M0 L0 O1" in next(
+            line for line in lines if "Dependabot severity:" in line
+        )
+        assert "C0 H0 M1 L0 O0" in next(
+            line for line in lines if "Code scanning severity:" in line
+        )
+        assert "E0 W1 N0 O0" in next(
+            line for line in lines if "Code scanning rule severity:" in line
+        )
+
+    def test_all_unavailable_severity_breakdowns_remain_null(self):
+        report = SecurityCollectionReport(
+            [
+                _result("o", "a", dependabot=None, dependabot_severity=None),
+                _result("o", "b", dependabot=None, dependabot_severity=None),
+            ]
+        )
+
+        assert report.document()["summary"]["dependabot_alerts_by_severity"] is None
+
     def test_empty_results_shows_zero_scanned(self, capsys):
         print_security_report([])
         out = capsys.readouterr().out
@@ -222,6 +330,19 @@ class TestPrintSecurityReportPerRepo:
 
         assert "N/A (forbidden)" in capsys.readouterr().out
 
+    def test_unavailable_code_scanning_breakdowns_show_their_reason(self, capsys):
+        result = _result(
+            "acme", "private", dependabot=0, code_scanning=None, secret_scanning=0
+        )
+        record_unavailable(result, "code_scanning_alerts", reason="forbidden")
+
+        print_security_report([result])
+
+        output = capsys.readouterr().out
+        assert "Code scanning severity:" in output
+        assert "Code scanning rule severity:" in output
+        assert output.count("N/A (forbidden)") == 3
+
     def test_per_repo_shows_dependabot_pr_counts(self, capsys):
         results = [
             _result(
@@ -296,6 +417,48 @@ class TestRenderSecurityReport:
         out = render_security_report(results, format="table")
         assert "|acme/mixed" in out
         assert "N/A" in out
+
+    def test_table_format_shows_compact_severity_breakdowns(self):
+        result = _result(
+            "acme",
+            "widgets",
+            dependabot=2,
+            code_scanning=1,
+            secret_scanning=0,
+            dependabot_severity={
+                "critical": 1,
+                "high": 1,
+                "medium": 0,
+                "low": 0,
+                "other": 0,
+            },
+            code_scanning_security_severity={
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 1,
+                "other": 0,
+            },
+            code_scanning_rule_severity={
+                "error": 0,
+                "warning": 1,
+                "note": 0,
+                "other": 0,
+            },
+        )
+
+        out = render_security_report([result], format="table")
+
+        assert "Dep Sev" in out
+        assert "Scan Sec" in out
+        assert "Scan Rule" in out
+        row = next(
+            line for line in out.splitlines() if line.startswith("|acme/widgets")
+        )
+        cells = [cell.strip() for cell in row.split("|")]
+        assert cells[4] == "C1 H1 M0 L0 O0"
+        assert cells[5] == "C0 H0 M0 L1 O0"
+        assert cells[6] == "E0 W1 N0 O0"
 
     def test_table_shows_explicit_outcome_status_and_reason(self):
         result = _result("acme", "missing", None, None, None, status="failed")
