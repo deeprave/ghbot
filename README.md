@@ -205,6 +205,8 @@ Global options go **before** the command:
 |---|---|
 | `--owner <o>` | Owner(s) to scan; repeatable or comma-separated |
 | `--concurrency <n>` | Max repositories processed at once (default 16) |
+| `--max-rate-wait <s>` | Longest GitHub rate-limit wait to honour (default 120) |
+| `--max-rate-limit-hits <n>` | Maximum distinct rate-limit episodes in one run (default 3) |
 | `--config <path>` | Config file (see below) |
 | `-e`, `--env` / `--no-env` | Read the API token from `GITHUB_API_TOKEN`, or override `env = true` to use `gh auth token` |
 | `--verbose` / `--quiet` | Console log level: debug / warnings-only |
@@ -220,10 +222,19 @@ Options can be set in `ghbot.toml` (current directory) or `~/.config/ghbot/confi
 ```toml
 owners = ["acme", "globex"]
 concurrency = 16
+max-rate-wait = 120
+max-rate-limit-hits = 3
 log-level = "info"
 log-json = false
 env = true  # use GITHUB_API_TOKEN instead of gh auth token
 ```
+
+When GitHub rate-limits a run, ghbot pauses REST and GraphQL requests globally. Concurrent limits
+join the same episode, and requests resume with up to five seconds of random jitter. GitHub retry
+and reset timing is used when available; otherwise ghbot waits 60 seconds. If its rate-limit
+policy is exhausted, JSON output is written with `complete: false`,
+`abort_reason: "rate_limited"`, and `not_processed`; the command exits with status 4. Re-run those
+repository names with `--repo` after the limit clears.
 
 ## How it works
 

@@ -11,6 +11,7 @@ from ghbot.errors import (
     GitHubSecondaryRateLimitError,
 )
 from ghbot.executor import TaskPool
+from ghbot.rate_limit import RateLimitGate
 
 # --- result collection and concurrency ---
 
@@ -64,15 +65,53 @@ async def test_not_found_counted_and_skipped():
 
 
 @pytest.mark.anyio
-async def test_primary_rate_limit_aborts_and_raises_fatal_error():
+async def test_not_found_task_is_terminal_for_report_accounting():
     async def task():
-        raise GitHubPrimaryRateLimitError("rate limited")
+        raise GitHubNotFoundError("404")
 
-    with pytest.raises(FatalError, match="Rate limited"):
-        async with TaskPool() as pool:
-            await pool.submit(task)
+    async with TaskPool() as pool:
+        await pool.submit(task, task_id="acme/missing")
+
+    assert pool.terminal_ids == {"acme/missing"}
+
+
+@pytest.mark.anyio
+async def test_rate_limit_policy_abort_is_retained_as_a_pool_outcome():
+    async def task():
+        raise GitHubSecondaryRateLimitError("rate limited", delay_seconds=121)
+
+    gate = RateLimitGate(max_wait=120, max_hits=3)
+    async with TaskPool(rate_limit_gate=gate) as pool:
+        await pool.submit(task)
 
     assert pool.stats["rate_limited"] == 1
+    assert pool.rate_limit_abort is not None
+
+
+@pytest.mark.anyio
+async def test_fatal_rate_limit_cancels_inflight_tasks_after_grace_period():
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def never_finishes():
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    async def fatal_limit():
+        await started.wait()
+        raise GitHubSecondaryRateLimitError("limited", delay_seconds=121)
+
+    gate = RateLimitGate(max_wait=120, max_hits=3)
+    async with TaskPool(rate_limit_gate=gate, abort_grace_seconds=0) as pool:
+        await pool.submit(never_finishes)
+        await pool.submit(fatal_limit)
+
+    assert pool.rate_limit_abort is not None
+    assert cancelled.is_set()
 
 
 @pytest.mark.anyio
@@ -171,6 +210,19 @@ async def test_network_errors_below_threshold_no_abort():
         await pool.submit(task)
 
     assert pool.stats["network_error"] == 2
+
+
+@pytest.mark.anyio
+async def test_network_error_below_threshold_is_failed_for_report_accounting():
+    async def task():
+        error = GitHubApiError("network")
+        error.__cause__ = httpx.TransportError("conn")
+        raise error
+
+    async with TaskPool(network_error_threshold=3) as pool:
+        await pool.submit(task, task_id="acme/api")
+
+    assert pool.failed_ids == {"acme/api"}
 
 
 @pytest.mark.anyio

@@ -113,9 +113,15 @@ async def scan_repositories(
         for owner, repo in explicit_repositories:
             discovered = await _explicit_repository(owner, repo, gh)
             if discovered is None:
+                skipped = getattr(gh, "_ghbot_skipped_explicit_ids", None)
+                if isinstance(skipped, set):
+                    skipped.add(f"{owner}/{repo}".casefold())
                 continue
             if discovered.metadata.get("archived", False):
                 log.debug("Archived repository, skipping: %s/%s", owner, repo)
+                skipped = getattr(gh, "_ghbot_skipped_explicit_ids", None)
+                if isinstance(skipped, set):
+                    skipped.add(f"{owner}/{repo}".casefold())
                 continue
             yield discovered
         return

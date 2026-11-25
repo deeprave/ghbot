@@ -147,6 +147,18 @@ def _resolve_explicit_repositories(
     type=int,
     help="Max concurrent repository tasks (default: 16)",
 )
+@click.option(
+    "--max-rate-wait",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Longest rate-limit wait to honour in seconds",
+)
+@click.option(
+    "--max-rate-limit-hits",
+    type=click.IntRange(min=0),
+    default=None,
+    help="Maximum rate-limit episodes to recover from",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -162,6 +174,8 @@ def cli(
     repositories: tuple[str, ...],
     repository_files: tuple[Path, ...],
     concurrency: int | None,
+    max_rate_wait: int | None,
+    max_rate_limit_hits: int | None,
 ) -> None:
     ctx.ensure_object(dict)
     if len(repository_files) > 1:
@@ -184,6 +198,14 @@ def cli(
         cfg["log-json"] = log_json
     if concurrency is not None:
         cfg["concurrency"] = concurrency
+    if max_rate_wait is not None:
+        cfg["max-rate-wait"] = max_rate_wait
+    if max_rate_limit_hits is not None:
+        cfg["max-rate-limit-hits"] = max_rate_limit_hits
+    for name in ("max-rate-wait", "max-rate-limit-hits"):
+        value = cfg[name]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise click.UsageError(f"{name} must be a non-negative integer")
     cfg["explicit_repositories"] = _resolve_explicit_repositories(
         cfg["owners"], repositories, repository_files[0] if repository_files else None
     )

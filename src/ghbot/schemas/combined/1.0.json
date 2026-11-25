@@ -9,6 +9,19 @@
     "drift"
   ],
   "properties": {
+    "complete": {"type": "boolean"},
+    "abort_reason": {"type": ["string", "null"], "enum": ["rate_limited", "task_failed", null]},
+    "not_processed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["repository", "reason"],
+        "properties": {
+          "repository": {"type": "string"},
+          "reason": {"enum": ["rate_limited", "task_failed"]}
+        }
+      }
+    },
     "security": {
       "$ref": "ghbot://schemas/security/1.0.json"
     },

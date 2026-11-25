@@ -2,7 +2,40 @@
 
 import json
 
-from ghbot.report_style import CombinedCollectionReport, ReportSection
+from ghbot.report_style import CombinedCollectionReport, ReportOutcome, ReportSection
+
+
+class _Collection:
+    def document(self):
+        return {"repositories": []}
+
+    def render(self, format):
+        return "report\n"
+
+
+def test_rate_limited_outcome_marks_json_and_plain_output_incomplete():
+    outcome = ReportOutcome(
+        _Collection(), abort_reason="rate_limited", not_processed=("acme/api",)
+    )
+
+    assert outcome.document()["complete"] is False
+    assert outcome.document()["not_processed"] == [
+        {"repository": "acme/api", "reason": "rate_limited"}
+    ]
+    assert outcome.render("plain").startswith("INCOMPLETE: rate limited\n")
+
+
+def test_task_failure_outcome_keeps_its_distinct_reason():
+    outcome = ReportOutcome(
+        _Collection(),
+        abort_reason="task_failed",
+        not_processed=(("acme/api", "task_failed"),),
+    )
+
+    assert outcome.document()["not_processed"] == [
+        {"repository": "acme/api", "reason": "task_failed"}
+    ]
+    assert outcome.render("plain").startswith("INCOMPLETE: task failed\n")
 
 
 class FakeCollection:
@@ -42,6 +75,26 @@ def test_composition_plain_output_keeps_labelled_combine_key_sections():
     assert report.render("plain") == (
         "Security\nplain security\n\nIssues\nplain issues\n\nDrift\nplain drift\n"
     )
+
+
+def test_incomplete_combined_text_has_one_banner():
+    report = ReportOutcome(
+        CombinedCollectionReport(
+            (
+                ReportSection(
+                    "security",
+                    ReportOutcome(FakeCollection("security"), "rate_limited"),
+                ),
+                ReportSection(
+                    "issues",
+                    ReportOutcome(FakeCollection("issues"), "rate_limited"),
+                ),
+            )
+        ),
+        "rate_limited",
+    )
+
+    assert report.render("plain").count("INCOMPLETE: rate limited") == 1
 
 
 def test_composition_json_nests_each_collection_document_directly():

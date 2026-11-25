@@ -7,9 +7,15 @@ import gidgethub.httpx as gh_httpx
 import pytest
 
 from ghbot.errors import AuthError, GitHubSecondaryRateLimitError
+from ghbot.executor import RateLimitAbort, TaskPool
 from ghbot.github.repos import DiscoveredRepository
 from ghbot.processor import InfoRepoProcessor, RepoResult
-from ghbot.runner import run_combo, run_mode, run_processor
+from ghbot.runner import (
+    _requested_with_explicit_selections,
+    run_combo,
+    run_mode,
+    run_processor,
+)
 
 
 async def _scan_one(owners, gh, *, explicit_repositories=None):
@@ -28,6 +34,26 @@ def _pool(*, results=None, stats=None):
     pool.results = results or []
     pool.stats = stats or {}
     return pool
+
+
+def test_explicit_skipped_or_case_variant_selection_is_not_rate_limited():
+    pool = TaskPool()
+    pool.rate_limit_abort = RateLimitAbort("limited")
+    pool.skipped_explicit_ids.add("acme/missing")
+
+    requested = _requested_with_explicit_selections(
+        {
+            "explicit_repositories": (
+                ("acme", "API"),
+                ("acme", "missing"),
+                ("acme", "later"),
+            )
+        },
+        ["acme/api"],
+        pool,
+    )
+
+    assert requested == ["acme/api", "acme/later"]
 
 
 @pytest.mark.anyio
@@ -167,7 +193,7 @@ async def test_run_mode_collects_results_inside_pool_tasks():
         async def __aexit__(self, *args):
             return False
 
-        async def submit(self, fn):
+        async def submit(self, fn, **kwargs):
             await fn()
 
     result = RepoResult(owner="acme", repo="api")
@@ -212,7 +238,7 @@ async def test_run_mode_forwards_explicit_repositories_to_scanner():
         async def __aexit__(self, *args):
             return False
 
-        async def submit(self, fn):
+        async def submit(self, fn, **kwargs):
             await fn()
 
     explicit_repositories = (("acme", "widgets"),)
@@ -254,7 +280,7 @@ async def test_run_combo_scans_once_and_groups_every_discovered_mode_result():
         async def __aexit__(self, *args):
             return False
 
-        async def submit(self, fn):
+        async def submit(self, fn, **kwargs):
             self.submissions += 1
             await fn()
 
@@ -313,6 +339,55 @@ async def test_run_combo_scans_once_and_groups_every_discovered_mode_result():
 
 
 @pytest.mark.anyio
+async def test_run_combo_retries_rate_limited_discovery_through_the_shared_gate():
+    class ImmediatePool:
+        def __init__(self):
+            self.stats = {}
+            self.rate_limit_abort = None
+            self.completed_ids: set[str] = set()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def submit(self, fn, *, task_id=None):
+            await fn()
+            if task_id is not None:
+                self.completed_ids.add(task_id)
+
+        def abort_rate_limit(self, error):
+            self.rate_limit_abort = error
+
+    calls = 0
+    collection = MagicMock()
+    mode = MagicMock()
+    mode.name = "security"
+    mode.new_collection.return_value = collection
+    result = RepoResult(owner="acme", repo="api")
+    mode.new_processor.return_value = MagicMock(run=AsyncMock(return_value=result))
+
+    async def scan(owners, gh, *, explicit_repositories=None):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise GitHubSecondaryRateLimitError("limited", delay_seconds=0)
+        yield DiscoveredRepository("acme", {"name": "api"}, "Organization")
+
+    with (
+        patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
+        patch("ghbot.runner.scan_repositories", side_effect=scan),
+        patch("ghbot.runner.TaskPool", return_value=ImmediatePool()),
+    ):
+        report = await run_combo({"owners": ["acme"], "concurrency": 1}, (mode,))
+
+    assert calls == 2
+    assert report.complete
+    collection.add.assert_called_once_with(result)
+
+
+@pytest.mark.anyio
 async def test_run_combo_retains_other_mode_result_when_one_is_partial():
     class ImmediatePool:
         def __init__(self):
@@ -324,7 +399,7 @@ async def test_run_combo_retains_other_mode_result_when_one_is_partial():
         async def __aexit__(self, *args):
             return False
 
-        async def submit(self, fn):
+        async def submit(self, fn, **kwargs):
             await fn()
 
     partial = RepoResult(owner="acme", repo="api", status="partial")
@@ -370,7 +445,7 @@ async def test_run_combo_propagates_fatal_processor_errors():
         async def __aexit__(self, *args):
             return False
 
-        async def submit(self, fn):
+        async def submit(self, fn, **kwargs):
             await fn()
 
     mode = MagicMock()
@@ -413,7 +488,12 @@ async def test_run_combo_does_not_duplicate_results_after_secondary_rate_limit_r
     issues_mode.name = "issues"
     issues_mode.new_collection.return_value = issues_collection
     issues_mode.new_processor.return_value = MagicMock(
-        run=AsyncMock(side_effect=[GitHubSecondaryRateLimitError("429"), issues_result])
+        run=AsyncMock(
+            side_effect=[
+                GitHubSecondaryRateLimitError("429", delay_seconds=0),
+                issues_result,
+            ]
+        )
     )
 
     async def scan(owners, gh, *, explicit_repositories=None):
@@ -455,10 +535,12 @@ async def test_run_combo_retains_completed_results_after_later_ordinary_failure(
         patch("ghbot.runner.get_auth_token", new=AsyncMock(return_value="token")),
         patch("ghbot.runner.scan_repositories", side_effect=_scan_one),
     ):
-        await run_combo(
+        report = await run_combo(
             {"owners": ["acme"], "concurrency": 1},
             (completed_mode, failed_mode),
         )
 
     completed_collection.add.assert_called_once_with(completed_result)
     failed_collection.add.assert_not_called()
+    assert report.sections[0].collection.complete
+    assert not report.sections[1].collection.complete
