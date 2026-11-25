@@ -19,7 +19,16 @@ from ghbot.errors import (
 )
 from ghbot.github.client import github_api_call
 from ghbot.log import get_logger
-from ghbot.processor import FeedbackEvent, GitHubClient, Monitor, RepoResult
+from ghbot.processor import (
+    FeedbackEvent,
+    GitHubClient,
+    Monitor,
+    RepoResult,
+    display_metric,
+    record_unavailable,
+    report_metadata,
+    unavailable_reason,
+)
 from ghbot.report_style import (
     JSONReportStyle,
     PlainReportStyle,
@@ -241,6 +250,20 @@ class DriftRepoProcessor:
     async def _record_error(
         self, result: RepoResult, operation: str, error: Exception
     ) -> None:
+        metrics = {
+            "repository metadata": ("default_branch",),
+            "release comparison": ("commits_since_release",),
+            "PyPI workflow configuration": ("pypi_publishing_configured",),
+        }.get(operation, ())
+        if isinstance(error, GitHubApiError):
+            record_unavailable(
+                result,
+                *metrics,
+                reason=unavailable_reason(error),
+                error=error,
+            )
+        elif metrics:
+            record_unavailable(result, *metrics, reason="error", error=error)
         result.errors.append(f"{operation}: {error}")
         await self._monitor.send_event(
             FeedbackEvent("fetch", "error", f"failed to fetch {operation}: {error}")
@@ -272,20 +295,42 @@ class DriftCollectionReport:
                 lines.extend(
                     [
                         "",
-                        f"{result.owner}/{result.repo}",
-                        _fmt("  Latest release:", result.results["latest_release_tag"]),
+                        _repository_heading(result),
+                        _fmt(
+                            "  Latest release:",
+                            display_metric(
+                                result,
+                                "latest_release_tag",
+                                result.results.get("latest_release_tag"),
+                            ),
+                        ),
                         _fmt(
                             "  Release published:",
-                            _display(result.results["latest_release_published_at"]),
+                            display_metric(
+                                result,
+                                "latest_release_published_at",
+                                result.results.get("latest_release_published_at"),
+                            ),
                         ),
-                        _fmt("  Default branch:", result.results["default_branch"]),
+                        _fmt(
+                            "  Default branch:",
+                            display_metric(
+                                result,
+                                "default_branch",
+                                result.results.get("default_branch"),
+                            ),
+                        ),
                         _fmt(
                             "  Commits since release:",
-                            result.results["commits_since_release"],
+                            display_metric(
+                                result,
+                                "commits_since_release",
+                                result.results.get("commits_since_release"),
+                            ),
                         ),
                         _fmt(
                             "  PyPI configured:",
-                            _pypi(result.results["pypi_publishing_configured"]),
+                            _pypi_metric(result),
                         ),
                     ]
                 )
@@ -349,9 +394,14 @@ def drift(
         log.error(error.message)
         sys.exit(error.exit_code)
     write_report(collection.render(selected_format), output)
-    if getattr(collection, "abort_reason", None) == "rate_limited":
+    if getattr(collection, "exit_code", 0) == 4:
         log.error("rate limited; wrote incomplete report")
         sys.exit(4)
+    if getattr(collection, "exit_code", 0) == 8:
+        log.error(
+            "unavailable explicit repository; wrote report with missing expected data"
+        )
+        sys.exit(8)
 
 
 def _reportable(results: list[RepoResult]) -> list[RepoResult]:
@@ -359,23 +409,31 @@ def _reportable(results: list[RepoResult]) -> list[RepoResult]:
         (
             result
             for result in results
-            if isinstance(result.results.get("commits_since_release"), int)
-            and result.results["commits_since_release"] > 0
+            if (
+                isinstance(result.results.get("commits_since_release"), int)
+                and result.results["commits_since_release"] > 0
+            )
+            or result.reason is not None
         ),
         key=lambda result: f"{result.owner}/{result.repo}",
     )
 
 
 def _summary(results: list[RepoResult]) -> dict[str, int]:
-    reportable = _reportable(results)
+    drifting = [
+        result
+        for result in results
+        if isinstance(result.results.get("commits_since_release"), int)
+        and result.results["commits_since_release"] > 0
+    ]
     return {
         "repos_scanned": len(results),
         "released_repos": sum(
             1 for result in results if result.results.get("latest_release_tag")
         ),
-        "repos_with_drift": len(reportable),
+        "repos_with_drift": len(drifting),
         "commits_since_release": sum(
-            result.results["commits_since_release"] for result in reportable
+            result.results["commits_since_release"] for result in drifting
         ),
     }
 
@@ -395,11 +453,14 @@ def _repo_document(result: RepoResult) -> dict[str, object]:
         "owner": result.owner,
         "repo": result.repo,
         "repository": f"{result.owner}/{result.repo}",
-        "default_branch": result.results["default_branch"],
-        "latest_release_tag": result.results["latest_release_tag"],
-        "latest_release_published_at": result.results["latest_release_published_at"],
-        "commits_since_release": result.results["commits_since_release"],
-        "pypi_publishing_configured": result.results["pypi_publishing_configured"],
+        "default_branch": result.results.get("default_branch"),
+        "latest_release_tag": result.results.get("latest_release_tag"),
+        "latest_release_published_at": result.results.get(
+            "latest_release_published_at"
+        ),
+        "commits_since_release": result.results.get("commits_since_release"),
+        "pypi_publishing_configured": result.results.get("pypi_publishing_configured"),
+        **report_metadata(result),
     }
 
 
@@ -415,13 +476,31 @@ def _pypi(value: bool | None) -> str:
     return "N/A" if value is None else "yes" if value else "no"
 
 
+def _pypi_metric(result: RepoResult) -> object:
+    value = result.results.get("pypi_publishing_configured")
+    return (
+        display_metric(result, "pypi_publishing_configured", value)
+        if value is None
+        else _pypi(value)
+    )
+
+
+def _repository_heading(result: RepoResult) -> str:
+    name = f"{result.owner}/{result.repo}"
+    return f"{name} ({result.status}: {result.reason})" if result.reason else name
+
+
 def _table_header() -> str:
-    return f"|{'Repository':<32}|{' Release':>14}|{' Published':>22}|{' Branch':>14}|{' Commits':>10}|{' PyPI':>8}|"
+    return f"|{'Repository':<48}|{' Release':>16}|{' Published':>22}|{' Branch':>16}|{' Commits':>16}|{' PyPI':>16}|"
 
 
 def _table_separator() -> str:
-    return "|" + "|".join("-" * width for width in (32, 14, 22, 14, 10, 8)) + "|"
+    return "|" + "|".join("-" * width for width in (48, 16, 22, 16, 16, 16)) + "|"
 
 
 def _table_row(result: RepoResult) -> str:
-    return f"|{f'{result.owner}/{result.repo}':<32}|{_display(result.results['latest_release_tag']):>14}|{_display(result.results['latest_release_published_at']):>22}|{_display(result.results['default_branch']):>14}|{result.results['commits_since_release']:>10}|{_pypi(result.results['pypi_publishing_configured']):>8}|"
+    return f"|{_table_repository(result):<48}|{display_metric(result, 'latest_release_tag', result.results.get('latest_release_tag')):>16}|{display_metric(result, 'latest_release_published_at', result.results.get('latest_release_published_at')):>22}|{display_metric(result, 'default_branch', result.results.get('default_branch')):>16}|{display_metric(result, 'commits_since_release', result.results.get('commits_since_release')):>16}|{_pypi_metric(result):>16}|"
+
+
+def _table_repository(result: RepoResult) -> str:
+    return _repository_heading(result)

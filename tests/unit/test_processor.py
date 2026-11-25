@@ -8,7 +8,21 @@ from ghbot.processor import (
     FeedbackEvent,
     LoggingMonitor,
     Monitor,
+    RepoResult,
+    UnavailableMetric,
 )
+
+
+def test_repo_result_preserves_unavailable_metric_metadata():
+    result = RepoResult(owner="acme", repo="widgets")
+    result.unavailable["dependabot_alerts"] = UnavailableMetric(
+        reason="forbidden", message="Resource not accessible by integration"
+    )
+
+    assert result.unavailable["dependabot_alerts"].reason == "forbidden"
+    assert result.unavailable["dependabot_alerts"].message == (
+        "Resource not accessible by integration"
+    )
 
 
 class TestLoggingMonitor:

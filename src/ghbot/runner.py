@@ -13,7 +13,7 @@ from ghbot.errors import (
 )
 from ghbot.executor import RateLimitAbort, TaskPool
 from ghbot.github.auth import get_auth_token
-from ghbot.github.repos import scan_repositories
+from ghbot.github.repos import ExplicitRepositoryOutcome, scan_repositories
 from ghbot.log import get_logger
 from ghbot.modes import ReportableModeDefinition
 from ghbot.processor import LoggingMonitor, RepoResult
@@ -21,6 +21,16 @@ from ghbot.rate_limit import RateLimitGate
 from ghbot.report_style import CombinedCollectionReport, ReportOutcome, ReportSection
 
 log = get_logger(__name__)
+
+
+def _explicit_outcome_result(outcome: ExplicitRepositoryOutcome) -> RepoResult:
+    """Turn a discovery-only explicit selection outcome into a report result."""
+    return RepoResult(
+        owner=outcome.owner,
+        repo=outcome.repo,
+        status=outcome.status,
+        reason=outcome.reason,
+    )
 
 
 async def _scan_with_rate_retries(
@@ -71,6 +81,14 @@ async def run_processor(
             limit=cfg["concurrency"], rate_limit_gate=gh.rate_limit_gate
         ) as pool:
             async for discovered in _scan_with_rate_retries(cfg, gh, pool):
+                if isinstance(discovered, ExplicitRepositoryOutcome):
+                    log.warning(
+                        "Explicit repository unavailable (%s): %s/%s",
+                        discovered.reason,
+                        discovered.owner,
+                        discovered.repo,
+                    )
+                    continue
                 monitor = LoggingMonitor(discovered.owner, discovered.name)
                 processor = processor_cls(
                     discovered.owner,
@@ -105,7 +123,12 @@ def _requested_with_explicit_selections(
 
 
 def _report_outcome(
-    collection: Any, cfg: dict, requested: list[str], pool: TaskPool
+    collection: Any,
+    cfg: dict,
+    requested: list[str],
+    pool: TaskPool,
+    *,
+    explicit_unavailable: bool = False,
 ) -> ReportOutcome:
     requested = _requested_with_explicit_selections(cfg, requested, pool)
     abort_reason = (
@@ -124,7 +147,12 @@ def _report_outcome(
         for repository in requested
         if repository not in settled and abort_reason is not None
     )
-    return ReportOutcome(collection, abort_reason, not_processed)
+    return ReportOutcome(
+        collection,
+        abort_reason,
+        not_processed,
+        explicit_unavailable=explicit_unavailable,
+    )
 
 
 async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportOutcome:
@@ -132,6 +160,7 @@ async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportO
     options = dict(options or {})
     collection = mode.new_collection(options)
     requested: list[str] = []
+    explicit_unavailable = False
     token = await get_auth_token(use_environment=cfg.get("env", False))
     async with httpx.AsyncClient() as client:
         gh: Any = gh_httpx.GitHubAPI(client, "ghbot", oauth_token=token)
@@ -145,6 +174,10 @@ async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportO
             async for discovered in _scan_with_rate_retries(cfg, gh, pool):
                 repository = f"{discovered.owner}/{discovered.name}"
                 requested.append(repository)
+                if isinstance(discovered, ExplicitRepositoryOutcome):
+                    collection.add(_explicit_outcome_result(discovered))
+                    explicit_unavailable = True
+                    continue
                 processor = mode.new_processor(
                     discovered.owner,
                     discovered.name,
@@ -159,7 +192,13 @@ async def run_mode(cfg: dict, mode: Any, options: dict | None = None) -> ReportO
 
                 await pool.submit(collect, task_id=repository)
     log.info("stats: %s", pool.stats)
-    return _report_outcome(collection, cfg, requested, pool)
+    return _report_outcome(
+        collection,
+        cfg,
+        requested,
+        pool,
+        explicit_unavailable=explicit_unavailable,
+    )
 
 
 async def run_combo(
@@ -177,6 +216,7 @@ async def run_combo(
     }
     sections = tuple(ReportSection(mode.name, collections[mode.name]) for mode in modes)
     requested: list[str] = []
+    explicit_unavailable = False
     completed_by_mode: dict[str, set[str]] = {mode.name: set() for mode in modes}
 
     token = await get_auth_token(use_environment=cfg.get("env", False))
@@ -192,6 +232,13 @@ async def run_combo(
             async for discovered in _scan_with_rate_retries(cfg, gh, pool):
                 repository = f"{discovered.owner}/{discovered.name}"
                 requested.append(repository)
+                if isinstance(discovered, ExplicitRepositoryOutcome):
+                    result = _explicit_outcome_result(discovered)
+                    for mode in modes:
+                        collections[mode.name].add(result)
+                        completed_by_mode[mode.name].add(repository)
+                    explicit_unavailable = True
+                    continue
                 results: dict[str, RepoResult] = {}
 
                 async def collect(
@@ -247,5 +294,9 @@ async def run_combo(
             )
         )
     return _report_outcome(
-        CombinedCollectionReport(tuple(outcome_sections)), cfg, requested, pool
+        CombinedCollectionReport(tuple(outcome_sections)),
+        cfg,
+        requested,
+        pool,
+        explicit_unavailable=explicit_unavailable,
     )

@@ -40,6 +40,18 @@
       ],
       "minimum": 0
     },
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {"enum": ["not_found", "forbidden", "disabled", "error"]},
+          "message": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
     "summary": {
       "type": "object",
       "required": [
@@ -96,6 +108,9 @@
         "repository": {
           "type": "string"
         },
+        "status": {"enum": ["success", "partial", "failed", "skipped"]},
+        "reason": {"enum": ["not_found", "forbidden", "archived", "error"]},
+        "unavailable": {"$ref": "#/$defs/unavailable"},
         "dependabot_alerts": {
           "$ref": "#/$defs/count"
         },

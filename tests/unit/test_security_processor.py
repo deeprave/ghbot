@@ -7,6 +7,7 @@ import pytest
 
 from ghbot.errors import (
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -415,6 +416,7 @@ class TestSecurityRepoProcessorNotFound:
         assert result.results["dependabot_alerts"] is None
         assert result.errors == []
         assert result.status == "success"
+        assert result.unavailable["dependabot_alerts"].reason == "not_found"
 
     @pytest.mark.anyio
     async def test_dependabot_not_found_emits_debug_event(self):
@@ -495,34 +497,115 @@ class TestSecurityRepoProcessorApiError:
         assert result.results["dependabot_alerts"] is None
         assert result.status == "partial"
         assert len(result.errors) == 1
+        assert result.unavailable["dependabot_alerts"].reason == "error"
+        assert result.unavailable["dependabot_alerts"].message == "api error"
 
-    @pytest.mark.anyio
-    async def test_pull_request_api_error_sets_none_and_partial(self):
-        gh = self._make_gh_with_api_error("/pulls")
-        processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
-            result = await processor.run()
-        assert result.results["dependabot_open_pull_requests"] is None
-        assert result.results["dependabot_ready_pull_requests"] is None
-        assert result.status == "partial"
-        assert len(result.errors) == 1
 
-    @pytest.mark.anyio
-    async def test_readiness_api_error_excludes_pr_and_sets_partial(self):
-        gh = _make_gh(
-            dependabot=0,
-            code_scanning=0,
-            secret_scanning=0,
-            prs=[_pr()],
-        )
-        gh.getitem = AsyncMock(side_effect=GitHubApiError("api error"))
-        processor, _ = _make_processor(gh)
-        with patch("ghbot.processor.github_api_call", _passthrough):
-            result = await processor.run()
-        assert result.results["dependabot_open_pull_requests"] == 1
-        assert result.results["dependabot_ready_pull_requests"] == 0
-        assert result.status == "partial"
-        assert len(result.errors) == 1
+@pytest.mark.anyio
+async def test_forbidden_alert_metric_is_distinguished_from_not_found():
+    gh = _make_gh()
+
+    def _getiter(url, *, url_vars=None):
+        if "dependabot" in url:
+
+            async def _fail():
+                raise GitHubForbiddenError("Resource not accessible by integration")
+                yield
+
+            return _fail()
+        return _aiter()
+
+    gh.getiter = MagicMock(side_effect=_getiter)
+    processor, _ = _make_processor(gh)
+    with patch("ghbot.modes.security.github_api_call", _passthrough):
+        result = await processor.run()
+
+    assert result.results["dependabot_alerts"] is None
+    assert result.unavailable["dependabot_alerts"].reason == "forbidden"
+
+
+@pytest.mark.anyio
+async def test_advanced_security_disabled_metric_is_marked_disabled():
+    gh = _make_gh()
+
+    def _getiter(url, *, url_vars=None):
+        if "code-scanning" in url:
+
+            async def _fail():
+                raise GitHubForbiddenError(
+                    "Advanced Security must be enabled for this repository"
+                )
+                yield
+
+            return _fail()
+        return _aiter()
+
+    gh.getiter = MagicMock(side_effect=_getiter)
+    processor, _ = _make_processor(gh)
+    with patch("ghbot.modes.security.github_api_call", _passthrough):
+        result = await processor.run()
+
+    assert result.results["code_scanning_alerts"] is None
+    assert result.unavailable["code_scanning_alerts"].reason == "disabled"
+    assert result.status == "success"
+    assert result.errors == []
+
+
+@pytest.mark.anyio
+async def test_dependabot_alerts_disabled_metric_is_marked_disabled():
+    gh = _make_gh()
+
+    def _getiter(url, *, url_vars=None):
+        if "dependabot" in url:
+
+            async def _fail():
+                raise GitHubForbiddenError(
+                    "Dependabot alerts are disabled for this repository"
+                )
+                yield
+
+            return _fail()
+        return _aiter()
+
+    gh.getiter = MagicMock(side_effect=_getiter)
+    processor, _ = _make_processor(gh)
+    with patch("ghbot.modes.security.github_api_call", _passthrough):
+        result = await processor.run()
+
+    assert result.results["dependabot_alerts"] is None
+    assert result.unavailable["dependabot_alerts"].reason == "disabled"
+    assert result.status == "success"
+    assert result.errors == []
+
+
+@pytest.mark.anyio
+async def test_pull_request_api_error_sets_none_and_partial():
+    gh = TestSecurityRepoProcessorApiError()._make_gh_with_api_error("/pulls")
+    processor, _ = _make_processor(gh)
+    with patch("ghbot.processor.github_api_call", _passthrough):
+        result = await processor.run()
+    assert result.results["dependabot_open_pull_requests"] is None
+    assert result.results["dependabot_ready_pull_requests"] is None
+    assert result.status == "partial"
+    assert len(result.errors) == 1
+
+
+@pytest.mark.anyio
+async def test_readiness_api_error_excludes_pr_and_sets_partial():
+    gh = _make_gh(
+        dependabot=0,
+        code_scanning=0,
+        secret_scanning=0,
+        prs=[_pr()],
+    )
+    gh.getitem = AsyncMock(side_effect=GitHubApiError("api error"))
+    processor, _ = _make_processor(gh)
+    with patch("ghbot.processor.github_api_call", _passthrough):
+        result = await processor.run()
+    assert result.results["dependabot_open_pull_requests"] == 1
+    assert result.results["dependabot_ready_pull_requests"] == 0
+    assert result.status == "partial"
+    assert len(result.errors) == 1
 
 
 # ---------------------------------------------------------------------------

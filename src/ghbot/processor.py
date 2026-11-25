@@ -12,6 +12,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from ghbot.errors import (
     FatalError,
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -19,7 +20,8 @@ from ghbot.errors import (
 from ghbot.github.client import github_api_call
 from ghbot.log import get_logger
 
-ProcessingStatus = Literal["success", "partial", "failed"]
+ProcessingStatus = Literal["success", "partial", "failed", "skipped"]
+UnavailableReason = Literal["not_found", "forbidden", "disabled", "error"]
 _DEPENDABOT_LOGIN = "dependabot[bot]"
 _NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
 
@@ -33,6 +35,14 @@ class FeedbackEvent:
     message: str
 
 
+@dataclass(frozen=True, slots=True)
+class UnavailableMetric:
+    """Why a nullable report metric could not be retrieved."""
+
+    reason: UnavailableReason
+    message: str | None = None
+
+
 @dataclass(slots=True)
 class RepoResult:
     """Structured result returned by a RepoProcessor after processing completes."""
@@ -42,6 +52,54 @@ class RepoResult:
     status: ProcessingStatus = "success"
     errors: list[str] = field(default_factory=list)
     results: dict = field(default_factory=dict)
+    unavailable: dict[str, UnavailableMetric] = field(default_factory=dict)
+    reason: str | None = None
+
+
+def record_unavailable(
+    result: RepoResult,
+    *metrics: str,
+    reason: UnavailableReason,
+    error: Exception | None = None,
+) -> None:
+    """Record a concise availability cause for nullable result metrics."""
+    message = str(error) if error is not None else None
+    unavailable = UnavailableMetric(reason=reason, message=message or None)
+    result.unavailable.update(dict.fromkeys(metrics, unavailable))
+
+
+def unavailable_reason(error: GitHubApiError) -> UnavailableReason:
+    if isinstance(error, GitHubNotFoundError):
+        return "not_found"
+    if isinstance(error, GitHubForbiddenError):
+        return "forbidden"
+    return "error"
+
+
+def report_metadata(result: RepoResult) -> dict[str, object]:
+    """Return additive report fields shared by every report mode."""
+    metadata: dict[str, object] = {}
+    if result.status != "success":
+        metadata["status"] = result.status
+    if result.reason is not None:
+        metadata["reason"] = result.reason
+    if result.unavailable:
+        metadata["unavailable"] = {
+            metric: {
+                "reason": unavailable.reason,
+                **({"message": unavailable.message} if unavailable.message else {}),
+            }
+            for metric, unavailable in result.unavailable.items()
+        }
+    return metadata
+
+
+def display_metric(result: RepoResult, metric: str, value: object) -> object:
+    """Render nullable metrics without discarding their availability reason."""
+    if value is not None:
+        return value
+    unavailable = result.unavailable.get(metric)
+    return f"N/A ({unavailable.reason})" if unavailable else "N/A"
 
 
 @runtime_checkable

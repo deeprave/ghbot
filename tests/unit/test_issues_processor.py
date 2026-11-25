@@ -552,6 +552,8 @@ class TestIssuesRepoProcessorNotFound:
         assert result.results["open_items"] is None
         assert result.errors == []
         assert result.status == "success"
+        assert result.unavailable["open_item_count"].reason == "not_found"
+        assert result.unavailable["open_items"].reason == "not_found"
 
 
 # ---------------------------------------------------------------------------
@@ -586,6 +588,8 @@ class TestIssuesRepoProcessorApiError:
         assert result.results["open_items"] is None
         assert result.status == "partial"
         assert len(result.errors) == 1
+        assert result.unavailable["open_item_count"].reason == "error"
+        assert result.unavailable["open_items"].message == "api error"
 
 
 # ---------------------------------------------------------------------------

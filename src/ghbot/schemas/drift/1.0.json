@@ -33,6 +33,18 @@
   },
   "additionalProperties": true,
   "$defs": {
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {"enum": ["not_found", "forbidden", "disabled", "error"]},
+          "message": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
     "summary": {
       "type": "object",
       "required": [
@@ -83,6 +95,9 @@
         "repository": {
           "type": "string"
         },
+        "status": {"enum": ["success", "partial", "failed", "skipped"]},
+        "reason": {"enum": ["not_found", "forbidden", "archived", "error"]},
+        "unavailable": {"$ref": "#/$defs/unavailable"},
         "default_branch": {
           "type": [
             "string",
@@ -102,7 +117,7 @@
           ]
         },
         "commits_since_release": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 1
         },
         "pypi_publishing_configured": {

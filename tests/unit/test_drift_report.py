@@ -66,6 +66,19 @@ def test_human_reports_render_missing_release_publication_time_as_na():
     assert "N/A" in render_drift_report([result], format="table")
 
 
+def test_table_shows_explicit_outcome_without_counting_drift():
+    result = _result("acme", "missing", None)
+    result.status = "failed"
+    result.reason = "not_found"
+
+    payload = json.loads(render_drift_report([result], format="json"))
+    table = render_drift_report([result], format="table")
+
+    assert "acme/missing (failed: not_found)" in table
+    assert payload["summary"]["repos_with_drift"] == 0
+    assert payload["summary"]["commits_since_release"] == 0
+
+
 def test_json_report_contains_only_reportable_repositories_and_null_pypi():
     text = render_drift_report(
         [_result("acme", "changed", 5, pypi=None), _result("acme", "current", 0)],

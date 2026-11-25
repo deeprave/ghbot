@@ -201,6 +201,10 @@ async def test_compare_failure_is_partial_and_not_reportable():
 
     assert result.status == "partial"
     assert result.results["commits_since_release"] is None
+    assert result.unavailable["commits_since_release"].reason == "error"
+    assert (
+        result.unavailable["commits_since_release"].message == "comparison unavailable"
+    )
     assert any(
         event.type == "fetch" and event.severity == "error" for event in monitor.events
     )

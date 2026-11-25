@@ -12,13 +12,23 @@ import click
 from ghbot.errors import (
     FatalError,
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
 from ghbot.github.client import github_api_call
 from ghbot.log import get_logger
-from ghbot.processor import FeedbackEvent, GitHubClient, Monitor, RepoResult
+from ghbot.processor import (
+    FeedbackEvent,
+    GitHubClient,
+    Monitor,
+    RepoResult,
+    display_metric,
+    record_unavailable,
+    report_metadata,
+    unavailable_reason,
+)
 from ghbot.report_style import (
     JSONReportStyle,
     PlainReportStyle,
@@ -120,21 +130,21 @@ class SecurityRepoProcessor:
                 ):
                     count += 1
             result.results["dependabot_alerts"] = count
-        except GitHubNotFoundError:
+        except GitHubNotFoundError as error:
             await self._defer_event(
                 FeedbackEvent("fetch", "debug", "dependabot alerts not accessible")
             )
             result.results["dependabot_alerts"] = None
+            record_unavailable(
+                result, "dependabot_alerts", reason="not_found", error=error
+            )
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
-            await self._monitor.send_event(
-                FeedbackEvent(
-                    "fetch", "error", f"failed to fetch dependabot alerts: {error}"
-                )
-            )
             result.results["dependabot_alerts"] = None
-            result.errors.append(f"dependabot alerts: {error}")
+            await self._record_alert_error(
+                result, "dependabot_alerts", "dependabot alerts", error
+            )
 
     async def _fetch_code_scanning_alerts(self, result: RepoResult) -> None:
         await self._fetch_alert_count(
@@ -164,19 +174,32 @@ class SecurityRepoProcessor:
                 ):
                     count += 1
             result.results[key] = count
-        except GitHubNotFoundError:
+        except GitHubNotFoundError as error:
             await self._defer_event(
                 FeedbackEvent("fetch", "debug", f"{label} not accessible")
             )
             result.results[key] = None
+            record_unavailable(result, key, reason="not_found", error=error)
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
-            await self._monitor.send_event(
-                FeedbackEvent("fetch", "error", f"failed to fetch {label}: {error}")
-            )
             result.results[key] = None
-            result.errors.append(f"{label}: {error}")
+            await self._record_alert_error(result, key, label, error)
+
+    async def _record_alert_error(
+        self, result: RepoResult, key: str, label: str, error: GitHubApiError
+    ) -> None:
+        if _is_security_feature_disabled(error):
+            await self._defer_event(
+                FeedbackEvent("fetch", "debug", f"{label} disabled")
+            )
+            record_unavailable(result, key, reason="disabled", error=error)
+            return
+        await self._monitor.send_event(
+            FeedbackEvent("fetch", "error", f"failed to fetch {label}: {error}")
+        )
+        record_unavailable(result, key, reason=unavailable_reason(error), error=error)
+        result.errors.append(f"{label}: {error}")
 
     async def _fetch_dependabot_pull_requests(self, result: RepoResult) -> None:
         await self._defer_event(
@@ -201,7 +224,7 @@ class SecurityRepoProcessor:
                 ]
                 if ready
             )
-        except GitHubNotFoundError:
+        except GitHubNotFoundError as error:
             await self._defer_event(
                 FeedbackEvent(
                     "fetch", "debug", "dependabot pull requests not accessible"
@@ -209,6 +232,13 @@ class SecurityRepoProcessor:
             )
             result.results["dependabot_open_pull_requests"] = None
             result.results["dependabot_ready_pull_requests"] = None
+            record_unavailable(
+                result,
+                "dependabot_open_pull_requests",
+                "dependabot_ready_pull_requests",
+                reason="not_found",
+                error=error,
+            )
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
@@ -221,6 +251,13 @@ class SecurityRepoProcessor:
             )
             result.results["dependabot_open_pull_requests"] = None
             result.results["dependabot_ready_pull_requests"] = None
+            record_unavailable(
+                result,
+                "dependabot_open_pull_requests",
+                "dependabot_ready_pull_requests",
+                reason=unavailable_reason(error),
+                error=error,
+            )
             result.errors.append(f"dependabot pull requests: {error}")
 
     async def _dependabot_pull_request_is_ready(
@@ -312,6 +349,7 @@ class SecurityCollectionReport:
                     owner=result.owner,
                     repo=result.repo,
                     repository=f"{result.owner}/{result.repo}",
+                    **report_metadata(result),
                 )
                 for result in self.results
             ],
@@ -328,26 +366,46 @@ class SecurityCollectionReport:
             lines.extend(
                 [
                     "",
-                    f"{result.owner}/{result.repo}",
+                    _repository_heading(result),
                     _fmt(
                         "  Dependabot alerts:",
-                        _display(result.results.get("dependabot_alerts")),
+                        display_metric(
+                            result,
+                            "dependabot_alerts",
+                            result.results.get("dependabot_alerts"),
+                        ),
                     ),
                     _fmt(
                         "  Code scanning alerts:",
-                        _display(result.results.get("code_scanning_alerts")),
+                        display_metric(
+                            result,
+                            "code_scanning_alerts",
+                            result.results.get("code_scanning_alerts"),
+                        ),
                     ),
                     _fmt(
                         "  Secret scanning alerts:",
-                        _display(result.results.get("secret_scanning_alerts")),
+                        display_metric(
+                            result,
+                            "secret_scanning_alerts",
+                            result.results.get("secret_scanning_alerts"),
+                        ),
                     ),
                     _fmt(
                         "  Dependabot PRs:",
-                        _display(result.results.get("dependabot_open_pull_requests")),
+                        display_metric(
+                            result,
+                            "dependabot_open_pull_requests",
+                            result.results.get("dependabot_open_pull_requests"),
+                        ),
                     ),
                     _fmt(
                         "  Dependabot PRs ready:",
-                        _display(result.results.get("dependabot_ready_pull_requests")),
+                        display_metric(
+                            result,
+                            "dependabot_ready_pull_requests",
+                            result.results.get("dependabot_ready_pull_requests"),
+                        ),
                     ),
                 ]
             )
@@ -362,7 +420,13 @@ class SecurityCollectionReport:
 
     def _active_results(self) -> list[RepoResult]:
         return sorted(
-            (result for result in self.results if self._active(result)),
+            (
+                result
+                for result in self.results
+                if self._active(result)
+                or result.unavailable
+                or result.reason is not None
+            ),
             key=lambda result: f"{result.owner}/{result.repo}",
         )
 
@@ -437,17 +501,31 @@ def security(
         log.error(error.message)
         sys.exit(error.exit_code)
     write_report(collection.render(selected_format), output)
-    if getattr(collection, "abort_reason", None) == "rate_limited":
+    if getattr(collection, "exit_code", 0) == 4:
         log.error("rate limited; wrote incomplete report")
         sys.exit(4)
+    if getattr(collection, "exit_code", 0) == 8:
+        log.error(
+            "unavailable explicit repository; wrote report with missing expected data"
+        )
+        sys.exit(8)
 
 
-def _fmt(label: str, value: int | str) -> str:
+def _fmt(label: str, value: object) -> str:
     return f"{label:<26}{value:>8}"
 
 
 def _display(value: int | None) -> int | str:
     return "N/A" if value is None else value
+
+
+def _repository_heading(result: RepoResult) -> str:
+    name = f"{result.owner}/{result.repo}"
+    return (
+        f"{name} ({result.status}: {result.reason})"
+        if result.reason is not None
+        else name
+    )
 
 
 def _security_activity_message(result: RepoResult) -> str | None:
@@ -477,6 +555,17 @@ def _is_dependabot_pull_request(pull_request: dict) -> bool:
     return (pull_request.get("user") or {}).get("login") == "dependabot[bot]"
 
 
+def _is_security_feature_disabled(error: GitHubApiError) -> bool:
+    """Recognize documented feature-disabled responses from security endpoints."""
+    return isinstance(error, GitHubForbiddenError) and any(
+        message in str(error).casefold()
+        for message in (
+            "advanced security must be enabled",
+            "dependabot alerts are disabled",
+        )
+    )
+
+
 def _check_run_is_ready(check_run: dict) -> bool:
     return check_run.get("status") == "completed" and check_run.get("conclusion") in {
         "success",
@@ -487,25 +576,46 @@ def _check_run_is_ready(check_run: dict) -> bool:
 
 def _table_header() -> str:
     return (
-        f"|{'Repository':<38}|{' Dependabot ':>12}|{' Scanning ':>10}"
-        f"|{' Secrets ':>9}|{' Dep PRs ':>9}|{' Ready ':>7}|"
+        f"|{'Repository':<48}|{' Dependabot ':>16}|{' Scanning ':>16}"
+        f"|{' Secrets ':>16}|{' Dep PRs ':>16}|{' Ready ':>16}|"
     )
 
 
 def _table_separator() -> str:
-    return "|" + "|".join("-" * width for width in (38, 12, 10, 9, 9, 7)) + "|"
+    return "|" + "|".join("-" * width for width in (48, 16, 16, 16, 16, 16)) + "|"
 
 
 def _table_row(result: RepoResult) -> str:
     values = (
-        f"{result.owner}/{result.repo}",
-        _display(result.results.get("dependabot_alerts")),
-        _display(result.results.get("code_scanning_alerts")),
-        _display(result.results.get("secret_scanning_alerts")),
-        _display(result.results.get("dependabot_open_pull_requests")),
-        _display(result.results.get("dependabot_ready_pull_requests")),
+        _table_repository(result),
+        display_metric(
+            result, "dependabot_alerts", result.results.get("dependabot_alerts")
+        ),
+        display_metric(
+            result, "code_scanning_alerts", result.results.get("code_scanning_alerts")
+        ),
+        display_metric(
+            result,
+            "secret_scanning_alerts",
+            result.results.get("secret_scanning_alerts"),
+        ),
+        display_metric(
+            result,
+            "dependabot_open_pull_requests",
+            result.results.get("dependabot_open_pull_requests"),
+        ),
+        display_metric(
+            result,
+            "dependabot_ready_pull_requests",
+            result.results.get("dependabot_ready_pull_requests"),
+        ),
     )
     return (
-        f"|{values[0]:<38}|{values[1]:>12}|{values[2]:>10}|{values[3]:>9}"
-        f"|{values[4]:>9}|{values[5]:>7}|"
+        f"|{values[0]:<48}|{values[1]:>16}|{values[2]:>16}|{values[3]:>16}"
+        f"|{values[4]:>16}|{values[5]:>16}|"
     )
+
+
+def _table_repository(result: RepoResult) -> str:
+    name = f"{result.owner}/{result.repo}"
+    return f"{name} ({result.status}: {result.reason})" if result.reason else name

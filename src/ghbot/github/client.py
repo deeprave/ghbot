@@ -9,6 +9,7 @@ import httpx
 
 from ghbot.errors import (
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -111,6 +112,17 @@ async def github_api_call(gh):
                 delay_seconds=_FALLBACK_RATE_LIMIT_DELAY if reset_at is None else None,
                 reset_at=reset_at,
             ) from e
+        codes = _graphql_error_codes(e)
+        if (
+            isinstance(e, gidgethub.BadGraphQLRequest)
+            and e.status_code == http.HTTPStatus.NOT_FOUND
+        ) or "NOT_FOUND" in codes:
+            raise GitHubNotFoundError(str(e)) from e
+        if (
+            isinstance(e, gidgethub.BadGraphQLRequest)
+            and e.status_code == http.HTTPStatus.FORBIDDEN
+        ) or "FORBIDDEN" in codes:
+            raise GitHubForbiddenError(str(e)) from e
         raise GitHubApiError(str(e)) from e
     except gidgethub.HTTPException as e:
         if e.status_code == http.HTTPStatus.NOT_FOUND:
@@ -134,7 +146,7 @@ async def github_api_call(gh):
                         _FALLBACK_RATE_LIMIT_DELAY if delay is None else delay
                     ),
                 ) from e
-            raise GitHubNotFoundError(str(e)) from e  # access denied — skip
+            raise GitHubForbiddenError(str(e)) from e
         raise GitHubApiError(str(e)) from e
 
 

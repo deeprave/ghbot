@@ -4,6 +4,7 @@ from ghbot.errors import (
     AuthError,
     FatalError,
     GitHubApiError,
+    GitHubForbiddenError,
     GitHubNotFoundError,
     UnexpectedError,
 )
@@ -46,6 +47,13 @@ def test_github_api_error_is_fatal_error():
 
 def test_github_not_found_error_is_github_api_error():
     e = GitHubNotFoundError("not found")
+    assert isinstance(e, GitHubApiError)
+    assert isinstance(e, FatalError)
+    assert e.exit_code == 1
+
+
+def test_github_forbidden_error_is_github_api_error():
+    e = GitHubForbiddenError("forbidden")
     assert isinstance(e, GitHubApiError)
     assert isinstance(e, FatalError)
     assert e.exit_code == 1

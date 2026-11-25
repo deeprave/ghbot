@@ -9,7 +9,7 @@ from referencing import Registry, Resource
 from ghbot.modes.drift import DriftCollectionReport
 from ghbot.modes.issues import IssuesCollectionReport
 from ghbot.modes.security import SecurityCollectionReport
-from ghbot.processor import RepoResult
+from ghbot.processor import RepoResult, record_unavailable
 from ghbot.report_style import CombinedCollectionReport, ReportSection
 from ghbot.schemas import current_schema, schema_for_id, schema_ids
 
@@ -210,6 +210,30 @@ def test_drift_schema_validates_a_real_current_collection_output():
     report = DriftCollectionReport([result]).document()
 
     Draft202012Validator(current_schema("drift")).validate(report)
+
+
+@pytest.mark.parametrize(
+    ("report", "collection_type"),
+    [
+        ("security", SecurityCollectionReport),
+        ("issues", IssuesCollectionReport),
+        ("drift", DriftCollectionReport),
+    ],
+)
+def test_current_schemas_validate_unavailable_reasons_and_reject_unknown_ones(
+    report, collection_type
+):
+    result = RepoResult(
+        owner="acme", repo="private", status="failed", reason="forbidden"
+    )
+    record_unavailable(result, "repository", reason="forbidden")
+    document = collection_type(results=[result]).document()
+
+    validator = Draft202012Validator(current_schema(report))
+    validator.validate(document)
+    document["repositories"][0]["unavailable"]["repository"]["reason"] = "unknown"
+    with pytest.raises(ValidationError):
+        validator.validate(document)
 
 
 @pytest.mark.parametrize(

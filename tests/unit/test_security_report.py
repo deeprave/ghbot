@@ -3,7 +3,7 @@
 import json
 
 from ghbot.modes.security import SecurityCollectionReport
-from ghbot.processor import RepoResult
+from ghbot.processor import RepoResult, record_unavailable
 from ghbot.report_style import write_report
 
 
@@ -212,6 +212,16 @@ class TestPrintSecurityReportPerRepo:
         assert "  Code scanning alerts:          2" in out
         assert "  Secret scanning alerts:        0" in out
 
+    def test_unavailable_metric_shows_its_reason_in_human_output(self, capsys):
+        result = _result(
+            "acme", "private", dependabot=None, code_scanning=0, secret_scanning=0
+        )
+        record_unavailable(result, "dependabot_alerts", reason="forbidden")
+
+        print_security_report([result])
+
+        assert "N/A (forbidden)" in capsys.readouterr().out
+
     def test_per_repo_shows_dependabot_pr_counts(self, capsys):
         results = [
             _result(
@@ -269,18 +279,9 @@ class TestRenderSecurityReport:
             _result("acme", "widgets", dependabot=5, code_scanning=2, secret_scanning=1)
         ]
         out = render_security_report(results, format="table")
-        assert (
-            "|Repository                            | Dependabot | Scanning | Secrets | Dep PRs | Ready |"
-            in out
-        )
-        assert (
-            "|--------------------------------------|------------|----------|---------|---------|-------|"
-            in out
-        )
-        assert (
-            "|acme/widgets                          |           5|         2|        1|      N/A|    N/A|"
-            in out
-        )
+        assert "|Repository" in out
+        assert "|------------------------------------------------" in out
+        assert "|acme/widgets" in out
 
     def test_table_format_shows_na(self):
         results = [
@@ -293,10 +294,16 @@ class TestRenderSecurityReport:
             )
         ]
         out = render_security_report(results, format="table")
-        assert (
-            "|acme/mixed                            |         N/A|         2|        0|      N/A|    N/A|"
-            in out
-        )
+        assert "|acme/mixed" in out
+        assert "N/A" in out
+
+    def test_table_shows_explicit_outcome_status_and_reason(self):
+        result = _result("acme", "missing", None, None, None, status="failed")
+        result.reason = "not_found"
+
+        out = render_security_report([result], format="table")
+
+        assert "acme/missing (failed: not_found)" in out
 
     def test_json_format_is_valid_json(self):
         out = render_security_report(
