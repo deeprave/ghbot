@@ -168,8 +168,20 @@ def test_security_schema_validates_nullable_severity_breakdowns():
                 "low": 0,
                 "other": 0,
             },
-            "code_scanning_alerts": None,
-            "code_scanning_alerts_by_severity": None,
+            "code_scanning_alerts": 2,
+            "code_scanning_alerts_by_security_severity": {
+                "critical": 0,
+                "high": 1,
+                "medium": 0,
+                "low": 0,
+                "other": 0,
+            },
+            "code_scanning_alerts_by_rule_severity": {
+                "error": 0,
+                "warning": 1,
+                "note": 0,
+                "other": 0,
+            },
             "secret_scanning_alerts": 0,
             "dependabot_open_pull_requests": 0,
             "dependabot_ready_pull_requests": 0,
@@ -192,6 +204,22 @@ def test_security_schema_validates_nullable_severity_breakdowns():
 def test_security_schema_rejects_invalid_severity_breakdowns(breakdown):
     document = SecurityCollectionReport().document()
     document["summary"]["dependabot_alerts_by_severity"] = breakdown
+
+    with pytest.raises(ValidationError):
+        Draft202012Validator(current_schema("security")).validate(document)
+
+
+@pytest.mark.parametrize(
+    "breakdown",
+    [
+        {"error": 1},
+        {"error": 1, "warning": 0, "note": 0, "other": 0, "new": 1},
+        {"error": 0, "warning": -1, "note": 0, "other": 0},
+    ],
+)
+def test_security_schema_rejects_invalid_rule_severity_breakdowns(breakdown):
+    document = SecurityCollectionReport().document()
+    document["summary"]["code_scanning_alerts_by_rule_severity"] = breakdown
 
     with pytest.raises(ValidationError):
         Draft202012Validator(current_schema("security")).validate(document)
