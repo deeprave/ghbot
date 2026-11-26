@@ -1,7 +1,7 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "committed",
+  "status": "complete",
   "created_at": 1795046400,
   "activated_at": null,
   "updated_at": 1795680652,
@@ -24,5 +24,6 @@
   },
   "relationships": [],
   "dependencies": [],
-  "revision_note": "Accepted PR #65 triage corrections reopened task-progress preservation and normal-change branch mapping."
+  "revision_note": "Accepted PR #65 triage corrections reopened task-progress preservation and normal-change branch mapping.",
+  "archived_at": 1795681698
 }
