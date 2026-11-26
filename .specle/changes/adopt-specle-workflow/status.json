@@ -1,10 +1,10 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "approved",
+  "status": "committed",
   "created_at": 1795046400,
   "activated_at": null,
-  "updated_at": 1795669360,
+  "updated_at": 1795676141,
   "progress": {
     "tasks_completed": 4,
     "tasks_total": 4
@@ -16,7 +16,14 @@
     "status": "pass",
     "findings": 0
   },
-  "delivery": null,
+  "delivery": {
+    "completion": {
+      "reference": "https://github.com/deeprave/ghbot/pull/65",
+      "head_branch": "feature/adopt-specle-workflow",
+      "target_branch": "main",
+      "commit": "01559759b68f93e3942747556ec209218c87d8bf"
+    }
+  },
   "relationships": [],
   "dependencies": []
 }
