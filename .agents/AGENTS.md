@@ -1,41 +1,29 @@
 # Shared Agent Workflow
 
-This is the portable entrypoint for the repository's spec-driven workflow. A repository-root `AGENTS.md` should direct agents here while retaining only genuinely local execution or tool instructions.
+This is the portable entrypoint for the repository's Specle change-driven workflow. The repository-root `AGENTS.md` directs agents here while retaining only local execution and tool instructions.
 
 ## Start here
 
-1. Read `.agents/steering/*.md`. These are reusable policy: context state, lifecycle, and testing principles.
+1. Read `.agents/policies/*.md`. These are reusable Specle policy for lifecycle, delivery, review, and testing.
 2. If `.agents/project/README.md` is absent, use the `onboard` skill before relying on project architecture, commands, security rules, API conventions, or tracker configuration.
-3. If the project overlay exists, treat `.agents/project/*.md` as the authoritative project-specific
-   facts. Read its README and only the documents relevant to the task; shared templates are not a
-   source of project truth.
+3. If the project overlay exists, treat `.agents/project/*.md` as the authoritative project-specific facts. Read its README and only the documents relevant to the task.
 4. Read the matching skill in `.agents/skills/` before performing a workflow stage.
-5. For spec work, keep `.agents/.current` and `.agents/CONTEXT.json` aligned with the lifecycle and context schema.
-6. New specs are queued by default and do not change `.agents/.current`; change the active spec only when the user explicitly asks to do so.
-7. Treat specifications as independent by default. Record a dependency only when the requirements or design identify a concrete technical prerequisite, never to impose a presumed delivery order.
+5. For change work, read the selected slug from `.specle/current-change` when it exists and use that change's `status.json` as the durable lifecycle record.
 
 ## Workflow
 
-Use the local skills in the following order for feature work:
+Use the local skills in this order for feature work:
 
-`spec` → optional `estimate` → `design` → `tasks` → `build` → `verify` → `review`.
+`define` → `activate` → `estimate` → `design` → `tasks` → `build` → `verify` → `review` → `commit`; use `complete` only for branch-and-pull-request delivery.
 
-Use `implement` when an existing spec should advance through its missing planning stages and build
-tasks in one request; it reuses completed artifacts and stops at unresolved decisions.
+Before activation, an explicitly named normal change may be estimated, designed, or given tasks without becoming current. Tasks require a design. `activate` is the only operation that selects normal work and begins the required estimate → design → tasks chain before build.
 
-A clean verification result is `verified`, not `complete`; only a subsequent passing review completes a spec. After triaged review feedback, use `address-review` to route accepted decisions; it uses `revise` for corrections to the current spec's requirements, design, or plan. Use `context` after major progress or context compaction, and `status` to inspect recorded lifecycle state.
+A clean verification result is `verified`, not `complete`; a subsequent passing review makes the work `approved`. The selected delivery model determines whether `commit` completes the work or creates a `committed` branch-and-pull-request delivery for `complete` to finish. After review findings, use `triage` to record decisions, then `resolve` to route accepted decisions. Use `status` to orient selected work and `changes` to inspect pending lifecycle state.
 
-Alternative paths are `fix` for a bounded defect, `refactor` for behaviour-preserving work, and `spike` for an investigation that does not implement changes.
+Alternative paths are `bugfix` for a bounded defect, `refactor` for behaviour-preserving work, and `spike` for an investigation that does not implement changes. Use `prepare` to create an unselected bugfix or refactor for later implementation.
 
-When each step ends, suggest the next step and any alternatives, if they exist.
+When the user explicitly says `next`, automatically invoke the previously suggested next step.
 
-## Root bootstrap block
+## Shell execution
 
-When adding this framework to a repository without a project overlay, add the following temporary block to the root `AGENTS.md` immediately after its pointer to this file. The `onboard` skill removes the marked block only after it has created and validated the overlay; the durable pointer to this file remains.
-
-```md
-<!-- agents-onboard:start -->
-This repository has not yet established `.agents/project/` guidance. Use the `onboard` skill
-before feature work, then remove this marked bootstrap block.
-<!-- agents-onboard:end -->
-```
+In zsh shell snippets, do not use `path` as a variable name: it is the special array that backs `PATH`.

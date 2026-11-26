@@ -1,0 +1,20 @@
+{
+  "$schema": "specle://schemas/findings/1.0",
+  "question": "Does the Specle workflow migration satisfy its change contract and repository policy?",
+  "hypothesis": "The migrated inventory is structurally valid, retains project guidance and change records, and does not alter product behaviour.",
+  "effort": "M",
+  "scope": "adopt-specle-workflow",
+  "status": "complete",
+  "sources": [
+    {
+      "id": "local-review-2026-11-26",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "7e7607a44efb351c3fcf7db5791969a1e25505db373b9f9ebaab1f08140c09c3"
+    }
+  ],
+  "findings": [],
+  "recommendations": [],
+  "risks": [],
+  "outcome_change": null
+}
