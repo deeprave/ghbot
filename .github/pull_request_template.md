@@ -1,4 +1,4 @@
-## Overview
+## Summary
 
 <!-- Concise description of what this PR does and why. -->
 
@@ -16,4 +16,4 @@
 
 ## Notes
 
-<!-- Reviewer focus, known trade-offs, follow-up work, or validation commands. Remove this section if not needed. -->
+<!-- Reviewer focus, known trade-offs, or follow-up work. Remove this section if not needed. -->

@@ -12,21 +12,9 @@ wheels/
 # Tool caches
 .*_cache/
 
-# Agent working files: ignore local/tool state; track shared content under .agents/
+# Agent working files
 .guide.yaml
 .kiro/
-.agents/*
-!.agents/specs/
-!.agents/specs/**
-!.agents/skills/
-!.agents/skills/**
-!.agents/steering/
-!.agents/steering/**
-!.agents/project/
-!.agents/project/**
-!.agents/AGENTS.md
-!.agents/CONTEXT.json
-!.agents/.current
 .idea
 .claude
 .junie

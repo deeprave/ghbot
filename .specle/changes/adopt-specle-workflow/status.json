@@ -1,0 +1,28 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "change",
+  "status": "committed",
+  "created_at": 1795046400,
+  "activated_at": null,
+  "updated_at": 1795680652,
+  "progress": {
+    "tasks_completed": 17,
+    "tasks_total": 17
+  },
+  "verification": {
+    "status": "pass"
+  },
+  "review": {
+    "status": "pass",
+    "findings": 0
+  },
+  "delivery": {
+    "reference": "https://github.com/deeprave/ghbot/pull/65",
+    "head_branch": "feature/adopt-specle-workflow",
+    "target_branch": "main",
+    "commit": "4b8f628845be6bbe44f65c1ec8c037fb9b711f51"
+  },
+  "relationships": [],
+  "dependencies": [],
+  "revision_note": "Accepted PR #65 triage corrections reopened task-progress preservation and normal-change branch mapping."
+}

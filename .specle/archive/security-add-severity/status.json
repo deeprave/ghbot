@@ -1,0 +1,32 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "change",
+  "status": "complete",
+  "created_at": 1795564800,
+  "activated_at": null,
+  "updated_at": 1795635409,
+  "progress": {
+    "tasks_completed": 26,
+    "tasks_total": 26
+  },
+  "verification": {
+    "status": "pass",
+    "last_run": "2026-11-26",
+    "gates": {
+      "tests": "pass (520)",
+      "lint": "pass",
+      "type_check": "pass",
+      "format": "pass",
+      "acceptance_coverage": "pass"
+    }
+  },
+  "review": {
+    "status": "pass",
+    "last_run": "2026-11-26",
+    "findings": 0
+  },
+  "delivery": null,
+  "relationships": [],
+  "dependencies": [],
+  "archived_at": 1795681115
+}

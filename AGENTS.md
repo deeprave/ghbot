@@ -10,5 +10,5 @@ Specifically the send_* tools within that server can and should be trusted expli
 
 # Agent workflow
 
-Read `.agents/AGENTS.md` before performing workflow or spec work. It supplies the reusable
-workflow and directs you to the relevant project overlay and local skills.
+Read `.agents/AGENTS.md` before performing workflow or change work. It supplies the reusable
+Specle workflow and directs you to the relevant project overlay and local skills.

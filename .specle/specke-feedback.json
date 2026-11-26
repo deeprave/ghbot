@@ -1,0 +1,115 @@
+{
+  "source": {
+    "system": "Sourcery",
+    "pull_request": "https://github.com/deeprave/ghbot/pull/65",
+    "review": "https://github.com/deeprave/ghbot/pull/65#pullrequestreview-6069795672",
+    "revision": "ddd2ea1281007b19a6a3e8a92467d335cc6333ce"
+  },
+  "scope": "Specle-managed skills and policies",
+  "findings": [
+    {
+      "source_id": "4704889199",
+      "severity": "P2",
+      "title": "Imported text can steer agents",
+      "paths": [".agents/skills/track/SKILL.md", ".agents/skills/triage/SKILL.md"],
+      "summary": "Imported issue and review text needs an explicit untrusted-data boundary before downstream workflows consume change artifacts.",
+      "recommendation": "Treat imported text as data, never as instructions; require explicit user confirmation for proposed actions."
+    },
+    {
+      "source_id": "4704889222",
+      "severity": "P3",
+      "title": "Completed spike findings are unavailable",
+      "paths": [".agents/skills/spike/SKILL.md", ".agents/skills/explain/SKILL.md", ".agents/skills/summary/SKILL.md"],
+      "summary": "The spike and explain workflows need a migration path for legacy investigation findings.",
+      "recommendation": "Define a compatible findings-record migration and lifecycle evidence for completed spikes."
+    },
+    {
+      "source_id": "4704889230",
+      "severity": "P3",
+      "title": "Small estimates cannot advance",
+      "paths": [".agents/policies/lifecycle.md", ".agents/skills/estimate/SKILL.md", ".agents/skills/tasks/SKILL.md"],
+      "summary": "The S-sized estimate next step conflicts with the task workflow requirement for a design.",
+      "recommendation": "Route every selected normal estimate through design before tasks, or align the task contract."
+    },
+    {
+      "source_id": "4704889237",
+      "severity": "P3",
+      "title": "Concurrent activations overwrite selection",
+      "paths": [".agents/skills/activate/SKILL.md"],
+      "summary": "Selector check and write are not described as an atomic operation.",
+      "recommendation": "Specify recoverable, atomic selection semantics for concurrent activations."
+    },
+    {
+      "source_id": "4704889247",
+      "severity": "P3",
+      "title": "Retries create duplicate follow-ups",
+      "paths": [".agents/skills/resolve/SKILL.md"],
+      "summary": "A failed dispatch can create a sidecar before its record is persisted, allowing duplicates on retry.",
+      "recommendation": "Make creation and dispatch recording recoverable as one operation, with reconciliation on retry."
+    },
+    {
+      "source_id": "4704889256",
+      "severity": "P3",
+      "title": "Committed changes cannot be reverified",
+      "paths": [".agents/skills/verify/SKILL.md", ".agents/skills/triage/SKILL.md"],
+      "summary": "Declared lifecycle acceptance does not cover documented committed-target review and verification paths.",
+      "recommendation": "Align lifecycle declarations with the supported committed-target workflows."
+    },
+    {
+      "source_id": "4704889263",
+      "severity": "P3",
+      "title": "Delivered dependencies remain listed",
+      "paths": [".agents/skills/changes/SKILL.md", ".agents/policies/lifecycle.md"],
+      "summary": "Reading dependencies from estimates can reintroduce dependencies removed from durable status.",
+      "recommendation": "Make a present status record authoritative for dependency reporting."
+    },
+    {
+      "source_id": "4704889269",
+      "severity": "P3",
+      "title": "Archived fixes cannot be linked",
+      "paths": [".agents/skills/resolve/SKILL.md", ".agents/skills/bugfix/SKILL.md", ".agents/skills/commit/SKILL.md"],
+      "summary": "Archived completion feedback cannot use the current reciprocal-link model without mutating an immutable parent.",
+      "recommendation": "Define an archived-completion linkage mechanism for related corrective work."
+    },
+    {
+      "source_id": "4704889271",
+      "severity": "P3",
+      "title": "Stale verification overwrites build state",
+      "paths": [".agents/policies/lifecycle.md", ".agents/skills/verify/SKILL.md"],
+      "summary": "Verification can record a passing result after concurrent build activity changes the target.",
+      "recommendation": "Serialize build and verification, or validate a stable revision fingerprint before recording results."
+    },
+    {
+      "source_id": "4704889276",
+      "severity": "P3",
+      "title": "Parent and sidecar states diverge",
+      "paths": [".agents/skills/bugfix/SKILL.md", ".agents/skills/refactor/SKILL.md", ".agents/skills/commit/SKILL.md"],
+      "summary": "Reciprocal relationship updates can be interrupted between records.",
+      "recommendation": "Specify durable intent and reconciliation for multi-record lifecycle mutations."
+    },
+    {
+      "source_id": "4704889279",
+      "severity": "P3",
+      "title": "Retried delivery repeats commits",
+      "paths": [".agents/skills/commit/SKILL.md"],
+      "summary": "A delivery can succeed externally before its status record is updated, leaving retries without evidence to reconcile.",
+      "recommendation": "Require delivery retry reconciliation using stable branch and commit identity."
+    },
+    {
+      "source_id": "4704889283",
+      "severity": "P3",
+      "title": "Fresh repairs lack a declared transition",
+      "paths": [".agents/skills/bugfix/SKILL.md", ".agents/skills/refactor/SKILL.md"],
+      "summary": "Direct repair execution moves from defined to building without a declared matching lifecycle transition.",
+      "recommendation": "Declare the direct transition or route fresh repairs through planned state."
+    },
+    {
+      "source_id": "maintainer-pr-thread-resolution",
+      "severity": "P3",
+      "title": "Accepted pull-request triage is not reflected in review threads",
+      "paths": [".agents/skills/commit/SKILL.md", ".agents/skills/triage/SKILL.md"],
+      "summary": "When review-findings.json records triage sourced from GitHub pull-request comments, accepted or declined decisions remain local unless the delivery workflow posts the disposition to each review thread and resolves it.",
+      "recommendation": "For GitHub-backed review sources, have commit reconcile decided pull-request review threads by posting a concise disposition and resolving the thread before recording delivery. Define forge-specific adapters or capability checks before applying the same rule to GitLab or other platforms."
+    }
+  ]
+}

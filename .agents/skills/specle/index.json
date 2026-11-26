@@ -1,0 +1,185 @@
+{
+  "$schema": "specle://schemas/skill-index/1.0",
+  "groups": [
+    {
+      "name": "Reference",
+      "skills": [
+        {
+          "name": "explain",
+          "description": "Explain a Specle change's purpose, requirements, approach, and current lifecycle state.",
+          "usage": "Use with a named change when a user wants to understand its intent, implementation direction, kind, status, and next action without changing it."
+        },
+        {
+          "name": "specle",
+          "description": "Describe the installed Specle workflow and skill inventory.",
+          "usage": "Use when a user asks what Specle does, which skills are available, what a skill does, or where to begin."
+        }
+      ]
+    },
+    {
+      "name": "Setup",
+      "skills": [
+        {
+          "name": "onboard",
+          "description": "Establish or refresh a repository's project guidance overlay.",
+          "usage": "Use when project guidance is missing or incomplete; inventory it, ask one question at a time, then write the completed overlay."
+        }
+      ]
+    },
+    {
+      "name": "Coordination",
+      "skills": [
+        {
+          "name": "changes",
+          "description": "List pending and active Specle changes with next stages.",
+          "usage": "Use to inventory unfinished, selected, unselected, or dependent changes and report their recorded next steps; it never changes lifecycle state."
+        },
+        {
+          "name": "status",
+          "description": "Report the current Specle change and local worktree state.",
+          "usage": "Use to orient current work: show the selected change, its lifecycle next action, and a compact Git worktree summary without changing anything."
+        }
+      ]
+    },
+    {
+      "name": "Discovery",
+      "skills": [
+        {
+          "name": "analyse",
+          "description": "Analyse codebases for guidance drift, technical debt, and risk.",
+          "usage": "Use when a developer asks to understand a codebase, audit risks or technical debt, or refresh project guidance from implementation evidence."
+        },
+        {
+          "name": "spike",
+          "description": "Investigate a question within a time-box, without implementation.",
+          "usage": "Use before committing to a solution when a bounded investigation is needed; produce findings and recommendations, not production changes."
+        }
+      ]
+    },
+    {
+      "name": "Planning",
+      "skills": [
+        {
+          "name": "activate",
+          "description": "Explicitly select and commence an unselected normal change.",
+          "usage": "Use with a named unselected normal change to select it in this worktree and begin its planning lifecycle."
+        },
+        {
+          "name": "define",
+          "description": "Create evidence-led, unselected normal change definitions under `.specle/changes/`.",
+          "usage": "Use when scoping potential normal work: investigate evidence, resolve material uncertainty, and define the change without activating it."
+        },
+        {
+          "name": "design",
+          "description": "Design a normal change's technical implementation.",
+          "usage": "Use after normal requirements exist, especially for M/L/XL or uncertain work, and before task planning."
+        },
+        {
+          "name": "estimate",
+          "description": "Estimate Specle work complexity and planning depth.",
+          "usage": "Use before implementation to size an active change and decide whether design is warranted; it is advisory and performs no implementation."
+        },
+        {
+          "name": "revise",
+          "description": "Revise changes and plans after accepted feedback.",
+          "usage": "Use when accepted feedback changes requirements, design, or tasks; do not use it for an implementation-only defect."
+        },
+        {
+          "name": "tasks",
+          "description": "Generate task plans from normal changes and designs.",
+          "usage": "Use after normal requirements and any necessary design exist to create or reconcile an ordered TDD task plan; do not infer completed work from a diff."
+        }
+      ]
+    },
+    {
+      "name": "Implementation",
+      "skills": [
+        {
+          "name": "build",
+          "description": "Implement active Specle tasks with TDD.",
+          "usage": "Use when the active normal change, or an explicitly named committed normal target, is planned or building with incomplete tasks; execute tasks in order and stop at verify when they are complete."
+        }
+      ]
+    },
+    {
+      "name": "Quality",
+      "skills": [
+        {
+          "name": "resolve",
+          "description": "Dispatch accepted review decisions to follow-up workflows.",
+          "usage": "Use only after triage has recorded decisions for all current findings; route accepted work without implementing it directly."
+        },
+        {
+          "name": "review",
+          "description": "Review verified implementations for quality and policy compliance.",
+          "usage": "Use only after verification passes to assess implementation quality, guidance compliance, coverage, and security; it records approval or findings but does not implement fixes."
+        },
+        {
+          "name": "triage",
+          "description": "Consolidate review findings into prioritised decisions.",
+          "usage": "Use after local review or with supplied external feedback to deduplicate findings and record decisions without implementing fixes."
+        },
+        {
+          "name": "verify",
+          "description": "Verify implementations against changes and quality gates.",
+          "usage": "Use after implementation tasks are complete and before review; check every requirement and documented gate against current code and tests."
+        }
+      ]
+    },
+    {
+      "name": "Integration",
+      "skills": [
+        {
+          "name": "commit",
+          "description": "Deliver approved Specle work according to project policy.",
+          "usage": "Use after local review approves a change, bugfix, or refactor to prepare or perform its configured commit, push, and pull-request delivery actions."
+        },
+        {
+          "name": "complete",
+          "description": "Finalise archival delivery for a committed Specle change.",
+          "usage": "Use after any committed delivery to confirm its final event when needed, archive the durable change record, and create any required completion PR."
+        },
+        {
+          "name": "track",
+          "description": "Link Specle work to configured external sources and destinations.",
+          "usage": "Use for explicitly named external imports, source checks, or authorised destination publishing; never write to a source."
+        },
+        {
+          "name": "wrapup",
+          "description": "Merge a recorded archival completion PR and synchronise delivery.",
+          "usage": "Use after complete has archived a change and recorded a completion PR; merge that PR or synchronise an externally merged one without changing the archive."
+        }
+      ]
+    },
+    {
+      "name": "Alternatives",
+      "skills": [
+        {
+          "name": "bugfix",
+          "description": "Fix bounded defects with abbreviated test-first work.",
+          "usage": "Use for a clear, bounded defect that needs a reproduction and regression test; use change when the work introduces new behaviour or broader scope."
+        },
+        {
+          "name": "prepare",
+          "description": "Prepare non-active bugfixes or refactors for later work.",
+          "usage": "Use to create an explicitly named unselected repair or behaviour-preserving restructure without implementation changes."
+        },
+        {
+          "name": "refactor",
+          "description": "Restructure code without changing observable behaviour.",
+          "usage": "Use for structural cleanup protected by documented invariants and tests; use change when new behaviour is needed."
+        }
+      ]
+    },
+    {
+      "name": "Reporting",
+      "skills": [
+        {
+          "name": "summary",
+          "description": "Summarise completed Specle work for people.",
+          "usage": "Use only after work is complete to create a human-facing report and copy-ready update; it does not publish externally."
+        }
+      ]
+    }
+  ]
+}
