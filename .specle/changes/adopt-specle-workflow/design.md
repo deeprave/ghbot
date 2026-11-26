@@ -24,7 +24,12 @@ Specle owns the managed skills, policy inventory, skill index, lifecycle schema,
 - Rename each concise summary to the canonical specification name when no detailed specification already exists. Where both existed, retain the detailed specification and remove the redundant summary.
 - Replace internal legacy paths and date-prefixed change references with current slugs and local filenames.
 - Create one `status.json` per active change with the `specle://schemas/change-status/1.0` schema. Preserve recorded completion and available verification/review evidence; use `not-recorded` where the legacy compact context has no evidence.
+- Derive each migrated record's task progress from its preserved `tasks.md` checkbox plan.
 - Select `adopt-specle-workflow` through `.specle/current-change` and retain all completed records in `.specle/changes/` for later, deliberate archival.
+
+## Delivery convention
+
+Record the branch convention unambiguously in the project overlay: normal `kind: "change"` records use `feature/<slug>`, while `bugfix`, `refactor`, and maintenance work use their matching prefixes.
 
 ## Error handling and boundaries
 
@@ -39,3 +44,4 @@ Specle owns the managed skills, policy inventory, skill index, lifecycle schema,
 - Check the migrated tree for dated directories, legacy state paths, and obsolete summary-file references.
 - Run `git diff --check` and confirm the migration has no changes under `src/` or `tests/`.
 - Confirm the project overlay contains every document required by the Specle `onboard` skill.
+- Confirm every migrated status record's task progress matches its preserved task plan and that the delivery policy names the normal-change branch prefix.

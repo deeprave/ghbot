@@ -4,10 +4,10 @@
   "status": "committed",
   "created_at": 1795046400,
   "activated_at": null,
-  "updated_at": 1795676141,
+  "updated_at": 1795680652,
   "progress": {
-    "tasks_completed": 4,
-    "tasks_total": 4
+    "tasks_completed": 17,
+    "tasks_total": 17
   },
   "verification": {
     "status": "pass"
@@ -25,5 +25,6 @@
     }
   },
   "relationships": [],
-  "dependencies": []
+  "dependencies": [],
+  "revision_note": "Accepted PR #65 triage corrections reopened task-progress preservation and normal-change branch mapping."
 }

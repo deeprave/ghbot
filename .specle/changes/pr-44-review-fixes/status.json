@@ -6,8 +6,8 @@
   "activated_at": null,
   "updated_at": 1795635409,
   "progress": {
-    "tasks_completed": 0,
-    "tasks_total": 0
+    "tasks_completed": 3,
+    "tasks_total": 3
   },
   "verification": {
     "status": "not-recorded"

@@ -9,7 +9,7 @@
 
 ## Branches and commits
 
-- Name branches with the change kind and slug: `feature/`, `bugfix/`, `refactor/`, or `chore/`.
+- Normal `kind: "change"` records use `feature/<slug>`. Bugfixes use `bugfix/<slug>`, refactors use `refactor/<slug>`, and maintenance work uses `chore/<slug>`.
 - Use Conventional Commit-style titles, for example `feat: add security severity breakdowns`.
 
 ## Required checks

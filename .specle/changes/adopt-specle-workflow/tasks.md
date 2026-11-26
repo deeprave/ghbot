@@ -12,3 +12,8 @@
 - [x] 4. Validate the cutover without product changes (`.specle/`, `.agents/`, working tree)
   - [x] 4.1 Run Specle validation and migration integrity searches.
   - [x] 4.2 Confirm no source or test files changed and run whitespace validation.
+- [x] 5. Preserve migrated task progress (`.specle/changes/*/status.json`)
+  - [x] 5.1 Derive each status record's completed and total task counts from its preserved checkbox plan.
+  - [x] 5.2 Verify every status record reports the same task progress as its task plan.
+- [x] 6. Clarify normal-change branch delivery (`.agents/project/delivery.md`)
+  - [x] 6.1 Map normal `change` records explicitly to `feature/<slug>`.

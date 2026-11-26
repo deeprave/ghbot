@@ -11,9 +11,115 @@
       "system": "local",
       "kind": "implementation-review",
       "revision": "7e7607a44efb351c3fcf7db5791969a1e25505db373b9f9ebaab1f08140c09c3"
+    },
+    {
+      "id": "local-review-revision-2026-11-26",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "c566b9768be7ae17cabb0db79e51595a4040a37ee2ebcd68e05b44b1042d644f"
+    },
+    {
+      "id": "sourcery-pr65-6069795672",
+      "system": "Sourcery",
+      "kind": "pull-request-review",
+      "url": "https://github.com/deeprave/ghbot/pull/65#pullrequestreview-6069795672",
+      "revision": "ddd2ea1281007b19a6a3e8a92467d335cc6333ce"
     }
   ],
-  "findings": [],
+  "findings": [
+    {
+      "id": "sourcery-4704889206",
+      "source_ids": ["sourcery-pr65-6069795672"],
+      "severity": "P3",
+      "description": "Historical changes appear delivered without formal delivery evidence.",
+      "evidence": "https://github.com/deeprave/ghbot/pull/65#discussion_r4704889206",
+      "analysis": "The migration records maintainer-confirmed historical completion while deliberately retaining incomplete delivery evidence.",
+      "recommendation": "Do not fabricate delivery evidence or reopen confirmed historical work.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "Maintainer confirmed this is a conversion; reconstructing historical delivery accounting would be disproportionate work with poor return.",
+      "route": null
+    },
+    {
+      "id": "sourcery-4704889215",
+      "source_ids": ["sourcery-pr65-6069795672"],
+      "severity": "P3",
+      "description": "Migrated completed status records discard task-plan progress.",
+      "evidence": "https://github.com/deeprave/ghbot/pull/65#discussion_r4704889215",
+      "analysis": "Existing task plans retain checkbox evidence, but many generated status records report zero progress.",
+      "recommendation": "Derive completed and total task counts from each preserved task plan.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "The correction is mechanically cheap and improves the retained lifecycle record.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "adopt-specle-workflow",
+        "outcome": "Task progress now derives from every preserved checkbox plan."
+      }
+    },
+    {
+      "id": "sourcery-4704889289",
+      "source_ids": ["sourcery-pr65-6069795672"],
+      "severity": "P2",
+      "description": "The delivery policy does not explicitly map normal change records to a branch prefix.",
+      "evidence": "https://github.com/deeprave/ghbot/pull/65#discussion_r4704889289",
+      "analysis": "The intended feature prefix is present but the normal `change` kind is not explicitly named.",
+      "recommendation": "Map normal change records to `feature/<slug>` and retain matching kind-specific prefixes.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "The clarification is small and prevents ambiguity in future branch delivery.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "adopt-specle-workflow",
+        "outcome": "The delivery policy explicitly maps normal changes to feature/<slug>."
+      }
+    },
+    {
+      "id": "sourcery-4704889293",
+      "source_ids": ["sourcery-pr65-6069795672"],
+      "severity": "P3",
+      "description": "Legacy selector and context records were removed.",
+      "evidence": "https://github.com/deeprave/ghbot/pull/65#discussion_r4704889293",
+      "analysis": "Specle replaces the legacy state with one selected slug and durable per-change status records.",
+      "recommendation": "Do not retain a second synchronized lifecycle system.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "Retaining legacy state would reintroduce the divergence this cutover removes.",
+      "route": null
+    },
+    {
+      "id": "sourcery-4704889298",
+      "source_ids": ["sourcery-pr65-6069795672"],
+      "severity": "P3",
+      "description": "A passing review no longer marks the migration complete.",
+      "evidence": "https://github.com/deeprave/ghbot/pull/65#discussion_r4704889298",
+      "analysis": "Specle deliberately separates local review approval from branch delivery and archival completion.",
+      "recommendation": "Retain the approved, committed, and complete lifecycle distinction.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "The new lifecycle is intentional and matches the installed Specle policy.",
+      "route": null
+    },
+    {
+      "id": "sourcery-4704889304",
+      "source_ids": ["sourcery-pr65-6069795672"],
+      "severity": "P3",
+      "description": "Change requirements moved from the legacy specification directory.",
+      "evidence": "https://github.com/deeprave/ghbot/pull/65#discussion_r4704889304",
+      "analysis": "The Specle layout intentionally keeps change artifacts under `.specle/changes/<slug>/`.",
+      "recommendation": "Retain the migrated Specle change location.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "Keeping the former path would create split change state and contradict the migration.",
+      "route": null
+    }
+  ],
   "recommendations": [],
   "risks": [],
   "outcome_change": null
