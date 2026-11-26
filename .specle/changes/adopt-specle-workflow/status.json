@@ -17,12 +17,10 @@
     "findings": 0
   },
   "delivery": {
-    "completion": {
-      "reference": "https://github.com/deeprave/ghbot/pull/65",
-      "head_branch": "feature/adopt-specle-workflow",
-      "target_branch": "main",
-      "commit": "01559759b68f93e3942747556ec209218c87d8bf"
-    }
+    "reference": "https://github.com/deeprave/ghbot/pull/65",
+    "head_branch": "feature/adopt-specle-workflow",
+    "target_branch": "main",
+    "commit": "4b8f628845be6bbe44f65c1ec8c037fb9b711f51"
   },
   "relationships": [],
   "dependencies": [],

@@ -1,0 +1,23 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "spike",
+  "status": "complete",
+  "created_at": 1794873600,
+  "activated_at": null,
+  "updated_at": 1795635606,
+  "progress": {
+    "tasks_completed": 0,
+    "tasks_total": 0
+  },
+  "verification": {
+    "status": "not-recorded"
+  },
+  "review": {
+    "status": "not-recorded",
+    "findings": 0
+  },
+  "delivery": null,
+  "relationships": [],
+  "dependencies": [],
+  "archived_at": 1795681115
+}
