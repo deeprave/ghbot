@@ -32,14 +32,25 @@ def test_no_subcommand_exits_nonzero():
     assert CliRunner().invoke(cli, []).exit_code != 0
 
 
-def test_package_owned_commands_are_registered():
+def test_root_help_lists_only_scan_commands_with_consistent_descriptions():
     from ghbot.__main__ import cli
 
     result = CliRunner().invoke(cli, ["--help"])
 
     assert result.exit_code == 0
-    for command in ("combo", "info", "schema", "security", "issues", "drift"):
-        assert command in result.output
+    assert "Schema retrieval:" in result.output
+    assert "ghbot --schema REPORT" in result.output
+    assert "ghbot --schema --id TEXT" in result.output
+    assert "ghbot --schema --list" in result.output
+    assert "\n  schema" not in result.output
+    for description in (
+        "Scan for every reportable mode.",
+        "Scan for repository summary statistics.",
+        "Scan for commits since the latest stable release.",
+        "Scan for open issues and pull requests.",
+        "Scan for open security alerts.",
+    ):
+        assert description in result.output
 
 
 def test_package_mode_imports_remain_modules():

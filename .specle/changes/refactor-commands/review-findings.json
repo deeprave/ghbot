@@ -1,0 +1,51 @@
+{
+  "$schema": "specle://schemas/findings/1.0",
+  "question": "Does the command refactor preserve Click command handling while exposing schema retrieval only through the leading form?",
+  "scope": "refactor-commands",
+  "status": "complete",
+  "sources": [
+    {
+      "id": "local-review-2026-11-27",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "6d3a40c239108bed330541d87d3315e47ac4d630f0e2cc28c8c063d70d2cb86e"
+    },
+    {
+      "id": "local-review-2026-11-27-revision-2",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "66727e3ad9052b95b61db84dcb4132079b0d9c059f86f328aa71b5788d93bee2"
+    }
+  ],
+  "findings": [
+    {
+      "id": "local-1",
+      "source_ids": ["local-review-2026-11-27"],
+      "severity": "P4",
+      "description": "SchemaDispatchGroup relies on Click's private _protected_args field to identify an ordinary missing command.",
+      "evidence": "src/ghbot/__main__.py:41",
+      "analysis": "The dispatch works today, but _protected_args is an internal Click detail rather than a supported integration boundary. A private sentinel command can let Click retain its own no-command behaviour while the dispatcher handles only the leading schema route.",
+      "recommendation": "Replace the private-field check with a sentinel-based dispatch path and retain the existing CLI behaviour tests.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Remove the unnecessary dependency on Click internals while preserving the leading-only schema dispatch contract.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "refactor-commands",
+        "outcome": "The planned dispatcher will use a private sentinel route instead of Click's private argument state."
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "source_ids": ["local-review-2026-11-27-revision-2"],
+      "outcome": "APPROVE",
+      "rationale": "The sentinel dispatch removes the Click-internal dependency while preserving the specified schema forms and ordinary command parsing."
+    }
+  ],
+  "risks": [],
+  "outcome_change": null
+}

@@ -382,7 +382,7 @@ def drift(
     format_json: bool,
     output: Path | None,
 ) -> None:
-    """Report commits since each repository's latest stable release."""
+    """Scan for commits since the latest stable release."""
     selected_format = output_format(
         plain=format_plain, table=format_table, json_format=format_json
     )
