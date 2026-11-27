@@ -60,7 +60,8 @@ class DriftRepoProcessor:
         if not repo:
             raise ValueError("repo must be a non-empty string")
         self._owner, self._repo, self._gh, self._monitor = owner, repo, gh, monitor
-        self._options, self._owner_type = dict(options or {}), owner_type
+        del options
+        self._owner_type = owner_type
         self._deferred_events: list[FeedbackEvent] = []
 
     @property
@@ -345,7 +346,6 @@ class DriftCollectionReport:
 @dataclass(frozen=True, slots=True)
 class DriftMode:
     name: str = "drift"
-    processor_type: type = DriftRepoProcessor
     combine_key: str = "030"
 
     @property

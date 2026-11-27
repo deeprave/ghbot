@@ -54,7 +54,3 @@ class RateLimitAbortError(FatalError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message, exit_code=4)
-
-
-class UnexpectedError(FatalError):
-    pass

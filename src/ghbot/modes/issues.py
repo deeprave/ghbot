@@ -91,7 +91,7 @@ class IssuesRepoProcessor:
         self._repo = repo
         self._gh = gh
         self._monitor = monitor
-        self._options = dict(options or {})
+        del options
         self._owner_type = owner_type
         self._deferred_events: list[FeedbackEvent] = []
 
@@ -374,7 +374,6 @@ class IssuesCollectionReport:
 @dataclass(frozen=True, slots=True)
 class IssuesMode:
     name: str = "issues"
-    processor_type: type = IssuesRepoProcessor
     combine_key: str = "020"
 
     @property

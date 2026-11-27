@@ -40,7 +40,6 @@ async def _scan_with_rate_retries(
     seen: set[str] = set()
     skipped_explicit_ids: set[str] = set()
     pool.skipped_explicit_ids = skipped_explicit_ids
-    gh._ghbot_skipped_explicit_ids = skipped_explicit_ids
     while not isinstance(getattr(pool, "rate_limit_abort", None), RateLimitAbort):
         try:
             async for discovered in scan_repositories(

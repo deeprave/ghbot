@@ -133,7 +133,7 @@ class RepoProcessor(Protocol):
 class GitHubClient(Protocol):
     """GitHub API surface used by repository processors."""
 
-    async def graphql(self, query: str, **variables: Any) -> Any: ...
+    async def graphql(self, _query: str, **_variables: Any) -> Any: ...
 
     async def getitem(
         self, url: str, *, url_vars: dict[str, Any] | None = None
@@ -165,7 +165,7 @@ class InfoRepoProcessor:
         self._repo = repo
         self._gh = gh
         self._monitor = monitor
-        self._options = dict(options or {})
+        del options
         self._owner_type = owner_type
 
     @property

@@ -1,0 +1,51 @@
+{
+  "$schema": "specle://schemas/findings/1.0",
+  "question": "Does the dead-code cleanup preserve runtime contracts while keeping the new Vulture gate precise?",
+  "scope": "cleanup-dead-code",
+  "status": "complete",
+  "sources": [
+    {
+      "id": "local-review-2026-11-27",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "e0de6699a2904d4f663d14825303e12f3f8afc747fa1ca6e1e8bc0e2178a3215"
+    },
+    {
+      "id": "local-review-2026-11-27-revision-2",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "a2a028a5ffe3523374569412f0049b9ea7c26f921eb252401f58d9e796103942"
+    }
+  ],
+  "findings": [
+    {
+      "id": "local-1",
+      "source_ids": ["local-review-2026-11-27"],
+      "severity": "P4",
+      "description": "Global Vulture ignored names can suppress future unrelated findings.",
+      "evidence": "pyproject.toml:52 ignores cls, exc_info, param, query, variables, and url_vars across every configured source file.",
+      "analysis": "These names currently correspond to framework and protocol signatures, but Vulture applies ignore_names by identifier rather than declaration site. A future unused local or parameter with one of the same common names would not be reported.",
+      "recommendation": "Rename signature parameters that have no keyword-name contract with an underscore, retaining only the unavoidable url_vars ignore or a comparably narrow suppression.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Keep the dead-code gate sensitive by suppressing only signature names that cannot be renamed without changing their keyword contract.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "cleanup-dead-code",
+        "outcome": "The design and task plan now rename safely-renamable signature parameters and retain only the url_vars keyword-contract suppression."
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "source_ids": ["local-review-2026-11-27-revision-2"],
+      "outcome": "APPROVE",
+      "rationale": "The final implementation retains only justified Vulture exceptions, removes confirmed unused state, and passes all required checks."
+    }
+  ],
+  "risks": [],
+  "outcome_change": null
+}

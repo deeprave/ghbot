@@ -13,11 +13,9 @@ def test_security_mode_unit_pairs_processor_with_collection_report():
     from ghbot.modes.security import (
         MODE,
         SecurityCollectionReport,
-        SecurityRepoProcessor,
     )
 
     assert MODE.name == "security"
-    assert MODE.processor_type is SecurityRepoProcessor
     assert isinstance(MODE.new_collection({}), SecurityCollectionReport)
 
 

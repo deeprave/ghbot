@@ -39,7 +39,6 @@ def _result() -> RepoResult:
 
 def test_mode_owns_issues_processor_and_collection_options():
     assert MODE.name == "issues"
-    assert MODE.processor_type is IssuesRepoProcessor
     assert isinstance(IssuesRepoProcessor("a", "b", None, None), RepoProcessor)
     assert MODE.new_collection({"labels": True}).labels is True
     assert MODE.new_collection({"dates": True}).dates is True

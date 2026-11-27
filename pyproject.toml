@@ -46,6 +46,11 @@ package = true
 addopts = "-Werror -Walways"
 testpaths = ["tests"]
 
+[tool.vulture]
+paths = ["src", "vulture_whitelist.py"]
+min_confidence = 60
+ignore_names = ["url_vars"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

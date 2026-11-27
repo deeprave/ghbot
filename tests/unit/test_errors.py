@@ -6,7 +6,6 @@ from ghbot.errors import (
     GitHubApiError,
     GitHubForbiddenError,
     GitHubNotFoundError,
-    UnexpectedError,
 )
 
 
@@ -57,10 +56,3 @@ def test_github_forbidden_error_is_github_api_error():
     assert isinstance(e, GitHubApiError)
     assert isinstance(e, FatalError)
     assert e.exit_code == 1
-
-
-def test_unexpected_error_is_fatal_error():
-    e = UnexpectedError("something unexpected", exit_code=2)
-    assert isinstance(e, FatalError)
-    assert e.message == "something unexpected"
-    assert e.exit_code == 2

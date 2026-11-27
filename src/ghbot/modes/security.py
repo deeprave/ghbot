@@ -96,7 +96,7 @@ class SecurityRepoProcessor:
         self._repo = repo
         self._gh = gh
         self._monitor = monitor
-        self._options = dict(options or {})
+        del options
         self._owner_type = owner_type
         self._deferred_events: list[FeedbackEvent] = []
 
@@ -601,7 +601,6 @@ class SecurityCollectionReport:
 @dataclass(frozen=True, slots=True)
 class SecurityMode:
     name: str = "security"
-    processor_type: type = SecurityRepoProcessor
     combine_key: str = "010"
 
     @property

@@ -1,0 +1,33 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "change",
+  "status": "complete",
+  "created_at": 1795761051,
+  "activated_at": 1795761473,
+  "updated_at": 1795765977,
+  "progress": {
+    "completed": 4,
+    "total": 4
+  },
+  "verification": {
+    "status": "pass"
+  },
+  "review": {
+    "status": "pass",
+    "findings": 0
+  },
+  "delivery": {
+    "reference": "https://github.com/deeprave/ghbot/pull/68",
+    "head_branch": "feature/cleanup-dead-code",
+    "target_branch": "main",
+    "commit": "cfed6742d830e9b00031c9623914f0203286b004",
+    "completion": {
+      "reference": "https://github.com/deeprave/ghbot/pull/68",
+      "head_branch": "feature/cleanup-dead-code",
+      "target_branch": "main"
+    }
+  },
+  "relationships": [],
+  "dependencies": [],
+  "archived_at": 1795766211
+}
