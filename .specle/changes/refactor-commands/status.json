@@ -1,10 +1,10 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "approved",
+  "status": "committed",
   "created_at": 1795769804,
   "activated_at": 1795772924,
-  "updated_at": 1795774502,
+  "updated_at": 1795774538,
   "progress": {
     "completed": 5,
     "total": 5
@@ -20,7 +20,7 @@
     "reference": "https://github.com/deeprave/ghbot/pull/70",
     "head_branch": "feature/refactor-commands",
     "target_branch": "main",
-    "commit": "38112f1e70f71ce7d6503d6f1192bc45f285e27e"
+    "commit": "f7f39b8"
   },
   "relationships": [],
   "dependencies": []
