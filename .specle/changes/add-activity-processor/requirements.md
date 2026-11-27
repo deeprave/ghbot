@@ -38,7 +38,7 @@ from release drift and configuration posture.
    default its activity window to 30 days before the scan when omitted.
 4. THE mode SHALL be reportable and participate in `combo` using the established discovered-mode
    contract.
-5. THE JSON report SHALL have a packaged versioned schema available through `ghbot schema`.
+5. THE JSON report SHALL have a packaged versioned schema available through `ghbot --schema`.
 
 ### Requirement 2: Report repository change and contributor activity
 

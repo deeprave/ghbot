@@ -429,7 +429,7 @@ def issues(
     show_dates: bool,
     output: Path | None,
 ) -> None:
-    """Scan repositories for open issues and pull requests."""
+    """Scan for open issues and pull requests."""
     selected_format = output_format(
         plain=format_plain, table=format_table, json_format=format_json
     )

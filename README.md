@@ -165,9 +165,9 @@ shapes; `$id` is not added to a report instance. The initial resource identifier
 Retrieve one installed schema from the command line by report identity or exact canonical ID:
 
 ```bash
-ghbot schema issues
-ghbot schema --id ghbot://schemas/issues/1.0.json
-ghbot schema --list
+ghbot --schema issues
+ghbot --schema --id ghbot://schemas/issues/1.0.json
+ghbot --schema --list
 ```
 
 The command reads packaged resources locally through the public registry; it does not authenticate,

@@ -637,7 +637,7 @@ def security(
     format_json: bool,
     output: Path | None,
 ) -> None:
-    """Scan repositories for open security alerts."""
+    """Scan for open security alerts."""
     selected_format = output_format(
         plain=format_plain, table=format_table, json_format=format_json
     )

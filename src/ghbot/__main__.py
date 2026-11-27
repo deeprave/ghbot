@@ -11,6 +11,42 @@ from ghbot.schema import schema
 
 log = get_logger(__name__)
 
+_SCHEMA_SENTINEL = "__schema__"
+
+
+class SchemaDispatchGroup(click.Group):
+    """Route a leading schema invocation without registering a schema command."""
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        super().format_help(ctx, formatter)
+        formatter.write_paragraph()
+        formatter.write(
+            "Schema retrieval:\n"
+            "  ghbot --schema REPORT\n"
+            "  ghbot --schema --id TEXT\n"
+            "  ghbot --schema --list"
+        )
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        if args and args[0] == "--schema":
+            ctx.meta["schema_args"] = args[1:]
+            return super().parse_args(ctx, [_SCHEMA_SENTINEL])
+        return super().parse_args(ctx, args)
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        if cmd_name == _SCHEMA_SENTINEL and "schema_args" in ctx.meta:
+            return schema
+        return super().get_command(ctx, cmd_name)
+
+    def invoke(self, ctx: click.Context) -> object:
+        if (schema_args := ctx.meta.get("schema_args")) is not None:
+            return schema.main(
+                args=schema_args,
+                prog_name=f"{ctx.info_name} --schema",
+                standalone_mode=False,
+            )
+        return super().invoke(ctx)
+
 
 def _split_owners(
     ctx: click.Context, _param: click.Parameter, value: tuple[str, ...]
@@ -88,7 +124,7 @@ def _resolve_explicit_repositories(
     return tuple(candidates.values())
 
 
-@click.group()
+@click.group(cls=SchemaDispatchGroup)
 @click.version_option(version("ghbot"))
 @click.option("--config", default=None, help="Config file path")
 @click.option("--verbose", is_flag=True, default=False, help="Console log level: debug")
@@ -223,7 +259,6 @@ def cli(
 for mode in discover_modes():
     cli.add_command(mode.command)
 cli.add_command(combo)
-cli.add_command(schema)
 
 
 if __name__ == "__main__":

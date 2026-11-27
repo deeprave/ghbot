@@ -48,7 +48,7 @@ MODE = InfoMode()
 @click.command()
 @click.pass_context
 def info(ctx: click.Context) -> None:
-    """Gather repository summary statistics."""
+    """Scan for repository summary statistics."""
     try:
         asyncio.run(run_processor(ctx.obj["cfg"], InfoRepoProcessor))
     except FatalError as error:
