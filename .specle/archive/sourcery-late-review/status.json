@@ -1,7 +1,7 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "bugfix",
-  "status": "committed",
+  "status": "complete",
   "created_at": 1795767086,
   "activated_at": null,
   "updated_at": 1795768664,
@@ -20,8 +20,14 @@
     "reference": "https://github.com/deeprave/ghbot/pull/69",
     "head_branch": "bugfix/sourcery-late-review",
     "target_branch": "main",
-    "commit": "e0a2d48"
+    "commit": "e0a2d48",
+    "completion": {
+      "reference": "https://github.com/deeprave/ghbot/pull/69",
+      "head_branch": "bugfix/sourcery-late-review",
+      "target_branch": "main"
+    }
   },
   "relationships": [],
-  "dependencies": []
+  "dependencies": [],
+  "archived_at": 1795769035
 }
