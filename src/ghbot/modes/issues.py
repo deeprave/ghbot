@@ -200,7 +200,7 @@ class IssuesRepoProcessor:
             while True:
                 async with github_api_call(self._gh):
                     data = await self._gh.graphql(
-                        _OPEN_PULL_REQUESTS_QUERY,
+                        query=_OPEN_PULL_REQUESTS_QUERY,
                         owner=self._owner,
                         repo=self._repo,
                         after=after,

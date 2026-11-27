@@ -1,0 +1,91 @@
+{
+  "$schema": "specle://schemas/findings/1.0",
+  "question": "Which late Sourcery findings from PR #68 warrant a successor fix?",
+  "scope": "sourcery-late-review",
+  "status": "complete",
+  "sources": [
+    {
+      "id": "sourcery-pr68-6085061468",
+      "system": "Sourcery",
+      "kind": "pull-request-review",
+      "url": "https://github.com/deeprave/ghbot/pull/68#pullrequestreview-6085061468",
+      "revision": "cfed6742d830e9b00031c9623914f0203286b004"
+    },
+    {
+      "id": "local-review-2026-11-27",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "27ff594583b73b73856f4686aba0e2a32ca6fb91875d3ca0683c1c7e8f1b53f0"
+    }
+  ],
+  "findings": [
+    {
+      "id": "sourcery-1",
+      "source_ids": ["sourcery-pr68-6085061468"],
+      "severity": "P5",
+      "description": "Vulture may scan only files supplied by pre-commit rather than the configured source tree.",
+      "evidence": ".pre-commit-config.yaml:16; Sourcery review comment 1.",
+      "analysis": "Vulture's maintained hook declares pass_filenames: false upstream and its configured paths already select src plus the whitelist. The claim needs validation against the installed hook rather than acceptance on the review text alone.",
+      "recommendation": "Decline if the upstream hook metadata confirms filename passing is disabled; otherwise configure the hook explicitly.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "The installed maintained Vulture hook declares pass_filenames: false and uses the repository's configured paths, so the reported incomplete-scan behaviour does not apply.",
+      "route": null
+    },
+    {
+      "id": "sourcery-2",
+      "source_ids": ["sourcery-pr68-6085061468"],
+      "severity": "P3",
+      "description": "Renaming the GitHubClient GraphQL query parameter may reject supported keyword calls under static typing.",
+      "evidence": "src/ghbot/processor.py:136; Sourcery review comment 2.",
+      "analysis": "The concrete client accepts query by name, while the protocol currently exposes _query. Repository calls are positional, but the protocol is a reusable boundary and should not unnecessarily narrow compatible typed callers.",
+      "recommendation": "Restore the protocol parameter name query and use the narrowest Vulture-specific suppression that preserves the keyword contract.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Preserve the protocol's compatible keyword-call surface while keeping scanner suppression limited to the parameter that cannot be renamed.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "sourcery-late-review",
+        "outcome": "The abbreviated bugfix plan now restores the protocol keyword contract and limits the required Vulture suppression to query."
+      }
+    },
+    {
+      "id": "sourcery-3",
+      "source_ids": ["sourcery-pr68-6085061468"],
+      "severity": "P3",
+      "description": "Removing processor_type assertions left mode factories without behaviour-level processor selection coverage.",
+      "evidence": "tests/unit/test_drift_report_mode.py:17, tests/unit/test_issues_report_mode.py:42, tests/unit/test_security_report_mode.py:20; Sourcery review comment 3.",
+      "analysis": "The removed assertions targeted obsolete fields, but the underlying factory contract remains valuable. Tests can assert that new_processor returns the expected processor without asserting an implementation field exists.",
+      "recommendation": "Add focused factory-behaviour tests for drift, issues, and security modes.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "Each factory directly constructs its processor with no dynamic selection path; asserting this static mapping would be tautological rather than meaningful behavioural coverage.",
+      "route": null
+    },
+    {
+      "id": "sourcery-4",
+      "source_ids": ["sourcery-pr68-6085061468"],
+      "severity": "P5",
+      "description": "The archived design's quality-gate prose omits uv run prefixes.",
+      "evidence": ".specle/archive/cleanup-dead-code/design.md; Sourcery review comment 4.",
+      "analysis": "Repository testing guidance already specifies uv run, but the archived design is immutable. A successor correction would not alter the historical record and risks adding noise without changing developer instructions.",
+      "recommendation": "Decline; retain the immutable historical artifact and rely on the authoritative testing guidance.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "The design need not repeat the authoritative testing guidance, and the archived historical artifact must remain immutable.",
+      "route": null
+    }
+  ],
+  "recommendations": [
+    {
+      "source_ids": ["local-review-2026-11-27"],
+      "outcome": "APPROVE",
+      "rationale": "The repair restores the supported protocol keyword contract with focused runtime and static-type coverage; no further findings."
+    }
+  ],
+  "risks": [],
+  "outcome_change": null
+}
