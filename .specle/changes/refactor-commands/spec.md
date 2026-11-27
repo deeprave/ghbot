@@ -18,7 +18,7 @@ command read `Scan for …` in help output.
 - Dispatch a leading schema invocation before normal command selection so schema-only selectors
   remain invalid outside it.
 - Standardise scan-command help descriptions for combo, info, drift, issues, and security.
-- Update CLI documentation and focused command tests.
+- Update CLI documentation, pending change requirements, and focused command tests.
 
 ## Boundaries
 

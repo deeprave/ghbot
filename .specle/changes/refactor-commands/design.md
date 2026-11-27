@@ -66,9 +66,9 @@ The scan commands will use these descriptions:
 
 ## Documentation and output
 
-Update README examples to the three `ghbot --schema …` forms. Schema JSON content, IDs, registry
-ordering, and library APIs are unchanged. Help output gains a concise schema-invocation note while
-its command list excludes `schema`.
+Update README examples and pending change requirements to the three `ghbot --schema …` forms.
+Schema JSON content, IDs, registry ordering, and library APIs are unchanged. Help output gains a
+concise schema-invocation note while its command list excludes `schema`.
 
 ## Test strategy
 

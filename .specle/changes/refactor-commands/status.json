@@ -1,13 +1,13 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "committed",
+  "status": "approved",
   "created_at": 1795769804,
   "activated_at": 1795772924,
-  "updated_at": 1795773853,
+  "updated_at": 1795774502,
   "progress": {
-    "completed": 4,
-    "total": 4
+    "completed": 5,
+    "total": 5
   },
   "verification": {
     "status": "pass"

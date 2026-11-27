@@ -31,7 +31,7 @@ configuration across my selected repositories.
 2. THE mode SHALL render a detailed plain-text report by default and a structured JSON report with
    `--json`, and SHALL support `--output`.
 3. THE mode SHALL NOT provide a table format or participate in `combo`.
-4. THE JSON report SHALL have a packaged versioned schema available through `ghbot schema`.
+4. THE JSON report SHALL have a packaged versioned schema available through `ghbot --schema`.
 
 ### Requirement 2: Report a curated general-settings inventory
 

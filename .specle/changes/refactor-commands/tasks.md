@@ -13,3 +13,6 @@
 - [x] 4. Standardise combo and mode descriptions, document the leading schema forms, and satisfy
   the help-output contract.
   - Files: `src/ghbot/combo.py`, `src/ghbot/modes/{info,drift,issues,security}.py`, `README.md`
+- [x] 5. Update pending activity and settings requirements to use the leading schema retrieval
+  form.
+  - Files: `.specle/changes/{add-activity-processor,add-settings-collector}/requirements.md`

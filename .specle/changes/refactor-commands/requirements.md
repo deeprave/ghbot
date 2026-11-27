@@ -31,6 +31,8 @@ still being able to retrieve installed schemas directly.
    they SHALL remain unknown options rather than becoming general CLI options.
 5. THE CLI SHALL no longer recognise `ghbot schema ...` as a command.
 6. The leading `--schema` form SHALL not initialise repository scanning or invoke processors.
+7. Repository-owned CLI documentation and pending change requirements that describe schema
+   retrieval SHALL use the supported leading `ghbot --schema` form.
 
 ### Requirement 2: Make scan-command descriptions consistent
 
