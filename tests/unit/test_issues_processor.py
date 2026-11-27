@@ -361,6 +361,41 @@ class TestIssuesRepoProcessorPullRequestMetrics:
         assert "isDraft" in gh.graphql.await_args_list[0].args[0]
 
     @pytest.mark.anyio
+    async def test_classifies_unsuffixed_dependabot_graphql_author(self):
+        gh = _make_gh()
+        gh.graphql.return_value = _graphql_page(
+            [
+                _graphql_pr(
+                    "dependabot",
+                    "CLEAN",
+                    number=231,
+                    created_at="2026-11-01T10:20:30Z",
+                    url="https://github.com/acme/widgets/pull/231",
+                )
+            ]
+        )
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.results["dependabot_open_pull_requests"] == 1
+        assert result.results["dependabot_merge_ready_pull_requests"] == 1
+        assert result.results["other_open_pull_requests"] == 0
+        assert result.results["oldest_dependabot_pull_request_created_at"] == (
+            "2026-11-01T10:20:30Z"
+        )
+        assert result.results["dependabot_pull_requests"] == [
+            {
+                "number": 231,
+                "url": "https://github.com/acme/widgets/pull/231",
+                "created_at": "2026-11-01T10:20:30Z",
+                "draft": False,
+                "merge_ready": True,
+            }
+        ]
+
+    @pytest.mark.anyio
     async def test_empty_dependabot_category_has_an_empty_detail_list(self):
         processor, _ = _make_processor()
 

@@ -22,8 +22,7 @@ from ghbot.log import get_logger
 
 ProcessingStatus = Literal["success", "partial", "failed", "skipped"]
 UnavailableReason = Literal["not_found", "forbidden", "disabled", "error"]
-_DEPENDABOT_LOGIN = "dependabot[bot]"
-_NON_BLOCKING_CHECK_CONCLUSIONS = frozenset({"success", "neutral", "skipped"})
+_DEPENDABOT_LOGINS = frozenset({"dependabot", "dependabot[bot]"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +53,11 @@ class RepoResult:
     results: dict = field(default_factory=dict)
     unavailable: dict[str, UnavailableMetric] = field(default_factory=dict)
     reason: str | None = None
+
+
+def is_dependabot_login(login: object) -> bool:
+    """Return whether a GitHub login is one of Dependabot's API identities."""
+    return isinstance(login, str) and login in _DEPENDABOT_LOGINS
 
 
 def record_unavailable(

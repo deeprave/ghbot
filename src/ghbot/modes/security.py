@@ -26,6 +26,7 @@ from ghbot.processor import (
     Monitor,
     RepoResult,
     display_metric,
+    is_dependabot_login,
     record_unavailable,
     report_metadata,
     unavailable_reason,
@@ -732,7 +733,8 @@ def _security_activity_message(result: RepoResult) -> str | None:
 
 
 def _is_dependabot_pull_request(pull_request: dict) -> bool:
-    return (pull_request.get("user") or {}).get("login") == "dependabot[bot]"
+    user = pull_request.get("user")
+    return isinstance(user, dict) and is_dependabot_login(user.get("login"))
 
 
 def _is_security_feature_disabled(error: GitHubApiError) -> bool:

@@ -1,0 +1,136 @@
+{
+  "$schema": "specle://schemas/findings/1.0",
+  "question": "Does the Dependabot classification fix preserve report contracts while correcting both GitHub API login forms?",
+  "scope": "fix-dependabot-classification",
+  "status": "complete",
+  "sources": [
+    {
+      "id": "local-review-2026-11-27",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "d5d37f06de23702fd5d1a7c68b65068e2074f7c77a0f6584272d7a34fd675385"
+    },
+    {
+      "id": "claude-review-2026-11-27",
+      "system": "Claude",
+      "kind": "implementation-review",
+      "revision": "d5d37f06de23702fd5d1a7c68b65068e2074f7c77a0f6584272d7a34fd675385"
+    },
+    {
+      "id": "local-review-2026-11-27-revision-2",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "4faef44792036a4834433ece21601791bb1196de6479484b293715140e2116c9"
+    },
+    {
+      "id": "agy-dependabot",
+      "system": "antigravity",
+      "kind": "code-review",
+      "revision": "4faef44792036a4834433ece21601791bb1196de6479484b293715140e2116c9"
+    },
+    {
+      "id": "local-review-2026-11-27-revision-3",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "cf6ec57ac34625c721931587c62f8099a62bf896914e1608e9cc742a43147cc8"
+    }
+  ],
+  "findings": [
+    {
+      "id": "claude-1",
+      "source_ids": ["claude-review-2026-11-27"],
+      "severity": "P4",
+      "description": "The new security regression test patches github_api_call in a module that the security fetch path does not use.",
+      "evidence": "tests/unit/test_security_processor.py:355; src/ghbot/modes/security.py:21,295",
+      "analysis": "The test copies an existing ineffective patch target, so its real wrapper runs rather than the intended passthrough context manager.",
+      "recommendation": "Patch ghbot.modes.security.github_api_call in the new test. Treat existing ineffective patch sites as separate cleanup.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Correct the new regression test and the existing ineffective security-module patch sites now, as one bounded test-isolation cleanup.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "fix-dependabot-classification",
+        "outcome": "All security-processor tests now patch ghbot.modes.security.github_api_call at its import site."
+      }
+    },
+    {
+      "id": "claude-2",
+      "source_ids": ["claude-review-2026-11-27"],
+      "severity": "P5",
+      "description": "The user-visible correction to issues-mode Dependabot metrics has no changelog entry.",
+      "evidence": "CHANGELOG.md:5",
+      "analysis": "The issue and security Dependabot metrics can change for affected repositories.",
+      "recommendation": "Add a Fixed entry under the next version heading.",
+      "state": "decided",
+      "decision": "decline",
+      "rationale": "Superseded by the v1.0.1 Fixed entry added during this change.",
+      "route": null
+    },
+    {
+      "id": "agy-1",
+      "source_ids": ["agy-dependabot"],
+      "severity": "P4",
+      "description": "The security Dependabot helper assumes a truthy user payload is a mapping.",
+      "evidence": "src/ghbot/modes/security.py:736 calls .get() on pull_request['user'] without validating its type.",
+      "analysis": "A malformed truthy non-mapping REST user payload raises AttributeError and causes the repository scan to fail. This conflicts with the change's intended safe handling of malformed login values.",
+      "recommendation": "Validate the user payload is a dict before looking up login, with focused regression coverage.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Prevent malformed REST user payloads from turning an otherwise recoverable classification case into a failed repository scan.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "fix-dependabot-classification",
+        "outcome": "Security-mode REST user payloads are type-checked and null or non-mapping values are covered as non-Dependabot."
+      }
+    },
+    {
+      "id": "agy-2",
+      "source_ids": ["agy-dependabot"],
+      "severity": "P4",
+      "description": "The shared identity predicate lacks near-miss exact-match regression cases.",
+      "evidence": "tests/unit/test_processor.py:17 covers ordinary non-Dependabot values but not case, whitespace, prefix, or suffix variants.",
+      "analysis": "The implementation is exact today, but the requirements expressly prohibit broad matching. Near-miss coverage would preserve that boundary.",
+      "recommendation": "Add representative prefix, suffix, case, whitespace, and empty-string negative cases to the predicate test.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Protect the explicit exact-identity boundary against accidental broad matching in future changes.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "fix-dependabot-classification",
+        "outcome": "Predicate tests reject representative prefix, suffix, case, whitespace, and empty-string near misses."
+      }
+    },
+    {
+      "id": "agy-3",
+      "source_ids": ["agy-dependabot"],
+      "severity": "P6",
+      "description": "A pre-existing unused check-conclusion constant remains adjacent to the changed Dependabot constant.",
+      "evidence": "src/ghbot/processor.py:26 defines _NON_BLOCKING_CHECK_CONCLUSIONS, while security.py keeps an equivalent inline set.",
+      "analysis": "This is unrelated pre-existing dead code and does not affect Dependabot classification.",
+      "recommendation": "Defer it to a deliberately scoped refactor.",
+      "state": "decided",
+      "decision": "accept",
+      "rationale": "Remove the pre-existing unused constant now: it was left behind by the mode-handler refactor and is adjacent to the current classification change.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "fix-dependabot-classification",
+        "outcome": "Removed the unused _NON_BLOCKING_CHECK_CONCLUSIONS constant from processor.py."
+      }
+    }
+  ],
+  "recommendations": [],
+  "risks": [],
+  "outcome_change": null
+}
