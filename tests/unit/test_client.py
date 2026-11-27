@@ -12,6 +12,7 @@ import pytest
 from ghbot.errors import (
     GitHubApiError,
     GitHubForbiddenError,
+    GitHubGraphQLPartialDataError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -25,11 +26,15 @@ def _graphql_query_error(
     *,
     error_type: str | None = None,
     additional_errors: tuple[dict[str, str], ...] = (),
+    data: dict[str, object] | None = None,
 ) -> gidgethub.QueryError:
     error = {"message": message}
     if error_type is not None:
         error["type"] = error_type
-    return gidgethub.QueryError({"errors": [error, *additional_errors]})
+    response: dict[str, object] = {"errors": [error, *additional_errors]}
+    if data is not None:
+        response["data"] = data
+    return gidgethub.QueryError(response)
 
 
 def test_retry_after_parses_a_response_header_and_rejects_invalid_values():
@@ -73,6 +78,39 @@ async def test_graphql_query_error_raises_github_api_error():
     with pytest.raises(GitHubApiError, match="invalid query"):
         async with github_api_call(gh):
             raise _graphql_query_error("invalid query")
+
+
+@pytest.mark.anyio
+async def test_graphql_field_error_with_data_preserves_partial_response():
+    gh = AsyncMock()
+    data = {"repository": {"visibility": "PRIVATE"}}
+
+    with pytest.raises(GitHubGraphQLPartialDataError) as raised:
+        async with github_api_call(gh):
+            raise _graphql_query_error(
+                "Resource not accessible by integration",
+                error_type="FORBIDDEN",
+                data=data,
+            )
+
+    assert raised.value.data == data
+    assert raised.value.errors == (
+        {
+            "message": "Resource not accessible by integration",
+            "type": "FORBIDDEN",
+        },
+    )
+
+
+@pytest.mark.anyio
+async def test_graphql_rate_limit_with_data_remains_fatal():
+    with pytest.raises(GitHubPrimaryRateLimitError):
+        async with github_api_call(AsyncMock()):
+            raise _graphql_query_error(
+                "API rate limit exceeded",
+                error_type="RATE_LIMITED",
+                data={"repository": {"visibility": "PRIVATE"}},
+            )
 
 
 @pytest.mark.anyio

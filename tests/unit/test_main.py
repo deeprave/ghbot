@@ -49,16 +49,18 @@ def test_root_help_lists_only_scan_commands_with_consistent_descriptions():
         "Scan for commits since the latest stable release.",
         "Scan for open issues and pull requests.",
         "Scan for open security alerts.",
+        "Scan for repository settings.",
     ):
         assert description in result.output
 
 
 def test_package_mode_imports_remain_modules():
-    from ghbot.modes import drift, issues, security
+    from ghbot.modes import drift, issues, security, settings
 
     assert drift.MODE.name == "drift"
     assert issues.MODE.name == "issues"
     assert security.MODE.name == "security"
+    assert settings.MODE.name == "settings"
 
 
 def test_info_subcommand_runs_the_info_processor():

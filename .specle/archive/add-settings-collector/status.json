@@ -1,0 +1,33 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "change",
+  "status": "complete",
+  "created_at": 1795754621,
+  "activated_at": 1795776973,
+  "updated_at": 1795785753,
+  "progress": {
+    "completed": 12,
+    "total": 12
+  },
+  "verification": {
+    "status": "pass"
+  },
+  "review": {
+    "status": "pass",
+    "findings": 0
+  },
+  "delivery": {
+    "reference": "https://github.com/deeprave/ghbot/pull/71",
+    "head_branch": "feature/add-settings-collector",
+    "target_branch": "main",
+    "commit": "da23650",
+    "completion": {
+      "reference": "https://github.com/deeprave/ghbot/pull/71",
+      "head_branch": "feature/add-settings-collector",
+      "target_branch": "main"
+    }
+  },
+  "relationships": [],
+  "dependencies": [],
+  "archived_at": 1795786120
+}

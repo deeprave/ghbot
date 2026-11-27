@@ -11,12 +11,19 @@ def test_discover_modes_returns_all_builtins_in_canonical_order():
 
     modes = discover_modes()
 
-    assert [mode.name for mode in modes] == ["drift", "info", "issues", "security"]
+    assert [mode.name for mode in modes] == [
+        "drift",
+        "info",
+        "issues",
+        "security",
+        "settings",
+    ]
     assert [mode.command.name for mode in modes] == [
         "drift",
         "info",
         "issues",
         "security",
+        "settings",
     ]
 
 

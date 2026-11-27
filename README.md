@@ -129,6 +129,27 @@ uvx ghbot --owner acme drift [--plain | --table | --json] [--output FILE]
 | `--json` | Structured summary and reportable repositories; unknown PyPI configuration is `null` |
 | `--output FILE` | Write the report to a file instead of stdout |
 
+### `settings` — consequential repository configuration
+
+Inventories configuration that affects repository governance and automation: merge and collaboration
+settings, security-analysis features, default-branch classic protection, rulesets, and the names of
+repository-level Actions variables and secrets. It does not expose secret values, variable values,
+or ruleset bypass identities.
+
+```bash
+uvx ghbot --owner acme settings [--plain | --json] [--output FILE]
+```
+
+| Option | Meaning |
+|---|---|
+| `--plain` (default) | Detailed, per-repository settings inventory |
+| `--json` | Structured settings report for every scanned repository |
+| `--output FILE` | Write the report to a file instead of stdout |
+
+Settings is intentionally standalone: it has no table format and is not included in `combo`.
+Unavailable sections remain `null` in JSON with established availability metadata, while empty
+lists indicate that the corresponding accessible setting has no entries.
+
 ### `combo` — combined repository posture
 
 Runs every built-in mode with a report `combine_key` in one repository-discovery pass. Today this
@@ -160,7 +181,8 @@ currently render a stdout report.
 The versioned schema resources have `$id` values. Reports themselves retain their established JSON
 shapes; `$id` is not added to a report instance. The initial resource identifiers are
 `ghbot://schemas/security/1.0.json`, `ghbot://schemas/issues/1.0.json`,
-`ghbot://schemas/drift/1.0.json`, and `ghbot://schemas/combined/1.0.json`.
+`ghbot://schemas/drift/1.0.json`, `ghbot://schemas/settings/1.0.json`, and
+`ghbot://schemas/combined/1.0.json`.
 
 Retrieve one installed schema from the command line by report identity or exact canonical ID:
 

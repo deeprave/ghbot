@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 
 
@@ -16,6 +17,21 @@ class AuthError(FatalError):
 class GitHubApiError(FatalError):
     def __init__(self, message: str) -> None:
         super().__init__(message, exit_code=1)
+
+
+class GitHubGraphQLPartialDataError(GitHubApiError):
+    """A GraphQL response retained usable data alongside field errors."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        data: Mapping[str, object],
+        errors: tuple[Mapping[str, object], ...],
+    ) -> None:
+        super().__init__(message)
+        self.data = dict(data)
+        self.errors = errors
 
 
 class GitHubNotFoundError(GitHubApiError):

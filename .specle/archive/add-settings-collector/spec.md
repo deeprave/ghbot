@@ -16,7 +16,8 @@ non-secret settings inventory in readable plain text and stable JSON.
 - A reusable GraphQL partial-data condition that preserves `data` and field errors together.
 - Curated general repository and security-analysis settings obtained efficiently through GraphQL.
 - Default-branch classic protection summary and applicable ruleset summaries through GraphQL.
-- Ruleset bypass presence as true, false, or unavailable; never actor identity.
+- Ruleset bypass presence as true or false when available; omit the property when unavailable;
+  never actor identity.
 - Names of repository-level Actions variables and secrets only.
 - Adoption of the partial-data path by the existing issues GraphQL scanner where it can preserve
   useful results.

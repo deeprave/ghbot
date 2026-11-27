@@ -10,6 +10,7 @@ import httpx
 from ghbot.errors import (
     GitHubApiError,
     GitHubForbiddenError,
+    GitHubGraphQLPartialDataError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -112,6 +113,9 @@ async def github_api_call(gh):
                 delay_seconds=_FALLBACK_RATE_LIMIT_DELAY if reset_at is None else None,
                 reset_at=reset_at,
             ) from e
+        if partial := _graphql_partial_data(e):
+            data, errors = partial
+            raise GitHubGraphQLPartialDataError(str(e), data=data, errors=errors) from e
         codes = _graphql_error_codes(e)
         if (
             isinstance(e, gidgethub.BadGraphQLRequest)
@@ -166,6 +170,25 @@ def _graphql_error_codes(error: gidgethub.GraphQLException) -> set[str]:
         if isinstance(extensions, dict):
             values.extend((extensions.get("code"), extensions.get("type")))
     return {value.upper() for value in values if isinstance(value, str)}
+
+
+def _graphql_partial_data(
+    error: gidgethub.GraphQLException,
+) -> tuple[Mapping[str, object], tuple[Mapping[str, object], ...]] | None:
+    """Return usable GraphQL data and field errors retained by GidgetHub."""
+    response = error.response
+    if not isinstance(response, Mapping):
+        return None
+    data = response.get("data")
+    errors = response.get("errors")
+    if not isinstance(data, Mapping) or not any(
+        value is not None for value in data.values()
+    ):
+        return None
+    if not isinstance(errors, list):
+        return None
+    details = tuple(item for item in errors if isinstance(item, Mapping))
+    return data, details
 
 
 def _is_secondary_graphql_rate_limit(error: gidgethub.GraphQLException) -> bool:

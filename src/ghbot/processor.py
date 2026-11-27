@@ -140,7 +140,11 @@ class GitHubClient(Protocol):
     ) -> dict[str, Any]: ...
 
     def getiter(
-        self, url: str, *, url_vars: dict[str, Any] | None = None
+        self,
+        url: str,
+        *,
+        url_vars: dict[str, Any] | None = None,
+        iterable_key: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]: ...
 
 

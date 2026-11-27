@@ -9,6 +9,7 @@ from referencing import Registry, Resource
 from ghbot.modes.drift import DriftCollectionReport
 from ghbot.modes.issues import IssuesCollectionReport
 from ghbot.modes.security import SecurityCollectionReport
+from ghbot.modes.settings import SettingsCollectionReport
 from ghbot.processor import RepoResult, record_unavailable
 from ghbot.report_style import CombinedCollectionReport, ReportSection
 from ghbot.schemas import current_schema, schema_for_id, schema_ids
@@ -27,6 +28,7 @@ def _registry() -> Registry:
         "ghbot://schemas/security/1.0.json",
         "ghbot://schemas/issues/1.0.json",
         "ghbot://schemas/drift/1.0.json",
+        "ghbot://schemas/settings/1.0.json",
     ],
 )
 def test_standalone_schema_rejects_a_document_missing_required_report_fields(schema_id):
@@ -110,6 +112,7 @@ def test_packaged_schema_is_a_valid_draft_2020_12_schema(schema_id):
         ("security", SecurityCollectionReport().document()),
         ("issues", IssuesCollectionReport().document()),
         ("drift", DriftCollectionReport().document()),
+        ("settings", SettingsCollectionReport().document()),
     ],
 )
 def test_standalone_schemas_allow_additive_top_level_properties(report, document):
@@ -122,6 +125,7 @@ def test_json_rendering_preserves_collection_document_shape():
         SecurityCollectionReport(),
         IssuesCollectionReport(),
         DriftCollectionReport(),
+        SettingsCollectionReport(),
     )
 
     for collection in collections:
@@ -134,6 +138,7 @@ def test_json_rendering_preserves_collection_document_shape():
         ("security", SecurityCollectionReport().document()),
         ("issues", IssuesCollectionReport().document()),
         ("drift", DriftCollectionReport().document()),
+        ("settings", SettingsCollectionReport().document()),
     ],
 )
 def test_current_schema_validates_real_empty_collection_output(report, document):
@@ -279,6 +284,34 @@ def test_drift_schema_validates_a_real_current_collection_output():
     report = DriftCollectionReport([result]).document()
 
     Draft202012Validator(current_schema("drift")).validate(report)
+
+
+def test_settings_schema_validates_a_real_partial_collection_output():
+    result = RepoResult(owner="acme", repo="api", status="partial")
+    result.results.update(
+        {
+            "general": {"visibility": "PRIVATE"},
+            "security": {"vulnerability_alerts_enabled": True},
+            "classic_protection": None,
+            "rulesets": [
+                {
+                    "name": "main",
+                    "target": "BRANCH",
+                    "source": "Repository",
+                    "enforcement": "ACTIVE",
+                    "rule_types": ["REQUIRED_STATUS_CHECKS"],
+                    "ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []},
+                }
+            ],
+            "actions_variables": ["DEPLOY_ENV"],
+            "actions_secrets": None,
+        }
+    )
+    record_unavailable(result, "actions_secrets", reason="forbidden")
+
+    Draft202012Validator(current_schema("settings")).validate(
+        SettingsCollectionReport([result]).document()
+    )
 
 
 @pytest.mark.parametrize(
