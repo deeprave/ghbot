@@ -1,10 +1,11 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "committed",
+  "status": "complete",
   "created_at": 1795725814,
   "activated_at": 1795725886,
   "updated_at": 1795741590,
+  "archived_at": 1795750432,
   "progress": {
     "tasks_completed": 6,
     "tasks_total": 6
