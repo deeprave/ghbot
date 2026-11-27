@@ -36,7 +36,7 @@ Changes are independent by default. A queued or future change must not create a 
 
 ## Workflow
 
-1. Identify the target from `.specle/current-change` and per-change `status.json`. Default to the selected normal change. A `bugfix` or `refactor`, or a committed normal change, is valid only when the user explicitly names it; preserve the local selection throughout that non-selected revision. Reject archived targets: they are immutable except for explicitly named triage updating `review-findings.json`. Do not create a new change, switch to an unrelated one, or split accepted review feedback into a separate change.
+1. Identify the target from `.specle/current-change` and per-change `status.json`. Default to the selected normal change. A `bugfix` or `refactor`, or a committed normal change, is valid only when the user explicitly names it; preserve the local selection throughout that non-selected revision. Reject archived targets: they are immutable, and a later defect requires independent work. Do not create a new change, switch to an unrelated one, or split accepted review feedback into a separate change.
 2. Read the feedback and its accepted disposition. For a normal target, read `requirements.md`, `spec.md`, `design.md`, and `tasks.md` when present. For an abbreviated target, read its `spec.md` and `tasks.md`.
    Read the applicable lifecycle and authoritative `.agents/project/` documents before revising architecture or contracts.
 3. Classify each accepted finding:

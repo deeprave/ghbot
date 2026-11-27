@@ -36,10 +36,10 @@ Make an explicitly named unselected normal change the local work item. Activatio
 
 Before applying or recording a lifecycle transition, consult this skill's `lifecycle` frontmatter declaration.
 
-1. Read `.specle/current-change` when present, the named active directory under `.specle/changes/`, its `status.json`, and `.agents/policies/lifecycle.md`.
+1. Read `.specle/current-change` when present, the named active directory under `.specle/changes/`, its `status.json`, `.agents/policies/{lifecycle,context}.md`, and applicable `.agents/project/context.md`. Context remains optional and never blocks activation.
 2. Require an explicit active directory with that exact name. A normal change may be activated from `defined`, `estimated`, `designed`, or `planned`; a spike may be activated from `defined` or resumed from `spiking`. Do not activate a bugfix, refactor, archived change, or unrecorded directory.
-3. If `.specle/current-change` selects another change that is not effectively complete, stop and ask the user to resolve it; never replace that local selection implicitly. An archived complete record is terminal and does not block activation merely because it retains a completion-PR reference.
-4. Write only the selected name and trailing newline to ignored `.specle/current-change`. Set `activated_at` to current Unix seconds as a JSON number when it is `null`, retain the first activation timestamp on later resumes, and write `updated_at` in the same status update. Activation is the sole selector writer except for `wrapup`, which may remove its own matching archived selection after final delivery.
+3. If `.specle/current-change` selects another change that is not terminal, stop and ask the user to resolve it; never replace that local selection implicitly. An archived complete record with an unconfirmed original or recovery delivery PR remains resumable through `complete` and blocks replacement. An archived cancelled record is terminal and may be replaced.
+4. Write only the selected name and trailing newline to ignored `.specle/current-change`. Set `activated_at` to current Unix seconds as a JSON number when it is `null`, retain the first activation timestamp on later resumes, and write `updated_at` in the same status update. Activation is the sole selector writer except for complete's matching post-merge cleanup and cancel's matching terminal cleanup.
 5. For a spike, immediately invoke `spike <change-name>`; the spike skill owns its durable progress and completion.
 6. For a normal change, validate the preparation chain in order, then immediately invoke the first missing stage with the selected change name:
    - no `estimate.md` — `estimate`;

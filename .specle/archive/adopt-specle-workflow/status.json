@@ -24,8 +24,7 @@
     "completion": {
       "reference": "https://github.com/deeprave/ghbot/pull/66",
       "head_branch": "feature/adopt-specle-workflow-completion",
-      "target_branch": "main",
-      "commit": "bd2151b3d3dd54b5ec8ab5c3801662c3e36ee422"
+      "target_branch": "main"
     }
   },
   "relationships": [],

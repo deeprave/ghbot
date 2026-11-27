@@ -24,11 +24,11 @@ Give a concise, evidence-based explanation of one Specle work item. This is a di
    - **Requirements and scope** — important expected behaviour, boundaries, and constraints;
    - **Approach** — the documented design or likely workflow, including verification direction when known;
    - **State** — stable change name, kind, lifecycle status, active or archived location, relevant progress and delivery evidence;
-   - **Next action** — the lifecycle action derived from recorded status and evidence, or state that no action remains for an archived complete item.
+   - **Next action** — the lifecycle action derived from recorded status and evidence, or state that no action remains for an archived complete or cancelled item.
 5. Keep the explanation proportionate. Call out material trade-offs and open questions, but do not turn the response into a task plan unless the user asks.
 
 ## Boundaries
 
 - Do not change `.specle/current-change`, `status.json`, artifacts, source files, or external systems.
 - Do not activate a defined change or continue workflow progression.
-- An archived completed item is explainable by explicit name, even when no work is selected locally.
+- An archived complete or cancelled item is explainable by explicit name, even when no work is selected locally.

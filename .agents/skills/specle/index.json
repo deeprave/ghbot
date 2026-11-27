@@ -130,24 +130,24 @@
       "name": "Integration",
       "skills": [
         {
+          "name": "cancel",
+          "description": "Archive one explicitly named active change as cancelled without claiming delivery.",
+          "usage": "Use with a stable active change name to end it after required dependency and in-flight cleanup decisions."
+        },
+        {
           "name": "commit",
           "description": "Deliver approved Specle work according to project policy.",
           "usage": "Use after local review approves a change, bugfix, or refactor to prepare or perform its configured commit, push, and pull-request delivery actions."
         },
         {
           "name": "complete",
-          "description": "Finalise archival delivery for a committed Specle change.",
-          "usage": "Use after any committed delivery to confirm its final event when needed, archive the durable change record, and create any required completion PR."
+          "description": "Finalise or resume archival delivery for a committed Specle change.",
+          "usage": "Use after committed delivery to archive it on its existing delivery path, request final merge where applicable, or resume the missing finalisation phase."
         },
         {
           "name": "track",
           "description": "Link Specle work to configured external sources and destinations.",
           "usage": "Use for explicitly named external imports, source checks, or authorised destination publishing; never write to a source."
-        },
-        {
-          "name": "wrapup",
-          "description": "Merge a recorded archival completion PR and synchronise delivery.",
-          "usage": "Use after complete has archived a change and recorded a completion PR; merge that PR or synchronise an externally merged one without changing the archive."
         }
       ]
     },

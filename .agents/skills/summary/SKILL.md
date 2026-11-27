@@ -13,7 +13,7 @@ Produce `summary.md` as a concise human account of completed work. It is a commu
 
 ## Workflow
 
-1. Read `.specle/current-change` when present, relevant policies, steering, applicable project guidance, and the target status record. Resolve the target in either active changes or archive. Select the local work item by default, including a selected archived completed item awaiting wrapup.
+1. Read `.specle/current-change` when present, relevant policies, steering, applicable project guidance, and the target status record. Resolve the target in either active changes or archive. Select the local work item by default, including a selected archived completed item awaiting an explicit completion resumption on its original or recovery PR.
 2. Apply the state guard before writing anything. The selected record must have `status: "complete"`. Otherwise, stop and identify the owning next workflow. Do not imply completion, run verification or review, or change lifecycle state.
 3. Read the target's evidence in full:
    - For normal work, read its requirements, design, task plan, verification evidence, review outcome, and the relevant implementation.
@@ -36,7 +36,7 @@ Produce `summary.md` as a concise human account of completed work. It is a commu
    `Summary` comes first and is a short standalone, copy-ready paragraph suitable for a Jira comment, release note, or similar update. `Outcome` and `What changed` should explain only the user-meaningful result and delivered behaviour. `Key decisions and limits` is optional: include it only when a choice, deliberate exclusion, or lasting limitation matters to a reader.
 
    Do not include test counts, pass/fail results, CI or pull-request activity, commit references, routine verification, workflow mechanics, generic recommendations, or future-work boilerplate. Refer to evidence only when it explains a material result or limitation. For a spike, foreground the finding and recommendation in `Summary` and `Outcome`.
-5. Preserve every context, lifecycle, tracker, and review record. Do not post or publish the summary. External publication remains an explicit `track` operation when a project has a configured destination and the user authorises it.
+5. Preserve durable lifecycle, tracker, and review records. Do not add the ignored local hand-off `context.json` to delivery content or treat it as a completed-work artefact. Do not post or publish the summary. External publication remains an explicit `track` operation when a project has a configured destination and the user authorises it.
 
 ## Next
 
