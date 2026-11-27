@@ -10,6 +10,10 @@ repos:
       - id: check-added-large-files
       - id: no-commit-to-branch
         args: [--branch, main]
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.16
+    hooks:
+      - id: vulture
   - repo: local
     hooks:
       - id: ruff-check

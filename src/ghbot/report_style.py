@@ -20,7 +20,7 @@ class TableColumn:
 
 class ReportStyle:
     @classmethod
-    def from_format(cls, format_name: str) -> ReportStyle:
+    def from_format(_cls, format_name: str) -> ReportStyle:
         match format_name:
             case "plain":
                 return PlainReportStyle()

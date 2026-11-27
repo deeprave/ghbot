@@ -14,7 +14,6 @@ _SCHEMA_MARKERS = {"$id", "schema", "schema_id", "schema_version"}
 
 def test_mode_owns_drift_processor_and_collection():
     assert MODE.name == "drift"
-    assert MODE.processor_type is DriftRepoProcessor
     assert isinstance(DriftRepoProcessor("a", "b", None, None), RepoProcessor)
     assert isinstance(MODE.new_collection({}), DriftCollectionReport)
 

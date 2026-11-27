@@ -65,7 +65,7 @@ class TaskPool:
         self._rate_limit_abort_event = asyncio.Event()
         return self
 
-    async def __aexit__(self, *exc_info: object) -> None:
+    async def __aexit__(self, *_exc_info: object) -> None:
         if self._tasks:
             pending = set(self._tasks)
             abort_waiter: asyncio.Task[bool] | None = None

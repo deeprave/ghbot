@@ -13,7 +13,7 @@ log = get_logger(__name__)
 
 
 def _split_owners(
-    ctx: click.Context, param: click.Parameter, value: tuple[str, ...]
+    ctx: click.Context, _param: click.Parameter, value: tuple[str, ...]
 ) -> tuple[str, ...]:
     return tuple(
         owner

@@ -22,7 +22,6 @@ class InfoMode:
     """Non-reporting repository summary mode."""
 
     name: str = "info"
-    processor_type: type = InfoRepoProcessor
 
     @property
     def command(self) -> click.Command:
