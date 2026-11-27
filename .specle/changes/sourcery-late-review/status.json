@@ -1,0 +1,22 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "bugfix",
+  "status": "planned",
+  "created_at": 1795767086,
+  "activated_at": null,
+  "updated_at": 1795767902,
+  "progress": {
+    "completed": 1,
+    "total": 3
+  },
+  "verification": {
+    "status": "not-run"
+  },
+  "review": {
+    "status": "stale",
+    "findings": 0
+  },
+  "delivery": null,
+  "relationships": [],
+  "dependencies": []
+}
