@@ -1,7 +1,7 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "committed",
+  "status": "complete",
   "created_at": 1795769804,
   "activated_at": 1795772924,
   "updated_at": 1795774538,
@@ -20,8 +20,14 @@
     "reference": "https://github.com/deeprave/ghbot/pull/70",
     "head_branch": "feature/refactor-commands",
     "target_branch": "main",
-    "commit": "f7f39b8"
+    "commit": "f7f39b8",
+    "completion": {
+      "reference": "https://github.com/deeprave/ghbot/pull/70",
+      "head_branch": "feature/refactor-commands",
+      "target_branch": "main"
+    }
   },
   "relationships": [],
-  "dependencies": []
+  "dependencies": [],
+  "archived_at": 1795774885
 }
