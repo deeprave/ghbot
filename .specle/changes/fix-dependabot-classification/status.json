@@ -1,10 +1,10 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "change",
-  "status": "approved",
+  "status": "committed",
   "created_at": 1795725814,
   "activated_at": 1795725886,
-  "updated_at": 1795738844,
+  "updated_at": 1795741590,
   "progress": {
     "tasks_completed": 6,
     "tasks_total": 6
@@ -16,7 +16,12 @@
     "status": "pass",
     "findings": 0
   },
-  "delivery": null,
+  "delivery": {
+    "reference": "https://github.com/deeprave/ghbot/pull/67",
+    "head_branch": "feature/fix-dependabot-classification",
+    "target_branch": "main",
+    "commit": "55ad3fc"
+  },
   "relationships": [],
   "dependencies": [],
   "revision_note": "Accepted Antigravity findings add REST payload safety, exact-match boundary coverage, and removal of a stale shared constant."
