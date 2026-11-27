@@ -2,6 +2,12 @@
 
 All notable changes to ghbot are documented in this file.
 
+## [1.0.1] - 2026-11-27
+
+### Fixed
+
+- Corrected Dependabot pull-request classification when GitHub reports the author as `dependabot`.
+
 ## [1.0.0] - 2026-11-26
 
 ### Added

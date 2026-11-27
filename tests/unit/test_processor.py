@@ -10,7 +10,27 @@ from ghbot.processor import (
     Monitor,
     RepoResult,
     UnavailableMetric,
+    is_dependabot_login,
 )
+
+
+@pytest.mark.parametrize(
+    ("login", "expected"),
+    [
+        ("dependabot", True),
+        ("dependabot[bot]", True),
+        ("octocat", False),
+        ("dependabot-preview[bot]", False),
+        ("my-dependabot", False),
+        ("Dependabot", False),
+        ("dependabot ", False),
+        ("", False),
+        (None, False),
+        (42, False),
+    ],
+)
+def test_identifies_exact_dependabot_login_forms(login, expected):
+    assert is_dependabot_login(login) is expected
 
 
 def test_repo_result_preserves_unavailable_metric_metadata():

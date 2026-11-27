@@ -26,6 +26,7 @@ from ghbot.processor import (
     Monitor,
     RepoResult,
     display_metric,
+    is_dependabot_login,
     record_unavailable,
     report_metadata,
     unavailable_reason,
@@ -216,7 +217,7 @@ class IssuesRepoProcessor:
                         raise TypeError("pull-request author is invalid")
                     prefix = (
                         "dependabot"
-                        if author.get("login") == "dependabot[bot]"
+                        if is_dependabot_login(author.get("login"))
                         else "other"
                     )
                     count_metrics[f"{prefix}_open_pull_requests"] += 1
