@@ -2,7 +2,7 @@
   "$schema": "specle://schemas/findings/1.0",
   "question": "Which late Sourcery findings from PR #68 warrant a successor fix?",
   "scope": "sourcery-late-review",
-  "status": "triaged",
+  "status": "complete",
   "sources": [
     {
       "id": "sourcery-pr68-6085061468",
@@ -10,6 +10,12 @@
       "kind": "pull-request-review",
       "url": "https://github.com/deeprave/ghbot/pull/68#pullrequestreview-6085061468",
       "revision": "cfed6742d830e9b00031c9623914f0203286b004"
+    },
+    {
+      "id": "local-review-2026-11-27",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "27ff594583b73b73856f4686aba0e2a32ca6fb91875d3ca0683c1c7e8f1b53f0"
     }
   ],
   "findings": [
@@ -73,7 +79,13 @@
       "route": null
     }
   ],
-  "recommendations": [],
+  "recommendations": [
+    {
+      "source_ids": ["local-review-2026-11-27"],
+      "outcome": "APPROVE",
+      "rationale": "The repair restores the supported protocol keyword contract with focused runtime and static-type coverage; no further findings."
+    }
+  ],
   "risks": [],
   "outcome_change": null
 }

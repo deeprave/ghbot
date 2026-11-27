@@ -11,7 +11,7 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.modes.issues import IssuesRepoProcessor
+from ghbot.modes.issues import _OPEN_PULL_REQUESTS_QUERY, IssuesRepoProcessor
 from ghbot.processor import FeedbackEvent, RepoProcessor
 
 _PULL_REQUEST_RESULT_KEYS = (
@@ -275,16 +275,18 @@ class TestIssuesRepoProcessorPullRequestMetrics:
         assert result.results["other_merge_ready_pull_requests"] == 1
         assert gh.graphql.await_count == 2
         assert gh.graphql.await_args_list[0].kwargs == {
+            "query": _OPEN_PULL_REQUESTS_QUERY,
             "owner": "acme",
             "repo": "widgets",
             "after": None,
         }
         assert gh.graphql.await_args_list[1].kwargs == {
+            "query": _OPEN_PULL_REQUESTS_QUERY,
             "owner": "acme",
             "repo": "widgets",
             "after": "cursor-1",
         }
-        assert "pullRequests" in gh.graphql.await_args_list[0].args[0]
+        assert not gh.graphql.await_args_list[0].args
         assert gh.getitem.await_count == 0
 
     @pytest.mark.anyio
@@ -356,9 +358,10 @@ class TestIssuesRepoProcessorPullRequestMetrics:
                 "merge_ready": False,
             },
         ]
-        assert "number" in gh.graphql.await_args_list[0].args[0]
-        assert "createdAt" in gh.graphql.await_args_list[0].args[0]
-        assert "isDraft" in gh.graphql.await_args_list[0].args[0]
+        query = gh.graphql.await_args_list[0].kwargs["query"]
+        assert "number" in query
+        assert "createdAt" in query
+        assert "isDraft" in query
 
     @pytest.mark.anyio
     async def test_classifies_unsuffixed_dependabot_graphql_author(self):

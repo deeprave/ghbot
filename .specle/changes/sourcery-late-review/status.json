@@ -1,19 +1,19 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "bugfix",
-  "status": "planned",
+  "status": "approved",
   "created_at": 1795767086,
   "activated_at": null,
-  "updated_at": 1795767902,
+  "updated_at": 1795768350,
   "progress": {
-    "completed": 1,
+    "completed": 3,
     "total": 3
   },
   "verification": {
-    "status": "not-run"
+    "status": "pass"
   },
   "review": {
-    "status": "stale",
+    "status": "pass",
     "findings": 0
   },
   "delivery": null,
