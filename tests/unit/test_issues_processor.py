@@ -7,6 +7,7 @@ import pytest
 
 from ghbot.errors import (
     GitHubApiError,
+    GitHubGraphQLPartialDataError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -245,6 +246,40 @@ class TestIssuesRepoProcessorCollection:
 
 
 class TestIssuesRepoProcessorPullRequestMetrics:
+    @pytest.mark.anyio
+    async def test_uses_a_usable_partial_graphql_connection(self):
+        gh = _make_gh(issues=[_issue(1)])
+        gh.graphql.side_effect = GitHubGraphQLPartialDataError(
+            "author unavailable",
+            data=_graphql_page([_graphql_pr("dependabot", "CLEAN")]),
+            errors=({"message": "author unavailable", "path": ["repository"]},),
+        )
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.status == "partial"
+        assert result.results["dependabot_open_pull_requests"] == 1
+        assert result.results["dependabot_merge_ready_pull_requests"] == 1
+        assert any("partial GraphQL" in error for error in result.errors)
+
+    @pytest.mark.anyio
+    async def test_unusable_partial_graphql_connection_marks_metrics_unavailable(self):
+        gh = _make_gh(issues=[_issue(1)])
+        gh.graphql.side_effect = GitHubGraphQLPartialDataError(
+            "pull requests unavailable",
+            data={"repository": {}},
+            errors=({"message": "pull requests unavailable"},),
+        )
+        processor, _ = _make_processor(gh)
+
+        with patch("ghbot.modes.issues.github_api_call", _passthrough):
+            result = await processor.run()
+
+        assert result.status == "partial"
+        assert all(result.results[key] is None for key in _PULL_REQUEST_RESULT_KEYS)
+
     @pytest.mark.anyio
     async def test_paginates_graphql_pull_requests_and_counts_categories(self):
         gh = _make_gh(issues=[_issue(1)])

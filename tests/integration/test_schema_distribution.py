@@ -18,7 +18,7 @@ def test_built_distributions_contain_every_schema_resource(tmp_path: Path):
 
     expected_wheel_paths = {
         f"ghbot/schemas/{report}/1.0.json"
-        for report in ("security", "issues", "drift", "combined")
+        for report in ("security", "issues", "drift", "combined", "settings")
     }
     wheel = next(tmp_path.glob("*.whl"))
     with zipfile.ZipFile(wheel) as archive:
@@ -27,7 +27,7 @@ def test_built_distributions_contain_every_schema_resource(tmp_path: Path):
     expected_output = [
         "|".join(
             f"ghbot://schemas/{report}/1.0.json"
-            for report in ("security", "issues", "drift", "combined")
+            for report in ("security", "issues", "drift", "combined", "settings")
         ),
         "ghbot://schemas/issues/1.0.json",
     ]
@@ -55,7 +55,7 @@ def test_built_distributions_contain_every_schema_resource(tmp_path: Path):
                 "-c",
                 (
                     "from ghbot.schemas import current_schema, schema_for_id; "
-                    "reports = ('security', 'issues', 'drift', 'combined'); "
+                    "reports = ('security', 'issues', 'drift', 'combined', 'settings'); "
                     "print('|'.join(current_schema(report)['$id'] for report in reports)); "
                     "print(schema_for_id('ghbot://schemas/issues/1.0.json')['$id'])"
                 ),

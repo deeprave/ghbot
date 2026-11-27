@@ -14,6 +14,7 @@ import click
 from ghbot.errors import (
     FatalError,
     GitHubApiError,
+    GitHubGraphQLPartialDataError,
     GitHubNotFoundError,
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
@@ -196,15 +197,20 @@ class IssuesRepoProcessor:
         dependabot_pull_requests: list[dict[str, object]] = []
         after = None
         continuation_cursors: set[str] = set()
+        partial_responses = 0
         try:
             while True:
-                async with github_api_call(self._gh):
-                    data = await self._gh.graphql(
-                        query=_OPEN_PULL_REQUESTS_QUERY,
-                        owner=self._owner,
-                        repo=self._repo,
-                        after=after,
-                    )
+                try:
+                    async with github_api_call(self._gh):
+                        data = await self._gh.graphql(
+                            query=_OPEN_PULL_REQUESTS_QUERY,
+                            owner=self._owner,
+                            repo=self._repo,
+                            after=after,
+                        )
+                except GitHubGraphQLPartialDataError as error:
+                    data = error.data
+                    partial_responses += 1
                 connection = _pull_request_connection(data)
                 for pull_request in connection["nodes"]:
                     number, created_at, url, draft, created = _pull_request_data(
@@ -268,6 +274,17 @@ class IssuesRepoProcessor:
                 }
             )
             result.results[_DEPENDABOT_PULL_REQUESTS_KEY] = dependabot_pull_requests
+            if partial_responses:
+                result.errors.append(
+                    f"open pull requests: {partial_responses} partial GraphQL response(s)"
+                )
+                await self._monitor.send_event(
+                    FeedbackEvent(
+                        "fetch",
+                        "error",
+                        "open pull requests contain partial GraphQL data",
+                    )
+                )
 
     async def _record_pull_request_metric_error(
         self, result: RepoResult, error: GitHubApiError

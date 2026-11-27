@@ -1,0 +1,56 @@
+{
+  "$schema": "specle://schemas/findings/1.0",
+  "question": "Does the settings collector preserve useful repository configuration when GraphQL permissions are partial?",
+  "scope": "add-settings-collector",
+  "status": "complete",
+  "sources": [
+    {
+      "id": "local-review-2026-11-27",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "working-tree-9eaa6eabd55ce6e26450659ee7667d26a25fe896bf883e70bb0164f0bbbf58dc"
+    },
+    {
+      "id": "local-review-2026-11-28",
+      "system": "local",
+      "kind": "implementation-review",
+      "revision": "working-tree-final"
+    }
+  ],
+  "findings": [
+    {
+      "id": "local-1",
+      "source_ids": ["local-review-2026-11-27"],
+      "severity": "P2",
+      "description": "A field-level GraphQL denial for a ruleset bypass count discards the otherwise accessible ruleset.",
+      "evidence": "src/ghbot/modes/settings.py:331-349 maps every bypassActors error to rulesets, then lines 220-228 replace that section with null.",
+      "analysis": "GitHub may deny bypass-actor access while returning a ruleset's name, target, enforcement, rule types, and ref conditions. The requirement calls for those rulesets to remain listed, with bypass presence represented as unavailable. Returning rulesets: null instead loses useful accessible data and conflates a denied bypass count with an unavailable ruleset list.",
+      "recommendation": "Retain each projected ruleset when only its bypassActors field errors; omit bypass_actors for that ruleset and record a distinct unavailable marker for bypass presence. Retain the existing whole-rulesets unavailable result only when the rulesets connection itself cannot be read.",
+      "state": "decided",
+      "decision": "vary",
+      "rationale": "A bypass presence value is useful only when available. Omitting it avoids representing unavailable access as a value, while ruleset configuration remains reportable.",
+      "route": "revise",
+      "dispatch": {
+        "state": "completed",
+        "workflow": "revise",
+        "execution": "in-place",
+        "resulting_change": "add-settings-collector",
+        "outcome": "Requirements, design, task plan, code, and coverage now retain readable rulesets when only bypass presence is unavailable."
+      }
+    }
+  ],
+  "recommendations": [
+    {
+      "source_ids": ["local-review-2026-11-27"],
+      "outcome": "VARY",
+      "rationale": "Preserve readable rulesets, omit unavailable bypass_actors values, and reserve a null rulesets section for an unavailable connection."
+    },
+    {
+      "source_ids": ["local-review-2026-11-28"],
+      "outcome": "APPROVE",
+      "rationale": "The final implementation preserves readable rulesets on bypass-only GraphQL denials, safely omits unavailable bypass data, and passes every required quality gate."
+    }
+  ],
+  "risks": [],
+  "outcome_change": null
+}

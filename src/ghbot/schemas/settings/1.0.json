@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ghbot://schemas/settings/1.0.json",
+  "title": "ghbot settings report 1.0",
+  "type": "object",
+  "required": ["summary", "repositories"],
+  "properties": {
+    "complete": {"type": "boolean"},
+    "abort_reason": {"type": ["string", "null"], "enum": ["rate_limited", "task_failed", null]},
+    "not_processed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["repository", "reason"],
+        "properties": {
+          "repository": {"type": "string"},
+          "reason": {"enum": ["rate_limited", "task_failed"]}
+        }
+      }
+    },
+    "summary": {"$ref": "#/$defs/summary"},
+    "repositories": {"type": "array", "items": {"$ref": "#/$defs/repository"}}
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {"enum": ["not_found", "forbidden", "disabled", "error"]},
+          "message": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["repos_scanned"],
+      "properties": {"repos_scanned": {"type": "integer", "minimum": 0}},
+      "additionalProperties": true
+    },
+    "repository": {
+      "type": "object",
+      "required": [
+        "owner", "repo", "repository", "general", "security", "classic_protection",
+        "rulesets", "actions_variables", "actions_secrets"
+      ],
+      "properties": {
+        "owner": {"type": "string"},
+        "repo": {"type": "string"},
+        "repository": {"type": "string"},
+        "status": {"enum": ["success", "partial", "failed", "skipped"]},
+        "reason": {"enum": ["not_found", "forbidden", "archived", "error"]},
+        "unavailable": {"$ref": "#/$defs/unavailable"},
+        "general": {"type": ["object", "null"]},
+        "security": {"type": ["object", "null"]},
+        "classic_protection": {"type": ["object", "null"]},
+        "rulesets": {"type": ["array", "null"], "items": {"$ref": "#/$defs/ruleset"}},
+        "actions_variables": {"type": ["array", "null"], "items": {"type": "string"}},
+        "actions_secrets": {"type": ["array", "null"], "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "ruleset": {
+      "type": "object",
+      "required": ["name", "target", "source", "enforcement", "rule_types", "ref_name"],
+      "properties": {
+        "name": {"type": ["string", "null"]},
+        "target": {"type": ["string", "null"]},
+        "source": {"type": ["string", "null"]},
+        "enforcement": {"type": ["string", "null"]},
+        "rule_types": {"type": "array", "items": {"type": ["string", "null"]}},
+        "ref_name": {
+          "type": "object",
+          "required": ["include", "exclude"],
+          "properties": {
+            "include": {"type": "array", "items": {"type": "string"}},
+            "exclude": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "bypass_actors": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

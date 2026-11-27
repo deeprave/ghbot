@@ -61,8 +61,9 @@ revealing individual bypass actors.
    summary of its consequential protection settings; WHEN it has none, THE report SHALL record
    that absence distinctly from unavailable data.
 2. THE report SHALL list applicable repository rulesets with their name, target, source,
-   enforcement state, rule types, ref conditions, and whether bypass actors exist or that fact is
-   unavailable to the caller.
+   enforcement state, rule types, ref conditions, and whether bypass actors exist. WHEN bypass
+   presence is unavailable to the caller, THE report SHALL omit that ruleset's `bypass_actors`
+   property without discarding the otherwise accessible ruleset.
 3. THE report SHALL NOT include bypass-actor identities or identifiers.
 
 ### Requirement 4: List repository Actions configuration names safely

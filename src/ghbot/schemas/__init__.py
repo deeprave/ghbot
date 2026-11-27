@@ -19,6 +19,7 @@ _SCHEMA_PATHS = {
     "issues": "issues/1.0.json",
     "drift": "drift/1.0.json",
     "combined": "combined/1.0.json",
+    "settings": "settings/1.0.json",
 }
 _CURRENT_IDS = {
     report: f"ghbot://schemas/{path}" for report, path in _SCHEMA_PATHS.items()
