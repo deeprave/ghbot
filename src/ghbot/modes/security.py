@@ -275,10 +275,8 @@ class SecurityRepoProcessor:
     async def _record_alert_error(
         self, result: RepoResult, key: str, label: str, error: GitHubApiError
     ) -> None:
-        if _is_security_feature_disabled(error):
-            await self._defer_event(
-                FeedbackEvent("fetch", "debug", f"{label} disabled")
-            )
+        if message := _security_feature_not_enabled_message(key, error):
+            await self._monitor.send_event(FeedbackEvent("fetch", "debug", message))
             record_unavailable(result, key, reason="disabled", error=error)
             return
         await self._monitor.send_event(
@@ -736,15 +734,26 @@ def _is_dependabot_pull_request(pull_request: dict) -> bool:
     return isinstance(user, dict) and is_dependabot_login(user.get("login"))
 
 
-def _is_security_feature_disabled(error: GitHubApiError) -> bool:
-    """Recognize documented feature-disabled responses from security endpoints."""
-    return isinstance(error, GitHubForbiddenError) and any(
-        message in str(error).casefold()
-        for message in (
-            "advanced security must be enabled",
-            "dependabot alerts are disabled",
-        )
-    )
+def _security_feature_not_enabled_message(
+    key: str, error: GitHubApiError
+) -> str | None:
+    """Translate recognised product-gating responses without hiding their raw detail."""
+    if not isinstance(error, GitHubForbiddenError):
+        return None
+    error_message = str(error).casefold()
+    if key == "code_scanning_alerts" and (
+        "advanced security must be enabled" in error_message
+        or "code security must be enabled" in error_message
+    ):
+        return "Code Security is not enabled for this repository."
+    if (
+        key == "secret_scanning_alerts"
+        and "secret scanning is disabled" in error_message
+    ):
+        return "Secret scanning is not enabled for this repository."
+    if key == "dependabot_alerts" and "dependabot alerts are disabled" in error_message:
+        return "Dependabot alerts are not enabled for this repository."
+    return None
 
 
 def _check_run_is_ready(check_run: dict) -> bool:

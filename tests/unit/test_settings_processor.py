@@ -60,7 +60,15 @@ class GitHub:
         }
 
     async def getitem(self, url: str, *, url_vars=None):
-        raise AssertionError(f"unexpected getitem: {url}")
+        assert url == "/repos/{owner}/{repo}"
+        return {
+            "security_and_analysis": {
+                "advanced_security": {"status": "enabled"},
+                "code_scanning": {"status": "enabled"},
+                "secret_scanning": {"status": "disabled"},
+                "secret_scanning_push_protection": {"status": "disabled"},
+            }
+        }
 
     def getiter(
         self, url: str, *, url_vars=None, iterable_key=None
@@ -91,6 +99,8 @@ async def test_collects_curated_settings_without_bypass_actors_or_values():
         "merge_commit_allowed": True,
         "squash_merge_allowed": True,
         "rebase_merge_allowed": False,
+        "squash_merge_commit_title": None,
+        "squash_merge_commit_message": None,
         "delete_branch_on_merge": True,
         "auto_merge_allowed": True,
         "allow_update_branch": True,
@@ -104,6 +114,10 @@ async def test_collects_curated_settings_without_bypass_actors_or_values():
     assert result.results["security"] == {
         "vulnerability_alerts_enabled": True,
         "security_policy_enabled": True,
+        "advanced_security": "enabled",
+        "code_scanning": "enabled",
+        "secret_scanning": "disabled",
+        "secret_scanning_push_protection": "disabled",
     }
     assert result.results["classic_protection"] is None
     assert result.results["rulesets"] == [
@@ -111,10 +125,12 @@ async def test_collects_curated_settings_without_bypass_actors_or_values():
             "name": "main protection",
             "target": "BRANCH",
             "source": "Repository",
+            "source_identity": None,
             "enforcement": "ACTIVE",
             "rule_types": ["REQUIRED_STATUS_CHECKS"],
             "ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []},
             "bypass_actors": True,
+            "rules_truncated": False,
         }
     ]
     assert "value" not in repr(result.results)
@@ -184,6 +200,22 @@ async def test_partial_graphql_forbidden_rulesets_are_unavailable_not_failed():
     assert result.results["rulesets"][0]["name"] == "main protection"
     assert "bypass_actors" not in result.results["rulesets"][0]
     assert result.unavailable["ruleset_bypass_actors"].reason == "forbidden"
+
+
+@pytest.mark.anyio
+async def test_missing_bypass_count_is_omitted_and_reported_unavailable():
+    class MissingBypassGitHub(GitHub):
+        async def graphql(self, query: str, **variables):
+            data = await super().graphql(query, **variables)
+            data["repository"]["rulesets"]["nodes"][0]["bypassActors"] = None
+            return data
+
+    result = await SettingsRepoProcessor(
+        "owner", "repo", MissingBypassGitHub(), Monitor()
+    ).run()
+
+    assert "bypass_actors" not in result.results["rulesets"][0]
+    assert result.unavailable["ruleset_bypass_actors"].reason == "error"
 
 
 @pytest.mark.anyio

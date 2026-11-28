@@ -12,7 +12,10 @@ from ghbot.errors import (
     GitHubPrimaryRateLimitError,
     GitHubSecondaryRateLimitError,
 )
-from ghbot.modes.security import SecurityRepoProcessor
+from ghbot.modes.security import (
+    SecurityRepoProcessor,
+    _security_feature_not_enabled_message,
+)
 from ghbot.processor import FeedbackEvent, RepoProcessor
 
 
@@ -679,12 +682,43 @@ async def test_advanced_security_disabled_metric_is_marked_disabled():
         return _aiter()
 
     gh.getiter = MagicMock(side_effect=_getiter)
-    processor, _ = _make_processor(gh)
+    processor, monitor = _make_processor(gh)
     with patch("ghbot.modes.security.github_api_call", _passthrough):
         result = await processor.run()
 
     assert result.results["code_scanning_alerts"] is None
     assert result.unavailable["code_scanning_alerts"].reason == "disabled"
+    assert (
+        result.unavailable["code_scanning_alerts"].message
+        == "Advanced Security must be enabled for this repository"
+    )
+    assert (
+        _security_feature_not_enabled_message(
+            "code_scanning_alerts",
+            GitHubForbiddenError(
+                "Advanced Security must be enabled for this repository"
+            ),
+        )
+        == "Code Security is not enabled for this repository."
+    )
+    assert (
+        _security_feature_not_enabled_message(
+            "secret_scanning_alerts",
+            GitHubForbiddenError("Secret scanning is disabled for this repository"),
+        )
+        == "Secret scanning is not enabled for this repository."
+    )
+    assert (
+        _security_feature_not_enabled_message(
+            "code_scanning_alerts",
+            GitHubForbiddenError("Code Security must be enabled for this repository"),
+        )
+        == "Code Security is not enabled for this repository."
+    )
+    assert any(
+        event.message == "Code Security is not enabled for this repository."
+        for event in monitor.events
+    )
     assert result.status == "success"
     assert result.errors == []
 

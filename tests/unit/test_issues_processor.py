@@ -247,12 +247,17 @@ class TestIssuesRepoProcessorCollection:
 
 class TestIssuesRepoProcessorPullRequestMetrics:
     @pytest.mark.anyio
-    async def test_uses_a_usable_partial_graphql_connection(self):
+    async def test_partial_author_error_marks_pull_request_metrics_unavailable(self):
         gh = _make_gh(issues=[_issue(1)])
         gh.graphql.side_effect = GitHubGraphQLPartialDataError(
             "author unavailable",
             data=_graphql_page([_graphql_pr("dependabot", "CLEAN")]),
-            errors=({"message": "author unavailable", "path": ["repository"]},),
+            errors=(
+                {
+                    "message": "author unavailable",
+                    "path": ["repository", "pullRequests", "nodes", 0, "author"],
+                },
+            ),
         )
         processor, _ = _make_processor(gh)
 
@@ -260,9 +265,7 @@ class TestIssuesRepoProcessorPullRequestMetrics:
             result = await processor.run()
 
         assert result.status == "partial"
-        assert result.results["dependabot_open_pull_requests"] == 1
-        assert result.results["dependabot_merge_ready_pull_requests"] == 1
-        assert any("partial GraphQL" in error for error in result.errors)
+        assert all(result.results[key] is None for key in _PULL_REQUEST_RESULT_KEYS)
 
     @pytest.mark.anyio
     async def test_unusable_partial_graphql_connection_marks_metrics_unavailable(self):

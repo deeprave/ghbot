@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -210,6 +211,10 @@ class IssuesRepoProcessor:
                         )
                 except GitHubGraphQLPartialDataError as error:
                     data = error.data
+                    if _partial_errors_affect_pull_request_metrics(error.errors):
+                        raise GitHubApiError(
+                            "pull-request author or merge state is unavailable"
+                        ) from error
                     partial_responses += 1
                 connection = _pull_request_connection(data)
                 for pull_request in connection["nodes"]:
@@ -305,6 +310,19 @@ class IssuesRepoProcessor:
             error=error,
         )
         result.errors.append(f"open pull requests: {error}")
+
+
+def _partial_errors_affect_pull_request_metrics(
+    errors: tuple[Mapping[str, object], ...],
+) -> bool:
+    for error in errors:
+        path = error.get("path")
+        if isinstance(path, list) and any(
+            isinstance(value, str) and value in {"author", "mergeStateStatus"}
+            for value in path
+        ):
+            return True
+    return False
 
 
 @dataclass(slots=True)
