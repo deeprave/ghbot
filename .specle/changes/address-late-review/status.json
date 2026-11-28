@@ -1,10 +1,10 @@
 {
   "$schema": "specle://schemas/change-status/1.0",
   "kind": "bugfix",
-  "status": "approved",
+  "status": "committed",
   "created_at": 1795808471,
   "activated_at": null,
-  "updated_at": 1795831796,
+  "updated_at": 1795831854,
   "progress": {
     "completed": 8,
     "total": 8
@@ -20,7 +20,7 @@
     "reference": "https://github.com/deeprave/ghbot/pull/74",
     "head_branch": "bugfix/address-late-review",
     "target_branch": "main",
-    "commit": "d074d22"
+    "commit": "c6c3cc2"
   },
   "relationships": [],
   "dependencies": []
