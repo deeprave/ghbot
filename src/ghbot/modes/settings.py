@@ -46,6 +46,8 @@ query RepositorySettings($owner: String!, $repo: String!) {
     mergeCommitAllowed
     squashMergeAllowed
     rebaseMergeAllowed
+    squashMergeCommitTitle
+    squashMergeCommitMessage
     deleteBranchOnMerge
     autoMergeAllowed
     allowUpdateBranch
@@ -74,14 +76,20 @@ query RepositorySettings($owner: String!, $repo: String!) {
         requiresStrictStatusChecks
       }
     }
-    rulesets(first: 100) {
+    rulesets(first: 100, includeParents: true) {
+      pageInfo { hasNextPage }
       nodes {
         name
         target
         enforcement
-        source { __typename }
+        source {
+          __typename
+          ... on Repository { nameWithOwner }
+          ... on Organization { login }
+          ... on Enterprise { slug }
+        }
         conditions { refName { include exclude } }
-        rules(first: 100) { nodes { type } }
+        rules(first: 100) { nodes { type } pageInfo { hasNextPage } }
         bypassActors(first: 1) { totalCount }
       }
     }
@@ -90,6 +98,12 @@ query RepositorySettings($owner: String!, $repo: String!) {
 """
 
 _CORE_SECTIONS = ("general", "security", "classic_protection", "rulesets")
+_SECURITY_ANALYSIS_KEYS = (
+    "advanced_security",
+    "code_scanning",
+    "secret_scanning",
+    "secret_scanning_push_protection",
+)
 
 
 class SettingsRepoProcessor:
@@ -130,6 +144,7 @@ class SettingsRepoProcessor:
         result = RepoResult(owner=self._owner, repo=self._repo)
         try:
             await self._fetch_core_settings(result)
+            await self._fetch_security_analysis(result)
             await self._fetch_actions_names(
                 result,
                 metric="actions_variables",
@@ -164,8 +179,12 @@ class SettingsRepoProcessor:
                     _SETTINGS_QUERY, owner=self._owner, repo=self._repo
                 )
         except GitHubGraphQLPartialDataError as error:
-            self._project_core(result, error.data)
-            await self._record_partial_sections(result, error)
+            try:
+                self._project_core(result, error.data)
+            except GitHubApiError as projection_error:
+                await self._record_core_projection_error(result, projection_error)
+            else:
+                await self._record_partial_sections(result, error)
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
@@ -179,7 +198,84 @@ class SettingsRepoProcessor:
                 FeedbackEvent("fetch", "error", f"failed to fetch settings: {error}")
             )
         else:
-            self._project_core(result, data)
+            try:
+                self._project_core(result, data)
+            except GitHubApiError as error:
+                await self._record_core_projection_error(result, error)
+
+    async def _record_core_projection_error(
+        self, result: RepoResult, error: GitHubApiError
+    ) -> None:
+        for section in _CORE_SECTIONS:
+            result.results[section] = None
+        record_unavailable(
+            result, *_CORE_SECTIONS, reason=unavailable_reason(error), error=error
+        )
+        result.errors.append(f"settings: {error}")
+        await self._monitor.send_event(
+            FeedbackEvent("fetch", "error", f"failed to project settings: {error}")
+        )
+
+    async def _fetch_security_analysis(self, result: RepoResult) -> None:
+        try:
+            async with github_api_call(self._gh):
+                data = await self._gh.getitem(
+                    "/repos/{owner}/{repo}",
+                    url_vars={"owner": self._owner, "repo": self._repo},
+                )
+            analysis = (
+                data.get("security_and_analysis") if isinstance(data, Mapping) else None
+            )
+            if analysis is None:
+                await self._record_security_analysis_unavailable(result)
+                return
+            if not isinstance(analysis, Mapping):
+                raise GitHubApiError("security analysis response is invalid")
+            security = result.results.get("security")
+            if not isinstance(security, dict):
+                return
+            for output, sources in (
+                ("advanced_security", ("advanced_security",)),
+                ("code_scanning", ("code_security", "code_scanning")),
+                ("secret_scanning", ("secret_scanning",)),
+                (
+                    "secret_scanning_push_protection",
+                    ("secret_scanning_push_protection",),
+                ),
+            ):
+                value = next(
+                    (analysis.get(source) for source in sources if source in analysis),
+                    None,
+                )
+                if isinstance(value, Mapping):
+                    security[output] = value.get("status")
+        except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
+            raise
+        except GitHubApiError as error:
+            await self._record_security_analysis_unavailable(result, error)
+            await self._monitor.send_event(
+                FeedbackEvent(
+                    "fetch", "error", f"failed to fetch security analysis: {error}"
+                )
+            )
+
+    async def _record_security_analysis_unavailable(
+        self, result: RepoResult, error: GitHubApiError | None = None
+    ) -> None:
+        security = result.results.get("security")
+        if isinstance(security, dict):
+            for key in _SECURITY_ANALYSIS_KEYS:
+                security[key] = None
+        unavailable_error = error or GitHubApiError(
+            "security analysis configuration is unavailable"
+        )
+        record_unavailable(
+            result,
+            *_SECURITY_ANALYSIS_KEYS,
+            reason=unavailable_reason(unavailable_error),
+            error=unavailable_error,
+        )
+        result.errors.append(f"security analysis: {unavailable_error}")
 
     def _project_core(self, result: RepoResult, data: Mapping[str, object]) -> None:
         repository = data.get("repository")
@@ -195,6 +291,8 @@ class SettingsRepoProcessor:
             "merge_commit_allowed": repository.get("mergeCommitAllowed"),
             "squash_merge_allowed": repository.get("squashMergeAllowed"),
             "rebase_merge_allowed": repository.get("rebaseMergeAllowed"),
+            "squash_merge_commit_title": repository.get("squashMergeCommitTitle"),
+            "squash_merge_commit_message": repository.get("squashMergeCommitMessage"),
             "delete_branch_on_merge": repository.get("deleteBranchOnMerge"),
             "auto_merge_allowed": repository.get("autoMergeAllowed"),
             "allow_update_branch": repository.get("allowUpdateBranch"),
@@ -212,7 +310,14 @@ class SettingsRepoProcessor:
             "security_policy_enabled": repository.get("isSecurityPolicyEnabled"),
         }
         result.results["classic_protection"] = _classic_protection(branch)
-        result.results["rulesets"] = _rulesets(repository.get("rulesets"))
+        rulesets, bypass_available = _rulesets(repository.get("rulesets"))
+        result.results["rulesets"] = rulesets
+        result.results["rulesets_truncated"] = _connection_is_truncated(
+            repository.get("rulesets")
+        )
+        if not bypass_available:
+            record_unavailable(result, "ruleset_bypass_actors", reason="error")
+            result.errors.append("ruleset bypass presence is unavailable")
 
     async def _record_partial_sections(
         self, result: RepoResult, error: GitHubGraphQLPartialDataError
@@ -236,10 +341,19 @@ class SettingsRepoProcessor:
                     "fetch", "error", "ruleset bypass presence is unavailable"
                 )
             )
-        reason = _graphql_error_reason(error.errors)
         for section in sections:
             result.results[section] = None
-            record_unavailable(result, section, reason=reason, error=error)
+            matching = tuple(
+                details
+                for details in error.errors
+                if section in _sections_for_graphql_errors((details,))
+            )
+            record_unavailable(
+                result,
+                section,
+                reason=_graphql_error_reason(matching),
+                error=error,
+            )
             await self._monitor.send_event(
                 FeedbackEvent("fetch", "error", f"settings {section} is unavailable")
             )
@@ -304,13 +418,14 @@ def _classic_protection(branch: Mapping[str, object]) -> dict[str, object] | Non
     }
 
 
-def _rulesets(value: object) -> list[dict[str, object]] | None:
+def _rulesets(value: object) -> tuple[list[dict[str, object]] | None, bool]:
     if value is None:
-        return None
+        return None, True
     nodes = value.get("nodes") if isinstance(value, Mapping) else None
     if not isinstance(nodes, list):
         raise GitHubApiError("rulesets response is invalid")
     projected = []
+    bypass_available = True
     for node in nodes:
         if not isinstance(node, Mapping):
             raise GitHubApiError("ruleset entry is invalid")
@@ -318,32 +433,36 @@ def _rulesets(value: object) -> list[dict[str, object]] | None:
         ref_name = conditions.get("refName") if isinstance(conditions, Mapping) else {}
         rules = node.get("rules")
         rule_nodes = rules.get("nodes") if isinstance(rules, Mapping) else []
+        if not isinstance(rule_nodes, list):
+            raise GitHubApiError("ruleset rules response is invalid")
         bypass = node.get("bypassActors")
         count = bypass.get("totalCount") if isinstance(bypass, Mapping) else None
         source = node.get("source")
-        projected.append(
-            {
-                "name": node.get("name"),
-                "target": node.get("target"),
-                "source": source.get("__typename")
-                if isinstance(source, Mapping)
-                else None,
-                "enforcement": node.get("enforcement"),
-                "rule_types": [
-                    rule.get("type") for rule in rule_nodes if isinstance(rule, Mapping)
-                ],
-                "ref_name": {
-                    "include": ref_name.get("include", [])
-                    if isinstance(ref_name, Mapping)
-                    else [],
-                    "exclude": ref_name.get("exclude", [])
-                    if isinstance(ref_name, Mapping)
-                    else [],
-                },
-                "bypass_actors": count > 0 if isinstance(count, int) else None,
-            }
-        )
-    return projected
+        item: dict[str, object] = {
+            "name": node.get("name"),
+            "target": node.get("target"),
+            "source": source.get("__typename") if isinstance(source, Mapping) else None,
+            "source_identity": _ruleset_source_identity(source),
+            "enforcement": node.get("enforcement"),
+            "rule_types": [
+                rule.get("type") for rule in rule_nodes if isinstance(rule, Mapping)
+            ],
+            "ref_name": {
+                "include": ref_name.get("include", [])
+                if isinstance(ref_name, Mapping)
+                else [],
+                "exclude": ref_name.get("exclude", [])
+                if isinstance(ref_name, Mapping)
+                else [],
+            },
+            "rules_truncated": _connection_is_truncated(rules),
+        }
+        if isinstance(count, int):
+            item["bypass_actors"] = count > 0
+        else:
+            bypass_available = False
+        projected.append(item)
+    return projected, bypass_available
 
 
 def _sections_for_graphql_errors(
@@ -356,7 +475,10 @@ def _sections_for_graphql_errors(
             if "bypassActors" in path_values:
                 continue
             sections.add("rulesets")
-        elif "branchProtectionRule" in path_values or "defaultBranchRef" in path_values:
+        elif "branchProtectionRule" in path_values:
+            sections.add("classic_protection")
+        elif "defaultBranchRef" in path_values:
+            sections.add("general")
             sections.add("classic_protection")
         elif any(
             value in path_values
@@ -364,7 +486,7 @@ def _sections_for_graphql_errors(
         ):
             sections.add("security")
         else:
-            sections.add("general")
+            sections.update(_CORE_SECTIONS)
     return sections if errors else set(_CORE_SECTIONS)
 
 
@@ -398,9 +520,32 @@ def _graphql_error_reason(
     for error in errors:
         extensions = error.get("extensions")
         code = extensions.get("code") if isinstance(extensions, Mapping) else None
-        if error.get("type") == "FORBIDDEN" or code == "FORBIDDEN":
+        error_type = error.get("type")
+        extension_type = (
+            extensions.get("type") if isinstance(extensions, Mapping) else None
+        )
+        if "FORBIDDEN" in (error_type, code, extension_type):
             return "forbidden"
     return "error"
+
+
+def _ruleset_source_identity(source: object) -> str | None:
+    if not isinstance(source, Mapping):
+        return None
+    for key in ("nameWithOwner", "login", "slug"):
+        value = source.get(key)
+        if isinstance(value, str):
+            return value
+    return None
+
+
+def _connection_is_truncated(connection: object) -> bool:
+    if not isinstance(connection, Mapping):
+        return False
+    page_info = connection.get("pageInfo")
+    return (
+        bool(page_info.get("hasNextPage")) if isinstance(page_info, Mapping) else False
+    )
 
 
 def _has_reportable_settings(result: RepoResult) -> bool:
@@ -433,9 +578,14 @@ class SettingsCollectionReport:
                             "actions_secrets",
                         )
                     },
+                    "rulesets_truncated": bool(
+                        result.results.get("rulesets_truncated", False)
+                    ),
                     **report_metadata(result),
                 }
-                for result in self.results
+                for result in sorted(
+                    self.results, key=lambda item: (item.owner, item.repo)
+                )
             ],
         }
 
@@ -465,6 +615,8 @@ class SettingsCollectionReport:
                 lines.extend(_plain_settings_lines(value, indent="    "))
             if unavailable := result.unavailable.get("ruleset_bypass_actors"):
                 lines.append(f"  Ruleset bypass actors: N/A ({unavailable.reason})")
+            if result.results.get("rulesets_truncated"):
+                lines.append("  Rulesets: truncated after 100 entries")
         return style.render_lines(lines)
 
 
@@ -538,3 +690,11 @@ def settings(
         log.error(error.message)
         sys.exit(error.exit_code)
     write_report(collection.render(selected_format), output)
+    if getattr(collection, "exit_code", 0) == 4:
+        log.error("rate limited; wrote incomplete report")
+        sys.exit(4)
+    if getattr(collection, "exit_code", 0) == 8:
+        log.error(
+            "unavailable explicit repository; wrote report with missing expected data"
+        )
+        sys.exit(8)

@@ -205,6 +205,10 @@ class SecurityRepoProcessor:
             result.results["code_scanning_alerts_by_security_severity"] = security
             result.results["code_scanning_alerts_by_rule_severity"] = rule_counts
         except GitHubNotFoundError as error:
+            if await self._record_feature_not_enabled(
+                result, "code_scanning_alerts", error
+            ):
+                return
             result.results["code_scanning_alerts"] = None
             result.results["code_scanning_alerts_by_security_severity"] = None
             result.results["code_scanning_alerts_by_rule_severity"] = None
@@ -257,6 +261,8 @@ class SecurityRepoProcessor:
             if severity_key:
                 result.results[severity_key] = breakdown
         except GitHubNotFoundError as error:
+            if await self._record_feature_not_enabled(result, key, error):
+                return
             await self._defer_event(
                 FeedbackEvent("fetch", "debug", f"{label} not accessible")
             )
@@ -275,17 +281,22 @@ class SecurityRepoProcessor:
     async def _record_alert_error(
         self, result: RepoResult, key: str, label: str, error: GitHubApiError
     ) -> None:
-        if _is_security_feature_disabled(error):
-            await self._defer_event(
-                FeedbackEvent("fetch", "debug", f"{label} disabled")
-            )
-            record_unavailable(result, key, reason="disabled", error=error)
+        if await self._record_feature_not_enabled(result, key, error):
             return
         await self._monitor.send_event(
             FeedbackEvent("fetch", "error", f"failed to fetch {label}: {error}")
         )
         record_unavailable(result, key, reason=unavailable_reason(error), error=error)
         result.errors.append(f"{label}: {error}")
+
+    async def _record_feature_not_enabled(
+        self, result: RepoResult, key: str, error: GitHubApiError
+    ) -> bool:
+        if not (message := _security_feature_not_enabled_message(key, error)):
+            return False
+        await self._monitor.send_event(FeedbackEvent("fetch", "debug", message))
+        record_unavailable(result, key, reason="disabled", error=error)
+        return True
 
     async def _fetch_dependabot_pull_requests(self, result: RepoResult) -> None:
         await self._defer_event(
@@ -736,15 +747,26 @@ def _is_dependabot_pull_request(pull_request: dict) -> bool:
     return isinstance(user, dict) and is_dependabot_login(user.get("login"))
 
 
-def _is_security_feature_disabled(error: GitHubApiError) -> bool:
-    """Recognize documented feature-disabled responses from security endpoints."""
-    return isinstance(error, GitHubForbiddenError) and any(
-        message in str(error).casefold()
-        for message in (
-            "advanced security must be enabled",
-            "dependabot alerts are disabled",
-        )
-    )
+def _security_feature_not_enabled_message(
+    key: str, error: GitHubApiError
+) -> str | None:
+    """Translate recognised product-gating responses without hiding their raw detail."""
+    if not isinstance(error, (GitHubForbiddenError, GitHubNotFoundError)):
+        return None
+    error_message = str(error).casefold()
+    if key == "code_scanning_alerts" and (
+        "advanced security must be enabled" in error_message
+        or "code security must be enabled" in error_message
+    ):
+        return "Code Security is not enabled for this repository."
+    if (
+        key == "secret_scanning_alerts"
+        and "secret scanning is disabled" in error_message
+    ):
+        return "Secret scanning is not enabled for this repository."
+    if key == "dependabot_alerts" and "dependabot alerts are disabled" in error_message:
+        return "Dependabot alerts are not enabled for this repository."
+    return None
 
 
 def _check_run_is_ready(check_run: dict) -> bool:

@@ -1,0 +1,33 @@
+{
+  "$schema": "specle://schemas/change-status/1.0",
+  "kind": "bugfix",
+  "status": "complete",
+  "created_at": 1795808471,
+  "activated_at": null,
+  "updated_at": 1795831854,
+  "archived_at": 1795832271,
+  "progress": {
+    "completed": 8,
+    "total": 8
+  },
+  "verification": {
+    "status": "pass"
+  },
+  "review": {
+    "status": "pass",
+    "findings": 0
+  },
+  "delivery": {
+    "reference": "https://github.com/deeprave/ghbot/pull/74",
+    "head_branch": "bugfix/address-late-review",
+    "target_branch": "main",
+    "commit": "c6c3cc2",
+    "completion": {
+      "reference": "https://github.com/deeprave/ghbot/pull/74",
+      "head_branch": "bugfix/address-late-review",
+      "target_branch": "main"
+    }
+  },
+  "relationships": [],
+  "dependencies": []
+}

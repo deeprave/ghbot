@@ -77,3 +77,20 @@ def test_settings_command_writes_requested_output_file(tmp_path):
 
     assert result.exit_code == 0
     write_report.assert_called_once_with("report\n", destination)
+
+
+def test_settings_command_propagates_incomplete_report_exit_code():
+    collection = MagicMock()
+    collection.render.return_value = "report\n"
+    collection.exit_code = 8
+    with (
+        patch("ghbot.modes.settings.run_mode", new=AsyncMock(return_value=collection)),
+        patch("ghbot.modes.settings.write_report"),
+        patch("ghbot.modes.settings.log.error") as log_error,
+    ):
+        result = CliRunner().invoke(settings, [], obj={"cfg": {}})
+
+    assert result.exit_code == 8
+    log_error.assert_called_once_with(
+        "unavailable explicit repository; wrote report with missing expected data"
+    )

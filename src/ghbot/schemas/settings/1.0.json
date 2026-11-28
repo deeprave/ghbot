@@ -45,7 +45,7 @@
       "type": "object",
       "required": [
         "owner", "repo", "repository", "general", "security", "classic_protection",
-        "rulesets", "actions_variables", "actions_secrets"
+        "rulesets", "rulesets_truncated", "actions_variables", "actions_secrets"
       ],
       "properties": {
         "owner": {"type": "string"},
@@ -58,6 +58,7 @@
         "security": {"type": ["object", "null"]},
         "classic_protection": {"type": ["object", "null"]},
         "rulesets": {"type": ["array", "null"], "items": {"$ref": "#/$defs/ruleset"}},
+        "rulesets_truncated": {"type": "boolean"},
         "actions_variables": {"type": ["array", "null"], "items": {"type": "string"}},
         "actions_secrets": {"type": ["array", "null"], "items": {"type": "string"}}
       },
@@ -70,6 +71,7 @@
         "name": {"type": ["string", "null"]},
         "target": {"type": ["string", "null"]},
         "source": {"type": ["string", "null"]},
+        "source_identity": {"type": ["string", "null"]},
         "enforcement": {"type": ["string", "null"]},
         "rule_types": {"type": "array", "items": {"type": ["string", "null"]}},
         "ref_name": {
@@ -81,6 +83,7 @@
           }
         },
         "bypass_actors": {"type": "boolean"}
+        ,"rules_truncated": {"type": "boolean"}
       },
       "additionalProperties": false
     }
