@@ -98,6 +98,12 @@ query RepositorySettings($owner: String!, $repo: String!) {
 """
 
 _CORE_SECTIONS = ("general", "security", "classic_protection", "rulesets")
+_SECURITY_ANALYSIS_KEYS = (
+    "advanced_security",
+    "code_scanning",
+    "secret_scanning",
+    "secret_scanning_push_protection",
+)
 
 
 class SettingsRepoProcessor:
@@ -221,30 +227,55 @@ class SettingsRepoProcessor:
                 data.get("security_and_analysis") if isinstance(data, Mapping) else None
             )
             if analysis is None:
+                await self._record_security_analysis_unavailable(result)
                 return
             if not isinstance(analysis, Mapping):
                 raise GitHubApiError("security analysis response is invalid")
             security = result.results.get("security")
             if not isinstance(security, dict):
                 return
-            for output, source in (
-                ("advanced_security", "advanced_security"),
-                ("code_scanning", "code_scanning"),
-                ("secret_scanning", "secret_scanning"),
-                ("secret_scanning_push_protection", "secret_scanning_push_protection"),
+            for output, sources in (
+                ("advanced_security", ("advanced_security",)),
+                ("code_scanning", ("code_security", "code_scanning")),
+                ("secret_scanning", ("secret_scanning",)),
+                (
+                    "secret_scanning_push_protection",
+                    ("secret_scanning_push_protection",),
+                ),
             ):
-                value = analysis.get(source)
+                value = next(
+                    (analysis.get(source) for source in sources if source in analysis),
+                    None,
+                )
                 if isinstance(value, Mapping):
                     security[output] = value.get("status")
         except (GitHubPrimaryRateLimitError, GitHubSecondaryRateLimitError):
             raise
         except GitHubApiError as error:
-            result.errors.append(f"security analysis: {error}")
+            await self._record_security_analysis_unavailable(result, error)
             await self._monitor.send_event(
                 FeedbackEvent(
                     "fetch", "error", f"failed to fetch security analysis: {error}"
                 )
             )
+
+    async def _record_security_analysis_unavailable(
+        self, result: RepoResult, error: GitHubApiError | None = None
+    ) -> None:
+        security = result.results.get("security")
+        if isinstance(security, dict):
+            for key in _SECURITY_ANALYSIS_KEYS:
+                security[key] = None
+        unavailable_error = error or GitHubApiError(
+            "security analysis configuration is unavailable"
+        )
+        record_unavailable(
+            result,
+            *_SECURITY_ANALYSIS_KEYS,
+            reason=unavailable_reason(unavailable_error),
+            error=unavailable_error,
+        )
+        result.errors.append(f"security analysis: {unavailable_error}")
 
     def _project_core(self, result: RepoResult, data: Mapping[str, object]) -> None:
         repository = data.get("repository")
@@ -286,6 +317,7 @@ class SettingsRepoProcessor:
         )
         if not bypass_available:
             record_unavailable(result, "ruleset_bypass_actors", reason="error")
+            result.errors.append("ruleset bypass presence is unavailable")
 
     async def _record_partial_sections(
         self, result: RepoResult, error: GitHubGraphQLPartialDataError
@@ -401,6 +433,8 @@ def _rulesets(value: object) -> tuple[list[dict[str, object]] | None, bool]:
         ref_name = conditions.get("refName") if isinstance(conditions, Mapping) else {}
         rules = node.get("rules")
         rule_nodes = rules.get("nodes") if isinstance(rules, Mapping) else []
+        if not isinstance(rule_nodes, list):
+            raise GitHubApiError("ruleset rules response is invalid")
         bypass = node.get("bypassActors")
         count = bypass.get("totalCount") if isinstance(bypass, Mapping) else None
         source = node.get("source")
@@ -445,6 +479,7 @@ def _sections_for_graphql_errors(
             sections.add("classic_protection")
         elif "defaultBranchRef" in path_values:
             sections.add("general")
+            sections.add("classic_protection")
         elif any(
             value in path_values
             for value in ("hasVulnerabilityAlertsEnabled", "isSecurityPolicyEnabled")

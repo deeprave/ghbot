@@ -13,3 +13,5 @@
   wording while preserving their machine reason and raw GitHub metadata.
 - [x] 7. Recognise both Code Security gating response variants and emit canonical diagnostics
   independently of repository alert activity.
+- [x] 8. Preserve partial settings and security-analysis availability accurately for malformed,
+  unavailable, and alternate GitHub response shapes.

@@ -44,3 +44,5 @@ quality gates validate the successor delivery. Focused coverage confirms canonic
 diagnostics and preserved raw metadata.
 Both GitHub Code Security response variants are recognised, and canonical feature-gating
 diagnostics are emitted even where the repository has no other security activity.
+Malformed partial rulesets, unavailable REST security-analysis data, and default-branch partial
+errors remain explicit partial results without suppressing independent settings data.
